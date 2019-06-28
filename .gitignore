@@ -1,3 +1,5 @@
 analysis/*
 data/*
 .DS_Store
+.Rproj.user
+*.Rproj
