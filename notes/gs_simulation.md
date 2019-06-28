@@ -2,23 +2,89 @@
 
 by Rafael Della Coletta, Alex Lipka, Martin Bohn, and Candice Hirsch (June, 2019).
 
----
+> The objective of this project is to simulate traits in one or more environments and analyze the effects of structural variants in genome prediction accuracy.
 
-The objective of this project is to simulate traits in one or more environments and analyze the effects of structural variants in genome prediction accuracy.
+
+
+
+## Project folder
+
+All data, scripts, analysis, notes and other things related to this project is located on:
+
+```
+/Users/rafael/OneDrive/University of Minnesota/PhD/hirsch_lab/projects/genomic_prediction/simulation/
+```
 
 
 
 
 ## Dataset
 
-USDA RILs
+The USDA project contains 525 RILs generated from 7 inbred parents (B73, PHJ40, PHG39, PHG47, PH207, PHG35, LH82), which are all ex-PVPs. In addition, 400 F1 hybrids were generated from a partial diallel cross of those RILs.
 
-### Data QC
+There is genotypic information (22k SNP chip) for all inbred parents and their RILs. The dataset was provided by Martin Boh from a shared folder on DropBox ("03_DispensibleGenome/EMAMP_SNP_2018"). The `.zip` files were dowloaded and decompressed on May 28, 2019. They were saved on my local directory: `data/SNP_chip/`.
+
+```
+Final_22kSNPs_DAS_UIUC_ParentalGenotypeData_122318.csv
+Final_22kSNPs_DAS_UIUC_RILsGenotypeData-Part1_122318.csv
+Final_22kSNPs_DAS_UIUC_RILsGenotypeData-Part2_122318.csv
+```
+> **Note:** there are more genotypes (parents and RILs) in those files besides the ones used in the USDA project.
+
+
+### HapMap format
+
+Before doing any analysis, it's important to transform the genotypic data that comes from the SNP chip into the HapMap format (see <https://bitbucket.org/tasseladmin/tassel-5-source/wiki/UserManual/Load/Load> for more info about the format). Here's the basic format:
+
+| rs#   | alleles | chrom | pos | strand | assembly  | center   | protLSID | assayLSID | QCcode      | Line 1 | Line 2 | ... |
+| ----- | ------- | ----- | --- | ------ | --------- | -------- | -------- | --------- | ----------- | ------ | ------ | --- |
+| SNP 1 | A/C     | 1     | 20  | +      | refgen_v4 | MaizeGDB | NA       | NA        | maize_panel | CC     | AA     | ... |
+
+The first 11 columns are required, but not all are required to have information. Usually, only the fields `rs#`, `alleles`, `chrom`, `pos` and the lines' genotypes will be used in downstream analysis (the other fields can be NA).
+
+I used the `scripts/usda_geno2hmp.R` script to transform all parental and RIL data to hapmap format. This script generated these files on `data/` folder:
+
+```bash
+# genotypic data on hapmap format
+Final_22kSNPs_DAS_UIUC_ParentalGenotypeData_122318.hmp.txt
+Final_22kSNPs_DAS_UIUC_RILsGenotypeData_122318.hmp.txt
+# lists relating genotype name with genotype ID
+id_table_22kSNPs_DAS_UIUC_ParentalGenotypeData.txt
+id_table_22kSNPs_DAS_UIUC_RILsGenotypeData.txt
+```
+
+> **Note:** RILs have their genotype ID instead of name because some RILs had multiple IDs. That's why I generated a list relating names to IDs.
+
+Since there are genotypic data for more parents and RILs than used in the USDA project, I need to keep only the genotypes described in the USDA project that will have phenotypic data collected. To do this, Candy sent the file `data/2018_field_planning.xlsx` that contains all the RILs crossesd to generate the 400 hybrids. They can be found under **USDA crosses** on `X10_Nursery_Book` and `X9_Nursery_Book` sheets. I manually copied all this information and saved on file `data/usda_RILs_2018.txt`.
+
+> **Note:** Taking a quick look at this file, I noticed that there are only 328 unique RILs and one hybrid (LH82*PHG47). I'm not sure why there is a F1 cross there, so I need to ask Candy. Also, I was expecting more RILs to generate the hybrids (328 vs 525 RILs). It will be good to talk to Candy about that.
+
+The `scripts/remove_extra_geno-data.R` script
+
+This file generated the following files on `data/` folder, and will be used in further downstream analysis:
+
+```bash
+# parental data
+usda_22kSNPs_7parents.hmp.txt
+# RIL data (325 out of 328 RILs were genotyped)
+usda_22kSNPs_525rils.hmp.txt
+```
+
+
+### RIL data QC
+
+With RILs from a biparental cross, we have the expectation that each locus will have only two alleles with frequency ~50% each. Large deviations from this expectation may indicate some errors during genotyping and the locus should be removed from analysis.
+
+
+<mark>**TO DO:** create a list of rils from each bi-parental cross (perhaps modify the script `remove_extra_geno-data.R`; or create another one), load `usda_22kSNPs_525rils.hmp.txt` on tassel, then go to `Filter > Filter Genotype Table Taxa`, select the filtered file on panel, summarize data that will show allele frequency of major and minor allele by clicking in `Data > Geno Summary` (table with allele frequencies will have the suffix `_SiteSummary`), and finally export results by clicking `Results > Table > Export (tab)`.
 
 
 
 
 ## Simulation script
+
+
+
 
 
 
