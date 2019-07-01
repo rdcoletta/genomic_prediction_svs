@@ -32,7 +32,7 @@ Final_22kSNPs_DAS_UIUC_RILsGenotypeData-Part2_122318.csv
 > **Note:** there are more genotypes (parents and RILs) in those files besides the ones used in the USDA project.
 
 
-### HapMap format
+#### HapMap format
 
 Before doing any analysis, it's important to transform the genotypic data that comes from the SNP chip into the HapMap format (see <https://bitbucket.org/tasseladmin/tassel-5-source/wiki/UserManual/Load/Load> for more info about the format). Here's the basic format:
 
@@ -71,12 +71,72 @@ usda_22kSNPs_525rils.hmp.txt
 ```
 
 
-### RIL data QC
+#### RIL data QC
 
-With RILs from a biparental cross, we have the expectation that each locus will have only two alleles with frequency ~50% each. Large deviations from this expectation may indicate some errors during genotyping and the locus should be removed from analysis.
+**1. Allele frequency of each marker**
+
+With RILs from a biparental cross, we have the expectation that each locus will have only two alleles with frequency ~50% each (if allele is not fixed; then it will be 100% for major allele and 0% for minor). Large deviations from this expectation may indicate some errors during genotyping and the locus should be removed from analysis.
+
+But first, I have to find out which RILs belong to the same biparental cross. I wrote the `scripts/create_list_biparental-crosses.py` script to generate a table with a biparental cross in a column and all the RIL IDs in another, and ran this in the command line to create the table:
+
+```bash
+cd data/
+
+python ../scripts/create_list_biparental-crosses.py id_table_22kSNPs_DAS_UIUC_RILsGenotypeData.txt usda_biparental-crosses.txt
+```
+
+I will use the software [Tassel 5](https://www.maizegenetics.net/tassel) for some basic QC, because this software can generate summaries (including allele frequency) pretty quickly.
+
+Tassel requires that the genotypic data is sorted by position and chromosome number. The genotypic data `usda_22kSNPs_325rils.hmp.txt`has SNPs from chromosome 10 comes after chromosome 1, so it's not sorted correctly. Thus, I used the `Data > Sort Genotype File` plugin on Tassel (GUI version) to quickly sort the genotypic data and create another hapmap file called `usda_22kSNPs_325rils.sorted.hmp.txt`. This file will be used for the rest of QC analysis.
+
+Since I had 59 biparental crosses in `data/usda_biparental-crosses.txt`, it would be very annoying to perform the analysis one-by-one. Thus, I decided to use the command-line version of Tassel by using the following commands:
+
+```bash
+# create directory to store QC analyses
+mkdir -p analysis/qc
+
+{
+  # skip header of "usda_biparental-crosses.txt" file
+  read
+  # set delimeter to tab
+  IFS="\t"
+  # read file line by line
+  while read -r line; do
+    # split line and assign each column to a variable
+    # also change "*" by "x" in the cross name; otherwise my OneDrive won't upload that folder into the cloud
+    cross=$(echo $line | cut -f1 | tr "*" "x")
+    ril_list=$(echo $line | cut -f2)
+    # check if directory exists; if it doesn't, create one to store results
+    [[ -d analysis/qc/$cross ]] || mkdir -p analysis/qc/$cross
+    # run tassel (added "\" at the end of the line just to improve readability)
+    run_pipeline.pl -Xmx6g -importGuess data/usda_22kSNPs_325rils.sorted.hmp.txt \
+                    -FilterTaxaBuilderPlugin -taxaList $ril_list -endPlugin \
+                    -GenotypeSummaryPlugin -endPlugin \
+                    -export analysis/qc/$cross/$cross\_OverallSummary,analysis/qc/$cross/$cross\_AlleleSummary,analysis/qc/$cross/$cross\_SiteSummary,analysis/qc/$cross/$cross\_TaxaSummary
+  done
+} < "data/usda_biparental-crosses.txt" > "analysis/qc/tassel_log.txt"
+
+# remove empty folders (RILs without genotypic data)
+# note that although i'm using *, the folder won't be deleted if it's not empty
+rmdir analysis/qc/*
+```
+
+The GUI version of this script would be this:
+
+* `File > Open` and select `usda_22kSNPs_325rils.sorted.hmp.txt`;
+* `Filter > Filter Genotype Table Taxa` and add list of RILs from a biparental cross;
+* Select filtered file in the left panel (under `Sequence` folder) and summarize data by clicking in `Data > Geno Summary` (the table with allele frequencies will have the suffix `_SiteSummary`)
+* Export results by selecting the table of interest in the left panel (under `Result/Genotype Summary` folder) and then `Results > Table > Export (Tab)`;
+* Repeat for other biparental crosses.
 
 
-<mark>**TO DO:** create a list of rils from each bi-parental cross (perhaps modify the script `remove_extra_geno-data.R`; or create another one), load `usda_22kSNPs_525rils.hmp.txt` on tassel, then go to `Filter > Filter Genotype Table Taxa`, select the filtered file on panel, summarize data that will show allele frequency of major and minor allele by clicking in `Data > Geno Summary` (table with allele frequencies will have the suffix `_SiteSummary`), and finally export results by clicking `Results > Table > Export (tab)`.
+<mark>TO DO:</mark> plot distribution of allele frequencies for each cross in R. Chi-square test for segregation distortion (expectation is 0.5 for each allele - H0)
+
+
+**2. Recombination frequency**
+
+
+
 
 
 
