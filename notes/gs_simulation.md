@@ -67,7 +67,7 @@ This file generated the following files on `data/` folder, and will be used in f
 # parental data
 usda_22kSNPs_7parents.hmp.txt
 # RIL data (325 out of 328 RILs were genotyped)
-usda_22kSNPs_525rils.hmp.txt
+usda_22kSNPs_325rils.hmp.txt
 ```
 
 
@@ -121,6 +121,9 @@ mkdir -p analysis/qc
 rmdir analysis/qc/*
 ```
 
+> **Note**: this bash script also outputs a log file at `analysis/qc/tassel_log.txt`
+
+
 The GUI version of this script would be this:
 
 * `File > Open` and select `usda_22kSNPs_325rils.sorted.hmp.txt`;
@@ -130,12 +133,57 @@ The GUI version of this script would be this:
 * Repeat for other biparental crosses.
 
 
-<mark>TO DO:</mark> plot distribution of allele frequencies for each cross in R. Chi-square test for segregation distortion (expectation is 0.5 for each allele - H0)
-
-
 **2. Recombination frequency**
 
+Before start working on getting the recombination frequencies for each biparental cross, I had to sort the genotypic data for parents and RILs and save them as diploid format (genotypes as "AA, AB, BB" instead of "A, H, B"). To format the parents hapmap file (`usda_22kSNPs_7parents.hmp.txt`), I used Tassel 5 GUI version by clicking on `Data > Sort Genotype File` and then `File > Save As... > Hapmap Diploid`. The genotpic file with the RILs was already sorted on previous section (`usda_22kSNPs_325rils.sorted.hmp.txt`), so I just opened this sorted version in tassel and `File > Save As... > Hapmap Diploid`.
 
+The two files generated that will be used in this analysis are:
+
+```
+data/usda_22kSNPs_7parents.sorted.diploid.hmp.txt
+data/usda_22kSNPs_325rils.sorted.diploid.hmp.txt
+```
+
+To estimate recombination frequency for each biparental population of all 325 RILs, I wrote the `scripts/recomb-freq_biparental-crosses.R` script. Specifically, it does three things:
+
+1. Filter the sorted diploid hapmap files to have genotypic information only from parents and RILs that make up a specific biparental cross. It takes information from the file `data/usda_biparental-crosses.txt` to do that, and output files on `data/biparental-crosses` (two files per cross: one hapmap for the parents, and another for RILs).
+
+  > **Note:** the `alleles` column of the filtered hapmap files are not correct, because it shows the alleles present in all parents and RILs (not only for that particular biparental cross). This might be corrected in future versions of the script, if needed.
+
+2. Combine the hapmap files for each biparental population and converts them into the correct input format required by [rqtl](http://www.rqtl.org/), the R package that estimates the allele frequency.
+
+3. Run rqtl to estimate recombination frequencies in each biparental population, and plot the genetic distance (cM) by physical distance (Mb) for each cross as well. In fact, here is the complete list of things the function `EstimateRecombinationFreq()` does:
+
+  * Read biparental cross information (genotypic data formated to rqtl).
+
+  * Remove missing data (remove individual if half of the markers are missing, remove markers missing in half of individuals).
+
+    > **Note:** these cut-offs were arbitrary.
+
+  * Remove duplicated individuals.
+
+  * Remove duplicated markers.
+
+  * Remove markers with segregation distortion (FDR adjusted p-value < 0.05).
+
+  * Estimate recombination frequency.
+
+  * **Plot** genotype frequencies by individual.
+
+  * **Plot** genetic and physical positions of markers per chromosome.
+
+  * **Write summaries** of each cross before and after filtering.
+
+  * **Write table** with genetic and physical positions of markers.
+
+    > **Note:** all ouput goes to the the respective **cross folder** in `analysis/qc/`. It also generates a log file called `rqtl_log.txt`.
+
+
+**3. Plot allele frequencies of filtered markers**
+
+
+
+<mark>TO DO:</mark> extract the marker names from the recombination frequency tables (polymorphic, no seg distortion, etc.; `analysis/qc > cross folder > recomb-freq txt file`) and filter tassel's _SiteSummary tables. Then use this filtered table to make plots of distributions of allele frequencies.
 
 
 
