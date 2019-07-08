@@ -181,11 +181,7 @@ To estimate recombination frequency for each biparental population of all 325 RI
 
 **3. Plot allele frequencies of filtered markers**
 
-
-
-<mark>TO DO:</mark> extract the marker names from the recombination frequency tables (polymorphic, no seg distortion, etc.; `analysis/qc > cross folder > recomb-freq txt file`) and filter tassel's _SiteSummary tables. Then use this filtered table to make plots of distributions of allele frequencies.
-
-
+I also wrote the file `usda_allele-freq_dist.R`. This script extracts the marker names from the recombination frequency tables for each cross (`analysis/qc/{cross}/recomb-freq_{cross}_rils.txt`), which were filtered to be polymorphic between parents and not show segregation distortion, to filter Tassel's `_SiteSummary` tables. This filtered table was used to make plots of the distributions of allele frequencies for each biparental population. The output was stored their respective **cross folder** in `analysis/qc/`.
 
 
 
