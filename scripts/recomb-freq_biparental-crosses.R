@@ -192,6 +192,17 @@ EstimateRecombinationFreq <- function(cross, plot = FALSE) {
   geno.freq.figure <- paste0("analysis/qc/", cross, "/geno-freq_", cross, "_by_individual_rils.png")
   ggsave(filename = geno.freq.figure, plot = geno.freq.plot, device = "png")
   
+  # save the genotypic data after filtering
+  geno.data.filtered <- rownames_to_column(as.data.frame(t(geno.data)))
+  # change column names
+  ril.names <- sprintf("RIL_%d", 1:length(ntyped(rqtl)))
+  colnames(geno.data.filtered) <- c("marker", ril.names)
+  # use AA and BB instead of 1 and 2
+  geno.data.filtered[geno.data.filtered == 1] <- "AA"
+  geno.data.filtered[geno.data.filtered == 2] <- "BB"
+  # write table
+  geno.filter.name <- paste0("analysis/qc/", cross, "/geno-data_", cross, "_after_filtering.txt")
+  write.table(geno.data.filtered, geno.filter.name, sep = "\t", quote = FALSE, row.names = FALSE)
   
   # estimate recombination frequency
   rqtl <- est.rf(rqtl)
@@ -287,7 +298,7 @@ geno.data.rils <- fread("data/usda_22kSNPs_325rils.sorted.diploid.hmp.txt",
 # read table with biparental crosses
 rils.per.cross <- fread("data/usda_biparental-crosses.txt", header = TRUE, data.table = FALSE)
 # change "*" to "x" in cross column (use "fixed = TRUE" to avoid special character)
-rils.per.cross[,"cross"] <- gsub("*", "x", fixed = TRUE, rils.per.cross[,"cross"])
+rils.per.cross[, "cross"] <- gsub("*", "x", fixed = TRUE, rils.per.cross[,"cross"])
 
 # get the names of crosses with genotypic data
 crosses.with.geno.data <- list.dirs("analysis/qc", full.names = FALSE, recursive = FALSE)
@@ -295,8 +306,8 @@ crosses.with.geno.data <- list.dirs("analysis/qc", full.names = FALSE, recursive
 for (cross in crosses.with.geno.data) {
   # parents
   parent <- strsplit(cross, split = "x")[[1]]
-  geno.data.parents.cross <- cbind(geno.data.parents[,c(1:11)],
-                                   geno.data.parents[,c(parent[1], parent[2])])
+  geno.data.parents.cross <- cbind(geno.data.parents[, c(1:11)],
+                                   geno.data.parents[, c(parent[1], parent[2])])
 
   parents.filename <- paste0("data/biparental-crosses/usda_22kSNPs_", cross, "_parents.hmp.txt")
   write.table(geno.data.parents.cross, parents.filename, sep = "\t", quote = FALSE,
@@ -305,8 +316,8 @@ for (cross in crosses.with.geno.data) {
   # rils
   rils <- rils.per.cross[which(rils.per.cross[,"cross"] == cross),"RILs"]
   rils <- strsplit(rils, split = ",")[[1]]
-  geno.data.rils.cross <- cbind(geno.data.rils[,c(1:11)],
-                                geno.data.rils[,which(colnames(geno.data.rils) %in% rils)])
+  geno.data.rils.cross <- cbind(geno.data.rils[, c(1:11)],
+                                geno.data.rils[, which(colnames(geno.data.rils) %in% rils)])
   
   rils.filename <- paste0("data/biparental-crosses/usda_22kSNPs_", cross, "_rils.hmp.txt")
   write.table(geno.data.rils.cross, rils.filename, sep = "\t", quote = FALSE,
