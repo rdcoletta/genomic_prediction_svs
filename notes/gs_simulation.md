@@ -168,7 +168,7 @@ To estimate recombination frequency for each biparental population of all 325 RI
 
   * Estimate recombination frequency.
 
-  * **Plot** genotype frequencies by individual.
+  * **Plot** genotype frequencies by individual, and **write** genotypic data per RIL after all filtering.
 
   * **Plot** genetic and physical positions of markers per chromosome.
 
@@ -185,8 +185,53 @@ I also wrote the file `usda_allele-freq_dist.R`. This script extracts the marker
 
 
 
-## Simulation script
+**4. Karyotype of RILs**
 
+Chrm info extracted from: `GCA_000005005.6_B73_RefGen_v4_assembly_stats.txt` of B73_RefGen_v4 assembly at <https://www.maizegdb.org/genome/genome_assembly/Zm-B73-REFERENCE-GRAMENE-4.0> or <ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/plant/Zea_mays/latest_assembly_versions/GCA_000005005.6_B73_RefGen_v4> (accessed 07/19/2019).
+
+Centromeres (extracted from Table S2 of Schneider et al 2016, <https://doi.org/10.1073/pnas.1522008113>) and stored at `data/centromeres_Schneider-2016-pnas_v2-v3.bed`:
+
+| chr | cent_start | cent_end  | origin_coordinates |
+| --- | ---------- | --------- | ------------------ |
+| 1   | 134400000  | 135500000 | AGPv2          |
+| 2   | 92900000   | 94600000  | AGPv2          |
+| 3   | 85500000   | 86800000  | AGPv2          |
+| 4   | 105000000  | 106100000 | AGPv2          |
+| 5   | 102100000  | 103700000 | AGPv2          |
+| 6   | 49600000   | 50300000  | AGPv2          |
+| 7   | 55000000   | 55600000  | AGPv2          |
+| 8   | 49200000   | 51000000  | AGPv2          |
+| 9   | 51500000   | 52600000  | AGPv2          |
+| 10  | 50200000   | 51700000  | AGPv3          |
+
+Used Assembly Converter from Gramene <http://ensembl.gramene.org/Zea_mays/Tools/AssemblyConverter?db=core> with the data above to convert coordinates from v2 to v4 (used first 3 columns, chromosomes 1 to 9; resulted in file `data/centromeres_v2-to-v4.bed`) and v3 to v4 (used first 3 columns, only chromosome 10; resulted in file `data/centromeres_v3-to-v4.bed`).
+
+As part of the R script `script/plot_ril_karyotypes.R`, I filtered the files above to get the centromeres coordinates in the v4 assembly, which can be seen in `data/centromeres_Schneider-2016-pnas_v4.bed` and in the table below:
+
+| chr | cent_start | cent_end  | origin_coordinates |
+| --- | ---------- | --------- | ------------------ |
+| 1   | 136822299  | 137672564 | RefGen_v4          |
+| 2   | 95520346   | 97475434  | RefGen_v4          |
+| 3   | 112459593  | 113664599 | RefGen_v4          |
+| 4   | 107740595  | 110268603 | RefGen_v4          |
+| 5   | 104656279  | 106318158 | RefGen_v4          |
+| 6   | 51342080   | 60057564  | RefGen_v4          |
+| 7   | 63706708   | 64300427  | RefGen_v4          |
+| 8   | 49979865   | 51601476  | RefGen_v4          |
+| 9   | 53908684   | 55031062  | RefGen_v4          |
+| 10  | 51516139   | 52771682  | RefGen_v4          |
+
+
+
+
+
+<mark>TO DO:</mark>
+* Add loop in karyotypes script so I can choose wherever plots to do.
+* For weird histograms, check different bin sizes.
+* Remove markers with AF < 0.25 or AF > 0.75. See if they are the same markers across populations.
+
+
+## Simulation script
 
 
 
