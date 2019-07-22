@@ -2,7 +2,7 @@
 
 by Rafael Della Coletta, Alex Lipka, Martin Bohn, and Candice Hirsch (June, 2019).
 
-> The objective of this project is to simulate traits in one or more environments and analyze the effects of structural variants in genome prediction accuracy.
+> The objective of this project is to simulate traits in one or more environments and analyze the effects of structural variants in genome prediction accuracy. The overall workflow for the simulations involves simulating traits, running genomic prediction models and validating results.
 
 
 
@@ -32,7 +32,7 @@ Final_22kSNPs_DAS_UIUC_RILsGenotypeData-Part2_122318.csv
 > **Note:** there are more genotypes (parents and RILs) in those files besides the ones used in the USDA project.
 
 
-#### HapMap format
+### HapMap format
 
 Before doing any analysis, it's important to transform the genotypic data that comes from the SNP chip into the HapMap format (see <https://bitbucket.org/tasseladmin/tassel-5-source/wiki/UserManual/Load/Load> for more info about the format). Here's the basic format:
 
@@ -71,9 +71,9 @@ usda_22kSNPs_325rils.hmp.txt
 ```
 
 
-#### RIL data QC
+### RIL data QC
 
-**1. Allele frequency of each marker**
+**Allele frequency of each marker**
 
 With RILs from a biparental cross, we have the expectation that each locus will have only two alleles with frequency ~50% each (if allele is not fixed; then it will be 100% for major allele and 0% for minor). Large deviations from this expectation may indicate some errors during genotyping and the locus should be removed from analysis.
 
@@ -133,7 +133,7 @@ The GUI version of this script would be this:
 * Repeat for other biparental crosses.
 
 
-**2. Recombination frequency**
+**Recombination frequency**
 
 Before start working on getting the recombination frequencies for each biparental cross, I had to sort the genotypic data for parents and RILs and save them as diploid format (genotypes as "AA, AB, BB" instead of "A, H, B"). To format the parents hapmap file (`usda_22kSNPs_7parents.hmp.txt`), I used Tassel 5 GUI version by clicking on `Data > Sort Genotype File` and then `File > Save As... > Hapmap Diploid`. The genotpic file with the RILs was already sorted on previous section (`usda_22kSNPs_325rils.sorted.hmp.txt`), so I just opened this sorted version in tassel and `File > Save As... > Hapmap Diploid`.
 
@@ -179,15 +179,16 @@ To estimate recombination frequency for each biparental population of all 325 RI
     > **Note:** all ouput goes to the the respective **cross folder** in `analysis/qc/`. It also generates a log file called `rqtl_log.txt`.
 
 
-**3. Plot allele frequencies of filtered markers**
+**Plot allele frequencies of filtered markers**
 
 I also wrote the file `usda_allele-freq_dist.R`. This script extracts the marker names from the recombination frequency tables for each cross (`analysis/qc/{cross}/recomb-freq_{cross}_rils.txt`), which were filtered to be polymorphic between parents and not show segregation distortion, to filter Tassel's `_SiteSummary` tables. This filtered table was used to make plots of the distributions of allele frequencies for each biparental population. The output was stored their respective **cross folder** in `analysis/qc/`.
 
 > **Note:** Some of my first plots of the distributions had a weird shape. This was solved when I increased `binwidth` of histograms from `0.05` to `0.07`.
 
+Then, as Candy suggested, I checked if markers that have allele frequency < 0.25 or > 0.75 were the same across populations. The majority of such markers (1,038) are unique of a population, while only 81 of these markers have extreme allele frequencies in more than one population.
 
 
-**4. Karyotype of RILs**
+**Karyotype of RILs**
 
 Chrm info extracted from: `GCA_000005005.6_B73_RefGen_v4_assembly_stats.txt` of B73_RefGen_v4 assembly at <https://www.maizegdb.org/genome/genome_assembly/Zm-B73-REFERENCE-GRAMENE-4.0> or <ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/plant/Zea_mays/latest_assembly_versions/GCA_000005005.6_B73_RefGen_v4> (accessed 07/19/2019).
 
@@ -208,18 +209,20 @@ As part of the R script `script/plot_ril_karyotypes.R`, I filtered the files abo
 | 9   | 53908684   | 55031062  | RefGen_v4          |
 | 10  | 51516139   | 52771682  | RefGen_v4          |
 
+After looking at the karyotypes from RIL 2 (genotype frequency ~50/50) and RIL 3 (genotype frequency ~25/75) of cross B73 x LH82, I was not able to see any striking difference or something weird that can be causing the deviation on allele frequency. I will show them to Candy, to see if she picks up anything.
+
+**QC conclusion**
+
+The above results indicates that there is not apparent big problem in the dataset that will be used for simulations.
 
 
 
 
-<mark>TO DO:</mark>
-* Remove markers with AF < 0.25 or AF > 0.75. See if they are the same markers across populations.
+## Testing simulations
 
-
-## Simulation script
-
+I created a new folder called `tests` to store files from the tests I run while adjusting the main simulation script. I also added another markdown document called `notes/testing_simulations.md` to keep track of the changes I make.
 
 
 
 
-## Inputation
+## Projecting SVs from parents to RILs

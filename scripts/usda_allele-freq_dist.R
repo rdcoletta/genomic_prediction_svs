@@ -20,6 +20,12 @@ library(ggplot2)
 # add folder names (i.e. cross names) into a vector
 cross.list <- list.dirs("analysis/qc", full.names = FALSE, recursive = FALSE)
 
+# create a list to store all markers for all populations
+all.markers.list <- list()
+
+# create a list to store the markers that have AF < 0.25 or > 0.75
+extreme.markers.list <- list()
+
 for (cross in cross.list) {
   
   # read in file with polymorphic markers without segregation distortion from rqtl analysis
@@ -38,6 +44,14 @@ for (cross in cross.list) {
                                     "Number of Taxa", "Major Allele Frequency",
                                     "Minor Allele Frequency", "Proportion Heterozygous")]
   
+  # add all markers to list
+  all.markers.list[[cross]] <- tassel.infile[, "Site Name"]
+  
+  # add markers with extreme allele frequencies to list
+  AF.more.0.75 <- tassel.infile[which(tassel.infile[, "Major Allele Frequency"] > 0.75), "Site Name"]
+  AF.less.0.25 <- tassel.infile[which(tassel.infile[, "Minor Allele Frequency"] < 0.25), "Site Name"]
+  extreme.markers.list[[cross]] <- union(AF.more.0.75, AF.less.0.25)
+  
   # plot distribution of allele frequencies
   allele.freq <- tassel.infile %>% 
     select(`Major Allele Frequency`, `Minor Allele Frequency`) %>%
@@ -54,4 +68,39 @@ for (cross in cross.list) {
   # save plot
   figure_name <- paste0("analysis/qc/", cross, "/allele-freq_dist_", cross, ".png")
   ggsave(figure_name, device = "png")
+}
+
+
+
+#### markers with AF < 0.25 or > 0.75 ----
+
+extreme.markers <- unlist(extreme.markers.list, use.names = FALSE)
+
+# total number of markers found
+length(extreme.markers)
+# 1119
+
+# total number of unique markers (i.e., without markers that show up in more than one population)
+length(unique(extreme.markers))
+# 1038
+
+# only 81 markers have AF < 0.25 or > 0.75 in more than one population, and the majority of such
+# markers are unique to 
+
+
+# how many of the 1038 markers that have extreme AF in only one population are actually present in
+# other population and has AF between 0.25 and 0.75?
+for (i in 1:length(all.markers.list)) {
+  print(
+    round(sum(extreme.markers.unique %in% all.markers.list[[i]]) / length(extreme.markers.unique),
+          digits = 2)
+  )
+}
+
+# how many of the 81 markers with extreme AF in more than one population are present in each population?
+for (i in 1:length(all.markers.list)) {
+  print(
+    round(sum(extreme.markers.duplicated %in% extreme.markers.list[[i]]) / length(extreme.markers.duplicated),
+          digits = 2)
+  )
 }
