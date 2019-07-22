@@ -4,3 +4,5 @@ data/*
 .Rproj.user
 *.Rproj
 *.Rhistory
+tests/analysis/*
+tests/data/*
