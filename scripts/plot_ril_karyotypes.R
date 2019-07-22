@@ -106,22 +106,30 @@ geno.data <- cbind(markers.infile[, c("marker", "chr", "pos")], geno.data.infile
 colnames(geno.data)[4] <- "geno"
 
 # select only AA genotype
-geno.data <- subset(geno.data, geno == "AA")
+geno.data.AA <- subset(geno.data, geno == "AA")
+geno.data.BB <- subset(geno.data, geno == "BB")
+
+# get genotype frequency to add in the plot
+geno.freq.AA <- NROW(geno.data.AA) / (NROW(geno.data.AA) + NROW(geno.data.BB))
+geno.freq.BB <- NROW(geno.data.BB) / (NROW(geno.data.AA) + NROW(geno.data.BB))
 
 
 
 #### plot karyotypes ----
 
-ggplot() +
+karyo.plot <- ggplot() +
   geom_segment(data = chrms,
                aes(x = 0, xend = 0, y = start_pos, yend = end_pos),
                lineend = "round", color = "Gainsboro", size = 5) +
   geom_segment(data = centros,
                aes(x = 0, xend = 0, y = start_pos, yend = end_pos),
                lineend = "round", color = "DimGray", size = 5) +
-  geom_segment(data = geno.data,
+  geom_segment(data = geno.data.AA,
                aes(x = 0, xend = 0, y = pos, yend = pos + 1e6),  # increased size to be able to see the marker
-               lineend = "butt", color = "firebrick", size = 5, alpha = 0.3) +
+               lineend = "butt", color = "darkblue", size = 5, alpha = 0.2) +
+  geom_segment(data = geno.data.BB,
+               aes(x = 0, xend = 0, y = pos, yend = pos + 1e6),  # increased size to be able to see the marker
+               lineend = "butt", color = "firebrick", size = 5, alpha = 0.2) +
   scale_y_reverse(breaks = seq(0, 3.5e8, 0.50e8), labels = c(1, seq(50, 350, 50))) +
   scale_x_discrete(position = "top") +
   theme_minimal() +
@@ -131,5 +139,10 @@ ggplot() +
         panel.grid.minor = element_blank(),
         plot.caption = element_text(size = rel(1.1), color = "DimGray")) + 
   facet_grid(cols = vars(chr), switch = "y") +
-  labs(caption = paste0(cross, " (", gsub("RIL_", "RIL ", RIL), ")"),
+  labs(caption = paste0(cross, " - ", gsub("RIL_", "RIL ", RIL), "\n\n",
+                        "AA freq (blue): ", round(geno.freq.AA, digits = 2), "\n",
+                        "BB freq (red): ", round(geno.freq.BB, digits = 2)),
        x = "Chromosomes", y = "Genomic positions (Mb)")
+
+karyo.name <- paste0("analysis/qc/", cross, "/karyotype_", cross, "_", gsub("RIL_", "ril-", RIL),".png")
+ggsave(filename = karyo.name, plot = karyo.plot, device = "png")

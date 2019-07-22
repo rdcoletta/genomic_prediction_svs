@@ -15,7 +15,7 @@ library(ggplot2)
 
 
 
-#### extracting info ----
+#### create histograms for all crosses ----
 
 # add folder names (i.e. cross names) into a vector
 cross.list <- list.dirs("analysis/qc", full.names = FALSE, recursive = FALSE)
@@ -44,7 +44,7 @@ for (cross in cross.list) {
     gather(key = "AF_type", value = "AF_value")
   
   ggplot(allele.freq, aes(x = AF_value, fill = "#053061")) +
-    geom_histogram(binwidth = 0.05, show.legend = FALSE) +
+    geom_histogram(binwidth = 0.07, show.legend = FALSE) +
     scale_x_continuous(name = "allele frequency", limits = c(0, 1), breaks = seq(0,1,0.25)) + 
     scale_fill_manual(values = "#053061") +
     labs(title = paste0(cross),
