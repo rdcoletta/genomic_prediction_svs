@@ -7,19 +7,28 @@
 # This script is actually a wrapper of functions/scripts written by Samuel Fernandes and Alex Lipka
 # and adjusted by Rafael Della Coletta to generate the data for the simulation manuscript on SVs.
 
-# Things to improve in following versions of the script:
-#   - For the "simulate_trait function, need to find a way to sample equally from SNPs and from SVs
-#     to be the source of variation, since there are much more SNPs in the dataset (instead of 
-#     randomly selecting variants between SNPs and SVs).
-#   - For the "filter_SNPs_in_LD" function, I will need to how to select SNPs in LD by actually
-#     calculating LD and not using an arbitrary number of bases up and downstream the SV.
-#   - Run kfold validation for all 50 replicates: will need to uncomment a line in the function,
-#     and find a way to optimize performance.
-#   - Use the latest GAPIT version available on their website (instead of the one Alex gave me)
 
 
 
-#### BUG DETECTED
+#### things to improve in following versions of the script ----
+
+# 1. For the "simulate_trait function, need to find a way to sample equally from SNPs and from SVs
+#    to be the source of variation, since there are much more SNPs in the dataset (instead of 
+#    randomly selecting variants between SNPs and SVs).
+
+# 2. For the "filter_SNPs_in_LD" function, I will need to how to select SNPs in LD by actually
+#    calculating LD and not using an arbitrary number of bases up and downstream the SV.
+
+# 3. Add functionality to write a log with the output produced in R console.
+
+# 4. Run kfold validation for all 50 replicates: will need to uncomment a line in the function,
+#    and find a way to optimize performance.
+
+# 5. Use the latest GAPIT version available on their website (instead of the one Alex gave me)
+
+
+
+#### BUG DETECTED ----
 
 # If I run the simulate_trait() function right away, it doesn't work. I have to run the
 # create_simulated_data() function outside the simulate_trait() function first, and then
@@ -567,16 +576,11 @@ kfold_validation_on_sim_traits <- function(snp_data = NULL, sv_data = NULL, snp_
     }
     print(paste("Sampling", SNPs_to_sample, "markers..."))
     # sample only SNPs without replacement
+    set.seed(seed_number)
     SNPs.sampled <- sample(SNPs_list, SNPs_to_sample, replace = FALSE)
     geno_data <- geno_data[which(geno_data[,1] %in% SNPs.sampled), ]
   }
-  
-  
-  if (testing == TRUE) {
-    # validate only one folder
-    trait_dirs <- trait_dirs[1]
-  }
-  
+
   # loop though each folder
   for (curr_dir in trait_dirs) {
     # once inside a folder, open each simulated trait file at a time
@@ -596,12 +600,11 @@ kfold_validation_on_sim_traits <- function(snp_data = NULL, sv_data = NULL, snp_
       sim_trait_file <- fread(paste0(curr_dir, "/", curr_file), data.table = F)
       
       # select columns with trait values for each replicate
-      # columns_of_replicates <- 2:NCOL(sim_trait_file)  ####  to run all 50 replicates, uncomment this
-      columns_of_replicates <- 2:4  #### run 3 replicates to speed things up ----
+      columns_of_replicates <- 2:NCOL(sim_trait_file)
       
       if (testing == TRUE) {
         # validate only the first replicate (column 2)
-        columns_of_replicates <- 2
+        columns_of_replicates <- 2:4
       }
       
       # perform k-fold validation in each replicate
@@ -613,8 +616,14 @@ kfold_validation_on_sim_traits <- function(snp_data = NULL, sv_data = NULL, snp_
         
         # create new directory to store validation results
         dir_heritability <- sub(pattern = "_Rep_[0-9]+", replacement = "", x = trait_name)
-        new_dir <- paste0(curr_dir, "/k-fold_validation_", possible_markers_for_GS[marker_data_type],
-                          "/", dir_heritability, "/")
+        if (use_all_SNPs == TRUE) {
+          new_dir <- paste0(curr_dir, "/gs_without_subsetting_markers/k-fold_validation_",
+                            possible_markers_for_GS[marker_data_type], "/", dir_heritability, "/")
+        }
+        if (use_all_SNPs == FALSE) {
+          new_dir <- paste0(curr_dir, "/gs_with_", SNPs_to_sample, "_SNPs/k-fold_validation_",
+                            possible_markers_for_GS[marker_data_type], "/", dir_heritability, "/")
+        }
         # check if directory already exists, create a new one if it doesn't
         if (dir.exists(new_dir) == FALSE) {
           dir.create(new_dir, recursive = TRUE)
@@ -744,7 +753,7 @@ for (source_var in c("SNPs", "SVs", "both")) {
 }
 
 # simulate data for USDA dataset (only SNPs, since I don't have SV info yet)
-simulate_trait(snp_data = "data/Final_22kSNPs_DAS_UIUC_ParentalGenotypeData_122318.hmp.txt",
+simulate_trait(snp_data = "data/usda_22kSNPs_7parents.sorted.diploid.hmp.txt",
                sv_data = NULL,
                snp_with_sv_data = NULL,
                list_of_SV_IDs = NULL,
@@ -757,7 +766,7 @@ simulate_trait(snp_data = "data/Final_22kSNPs_DAS_UIUC_ParentalGenotypeData_1223
                output_folder_name = "analysis/test_usda-parents",
                seed_number = 2019)
 
-simulate_trait(snp_data = "data/Final_22kSNPs_DAS_UIUC_RILsGenotypeData_122318.hmp.txt",
+simulate_trait(snp_data = "data/usda_22kSNPs_325rils.sorted.diploid.hmp.txt",
                sv_data = NULL,
                snp_with_sv_data = NULL,
                list_of_SV_IDs = NULL,
@@ -795,6 +804,8 @@ this.seed.number <- -673994
 # all SNPs. Will have to select SNPs in LD later.
 
 
+#-------------- using all markers --------------#
+
 # (1) all SNPs as markers
 start_time <- proc.time()
 kfold_validation_on_sim_traits(snp_data = NULL,
@@ -805,9 +816,11 @@ kfold_validation_on_sim_traits(snp_data = NULL,
                                dir_with_sim_traits = "analysis/test_toy/",
                                marker_data_type = 1,
                                number_of_folds = 5,
+                               use_all_SNPs = TRUE,
+                               SNPs_to_sample = NULL,
                                seed_number = -673994,
-                               testing = FALSE)
-timetaken(start_time)  # 28 min
+                               testing = TRUE)
+timetaken(start_time)  # 26min
 
 # (2) only SNPs in LD with SV as markers
 start_time <- proc.time()
@@ -819,9 +832,11 @@ kfold_validation_on_sim_traits(snp_data = NULL,
                                dir_with_sim_traits = "analysis/test_toy/",
                                marker_data_type = 2,
                                number_of_folds = 5,
+                               use_all_SNPs = TRUE,
+                               SNPs_to_sample = NULL,
                                seed_number = -673994,
-                               testing = FALSE)
-timetaken(start_time)  # 5 min
+                               testing = TRUE)
+timetaken(start_time)  # 5min
 
 # (3) SNPs in varying LD with SV as markers
 start_time <- proc.time()
@@ -833,9 +848,11 @@ kfold_validation_on_sim_traits(snp_data = NULL,
                                dir_with_sim_traits = "analysis/test_toy/",
                                marker_data_type = 3,
                                number_of_folds = 5,
+                               use_all_SNPs = TRUE,
+                               SNPs_to_sample = NULL,
                                seed_number = -673994,
-                               testing = FALSE)
-timetaken(start_time)  # 5 min
+                               testing = TRUE)
+timetaken(start_time)  # 5min
 
 # (4) only actual SVs as markers
 start_time <- proc.time()
@@ -847,9 +864,11 @@ kfold_validation_on_sim_traits(snp_data = NULL,
                                dir_with_sim_traits = "analysis/test_toy/",
                                marker_data_type = 4,
                                number_of_folds = 5,
+                               use_all_SNPs = TRUE,
+                               SNPs_to_sample = NULL,
                                seed_number = -673994,
-                               testing = FALSE)
-timetaken(start_time)  #  2 min
+                               testing = TRUE)
+timetaken(start_time)  # 2min
 
 # (5) all SNPs and SVs as markers
 start_time <- proc.time()
@@ -861,17 +880,155 @@ kfold_validation_on_sim_traits(snp_data = NULL,
                                dir_with_sim_traits = "analysis/test_toy/",
                                marker_data_type = 5,
                                number_of_folds = 5,
+                               use_all_SNPs = TRUE,
+                               SNPs_to_sample = NULL,
                                seed_number = -673994,
-                               testing = FALSE)
-timetaken(start_time)  # 28 min
+                               testing = TRUE)
+timetaken(start_time)  # 35min
+
+
+#-------------- using 1000 markers --------------#
+
+############## (1) all SNPs as markers
+start_time <- proc.time()
+kfold_validation_on_sim_traits(snp_data = NULL,
+                               sv_data = NULL,
+                               snp_with_sv_data = "data/SNP55K_maize282_AGPv2_20100513_SNP-SV-merged_test.txt",
+                               list_of_SV_IDs = SVs,
+                               sv_info = sv_info,
+                               dir_with_sim_traits = "analysis/test_toy/",
+                               marker_data_type = 1,
+                               number_of_folds = 5,
+                               use_all_SNPs = FALSE,
+                               SNPs_to_sample = 1000,
+                               seed_number = -673994,
+                               testing = TRUE)
+timetaken(start_time)  # 2min
+
+# (2) only SNPs in LD with SV as markers
+start_time <- proc.time()
+kfold_validation_on_sim_traits(snp_data = NULL,
+                               sv_data = NULL,
+                               snp_with_sv_data = "data/SNP55K_maize282_AGPv2_20100513_SNP-SV-merged_test.txt",
+                               list_of_SV_IDs = SVs,
+                               sv_info = sv_info,
+                               dir_with_sim_traits = "analysis/test_toy/",
+                               marker_data_type = 2,
+                               number_of_folds = 5,
+                               use_all_SNPs = FALSE,
+                               SNPs_to_sample = 1000,
+                               seed_number = -673994,
+                               testing = TRUE)
+timetaken(start_time)  # 3min
+
+# (3) SNPs in varying LD with SV as markers
+start_time <- proc.time()
+kfold_validation_on_sim_traits(snp_data = NULL,
+                               sv_data = NULL,
+                               snp_with_sv_data = "data/SNP55K_maize282_AGPv2_20100513_SNP-SV-merged_test.txt",
+                               list_of_SV_IDs = SVs,
+                               sv_info = sv_info,
+                               dir_with_sim_traits = "analysis/test_toy/",
+                               marker_data_type = 3,
+                               number_of_folds = 5,
+                               use_all_SNPs = FALSE,
+                               SNPs_to_sample = 1000,
+                               seed_number = -673994,
+                               testing = TRUE)
+timetaken(start_time)  # 3min
+
+# (5) all SNPs and SVs as markers
+start_time <- proc.time()
+kfold_validation_on_sim_traits(snp_data = NULL,
+                               sv_data = NULL,
+                               snp_with_sv_data = "data/SNP55K_maize282_AGPv2_20100513_SNP-SV-merged_test.txt",
+                               list_of_SV_IDs = SVs,
+                               sv_info = sv_info,
+                               dir_with_sim_traits = "analysis/test_toy/",
+                               marker_data_type = 5,
+                               number_of_folds = 5,
+                               use_all_SNPs = FALSE,
+                               SNPs_to_sample = 1000,
+                               seed_number = -673994,
+                               testing = TRUE)
+timetaken(start_time)  # 2min
+
+
+#-------------- using 50 markers --------------#
+
+# (1) all SNPs as markers
+start_time <- proc.time()
+kfold_validation_on_sim_traits(snp_data = NULL,
+                               sv_data = NULL,
+                               snp_with_sv_data = "data/SNP55K_maize282_AGPv2_20100513_SNP-SV-merged_test.txt",
+                               list_of_SV_IDs = SVs,
+                               sv_info = sv_info,
+                               dir_with_sim_traits = "analysis/test_toy/",
+                               marker_data_type = 1,
+                               number_of_folds = 5,
+                               use_all_SNPs = FALSE,
+                               SNPs_to_sample = 50,
+                               seed_number = -673994,
+                               testing = TRUE)
+timetaken(start_time)  # 2min
+
+# (2) only SNPs in LD with SV as markers
+start_time <- proc.time()
+kfold_validation_on_sim_traits(snp_data = NULL,
+                               sv_data = NULL,
+                               snp_with_sv_data = "data/SNP55K_maize282_AGPv2_20100513_SNP-SV-merged_test.txt",
+                               list_of_SV_IDs = SVs,
+                               sv_info = sv_info,
+                               dir_with_sim_traits = "analysis/test_toy/",
+                               marker_data_type = 2,
+                               number_of_folds = 5,
+                               use_all_SNPs = FALSE,
+                               SNPs_to_sample = 50,
+                               seed_number = -673994,
+                               testing = TRUE)
+timetaken(start_time)  # 3min
+
+# (3) SNPs in varying LD with SV as markers
+start_time <- proc.time()
+kfold_validation_on_sim_traits(snp_data = NULL,
+                               sv_data = NULL,
+                               snp_with_sv_data = "data/SNP55K_maize282_AGPv2_20100513_SNP-SV-merged_test.txt",
+                               list_of_SV_IDs = SVs,
+                               sv_info = sv_info,
+                               dir_with_sim_traits = "analysis/test_toy/",
+                               marker_data_type = 3,
+                               number_of_folds = 5,
+                               use_all_SNPs = FALSE,
+                               SNPs_to_sample = 50,
+                               seed_number = -673994,
+                               testing = TRUE)
+timetaken(start_time)  # 3min
+
+# (5) all SNPs and SVs as markers
+start_time <- proc.time()
+kfold_validation_on_sim_traits(snp_data = NULL,
+                               sv_data = NULL,
+                               snp_with_sv_data = "data/SNP55K_maize282_AGPv2_20100513_SNP-SV-merged_test.txt",
+                               list_of_SV_IDs = SVs,
+                               sv_info = sv_info,
+                               dir_with_sim_traits = "analysis/test_toy/",
+                               marker_data_type = 5,
+                               number_of_folds = 5,
+                               use_all_SNPs = FALSE,
+                               SNPs_to_sample = 50,
+                               seed_number = -673994,
+                               testing = TRUE)
+timetaken(start_time)  # 2min
 
 
 
 #### k-fold cross validation (USDA dataset) ----
 
+#-------------- using all markers --------------#
+
 # (1) all SNPs as markers - parental data
 start_time <- proc.time()
-kfold_validation_on_sim_traits(snp_data = "data/Final_22kSNPs_DAS_UIUC_ParentalGenotypeData_122318.hmp.txt",
+kfold_validation_on_sim_traits(snp_data = "data/usda_22kSNPs_7parents.sorted.diploid.hmp.txt",
                                sv_data = NULL,
                                snp_with_sv_data = NULL,
                                list_of_SV_IDs = NULL,
@@ -879,13 +1036,15 @@ kfold_validation_on_sim_traits(snp_data = "data/Final_22kSNPs_DAS_UIUC_ParentalG
                                dir_with_sim_traits = "analysis/test_usda-parents",
                                marker_data_type = 1,
                                number_of_folds = 5,
+                               use_all_SNPs = TRUE,
+                               SNPs_to_sample = NULL,
                                seed_number = -673994,
-                               testing = FALSE)
-timetaken(start_time)  # 19s
+                               testing = TRUE)
+timetaken(start_time)  # 18s
 
 # (1) all SNPs as markers - ril data
 start_time <- proc.time()
-kfold_validation_on_sim_traits(snp_data = "data/Final_22kSNPs_DAS_UIUC_RILsGenotypeData_122318.hmp.txt",
+kfold_validation_on_sim_traits(snp_data = "data/usda_22kSNPs_325rils.sorted.diploid.hmp.txt",
                                sv_data = NULL,
                                snp_with_sv_data = NULL,
                                list_of_SV_IDs = NULL,
@@ -893,10 +1052,81 @@ kfold_validation_on_sim_traits(snp_data = "data/Final_22kSNPs_DAS_UIUC_RILsGenot
                                dir_with_sim_traits = "analysis/test_usda-rils",
                                marker_data_type = 1,
                                number_of_folds = 5,
+                               use_all_SNPs = TRUE,
+                               SNPs_to_sample = NULL,
                                seed_number = -673994,
-                               testing = FALSE)
-timetaken(start_time)  # 1h16min (3 replicates only)
+                               testing = TRUE)
+timetaken(start_time)  # 4min
 
+
+#-------------- using 1000 markers --------------#
+
+# (1) all SNPs as markers - parental data
+start_time <- proc.time()
+kfold_validation_on_sim_traits(snp_data = "data/usda_22kSNPs_7parents.sorted.diploid.hmp.txt",
+                               sv_data = NULL,
+                               snp_with_sv_data = NULL,
+                               list_of_SV_IDs = NULL,
+                               sv_info = NULL,
+                               dir_with_sim_traits = "analysis/test_usda-parents",
+                               marker_data_type = 1,
+                               number_of_folds = 5,
+                               use_all_SNPs = FALSE,
+                               SNPs_to_sample = 1000,
+                               seed_number = -673994,
+                               testing = TRUE)
+timetaken(start_time)  # 10s
+
+# (1) all SNPs as markers - ril data
+start_time <- proc.time()
+kfold_validation_on_sim_traits(snp_data = "data/usda_22kSNPs_325rils.sorted.diploid.hmp.txt",
+                               sv_data = NULL,
+                               snp_with_sv_data = NULL,
+                               list_of_SV_IDs = NULL,
+                               sv_info = NULL,
+                               dir_with_sim_traits = "analysis/test_usda-rils",
+                               marker_data_type = 1,
+                               number_of_folds = 5,
+                               use_all_SNPs = FALSE,
+                               SNPs_to_sample = 1000,
+                               seed_number = -673994,
+                               testing = TRUE)
+timetaken(start_time)  # 1min
+
+
+#-------------- using 50 markers --------------#
+
+# (1) all SNPs as markers - parental data
+start_time <- proc.time()
+kfold_validation_on_sim_traits(snp_data = "data/usda_22kSNPs_7parents.sorted.diploid.hmp.txt",
+                               sv_data = NULL,
+                               snp_with_sv_data = NULL,
+                               list_of_SV_IDs = NULL,
+                               sv_info = NULL,
+                               dir_with_sim_traits = "analysis/test_usda-parents",
+                               marker_data_type = 1,
+                               number_of_folds = 5,
+                               use_all_SNPs = FALSE,
+                               SNPs_to_sample = 50,
+                               seed_number = -673994,
+                               testing = TRUE)
+timetaken(start_time)  # 8s
+
+# (1) all SNPs as markers - ril data
+start_time <- proc.time()
+kfold_validation_on_sim_traits(snp_data = "data/usda_22kSNPs_325rils.sorted.diploid.hmp.txt",
+                               sv_data = NULL,
+                               snp_with_sv_data = NULL,
+                               list_of_SV_IDs = NULL,
+                               sv_info = NULL,
+                               dir_with_sim_traits = "analysis/test_usda-rils",
+                               marker_data_type = 1,
+                               number_of_folds = 5,
+                               use_all_SNPs = FALSE,
+                               SNPs_to_sample = 50,
+                               seed_number = -673994,
+                               testing = TRUE)
+timetaken(start_time)  # 1min
 
 
 #### test functions  ----

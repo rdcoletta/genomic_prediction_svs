@@ -22,7 +22,7 @@ All data, scripts, analysis, notes and other things related to this project is l
 
 The USDA project contains 525 RILs generated from 7 inbred parents (B73, PHJ40, PHG39, PHG47, PH207, PHG35, LH82), which are all ex-PVPs. In addition, 400 F1 hybrids were generated from a partial diallel cross of those RILs.
 
-There is genotypic information (22k SNP chip) for all inbred parents and their RILs. The dataset was provided by Martin Boh from a shared folder on DropBox ("03_DispensibleGenome/EMAMP_SNP_2018"). The `.zip` files were dowloaded and decompressed on May 28, 2019. They were saved on my local directory: `data/SNP_chip/`.
+There is genotypic information (22k SNP chip) for all inbred parents and their RILs. The dataset was provided by Martin Bohn from a shared folder on DropBox ("03_DispensibleGenome/EMAMP_SNP_2018"). The `.zip` files were dowloaded and decompressed on May 28, 2019. They were saved on my local directory: `data/SNP_chip/`.
 
 ```
 Final_22kSNPs_DAS_UIUC_ParentalGenotypeData_122318.csv
