@@ -8,6 +8,9 @@
 # and adjusted by Rafael Della Coletta to generate the data for the simulation manuscript on SVs.
 
 # Things to improve in following versions of the script:
+#   - For the "simulate_trait function, need to find a way to sample equally from SNPs and from SVs
+#     to be the source of variation, since there are much more SNPs in the dataset (instead of 
+#     randomly selecting variants between SNPs and SVs).
 #   - For the "filter_SNPs_in_LD" function, I will need to how to select SNPs in LD by actually
 #     calculating LD and not using an arbitrary number of bases up and downstream the SV.
 #   - Run kfold validation for all 50 replicates: will need to uncomment a line in the function,
@@ -585,7 +588,7 @@ kfold_validation_on_sim_traits <- function(snp_data = NULL, sv_data = NULL, snp_
     for (curr_file in trait_files) {
       # debug
       print("------------------------------------")
-      print(paste0("file being parsed: ", curr_dir, "/", curr_file))
+      print(paste0("file being parsed: ", curr_dir, curr_file))
       print(paste0("dimensions geno_data: ", NROW(geno_data), " x ", NCOL(geno_data)))
       print(paste0("marker type: ", marker_data_type))
       print("------------------------------------")
@@ -650,103 +653,121 @@ kfold_validation_on_sim_traits <- function(snp_data = NULL, sv_data = NULL, snp_
 
 #### simulate trait for single environment ----
 
-
 # run this first so my simulate_trait() function can run (do this until i debug)
-QTN_number <- c(3,15,30)
-origin_trait_variance <- c("SVs", "SNPs", "both")
-for (qtn in QTN_number) {
-  for (origin in origin_trait_variance) {
-    # create genetic architecture
-    Additive.QTN.number <- qtn
-    big.additive.QTN.effect <- 0.7
-    additive.effect <- 0.3
-    heritabilities.vector <- c(0.2, 0.5, 0.9)
-    replicates <- 50
-    origin_trait_variation <- origin   # choose between "SNPs", "SVs", "both"
+# this will even throw an error saying it couldn't find "num_hmp". It's ok. I just
+# need to run this so the function following this code works. There must be some
+# problem in the sink() behavior.
 
-    if (origin_trait_variation == "SVs") {
-      # if trait is explained by SVs -- select QTNs from genotypic data only with SVs
-      geno2trait_sim <- geno_SVs
+{
+  # write a text file just saying to ignore this folder
+  dir.create("analysis/test_toy/test_function/", recursive = TRUE)
+  cat("Please ignore this entire folder. If you are reading this, you can delete it.",
+      file = "analysis/test_toy/test_function/README")
+  
+  # test run
+  geno_SVs <- fread("data/Structural_Variation_demo.txt", header = TRUE, data.table = F)
+  SVs <- geno_SVs[,1]
+  QTN_number <- c(3,15,30)
+  origin_trait_variance <- c("SVs", "SNPs", "both")
+  for (qtn in QTN_number) {
+    for (origin in origin_trait_variance) {
+      # create genetic architecture
+      Additive.QTN.number <- qtn
+      big.additive.QTN.effect <- 0.7
+      additive.effect <- 0.3
+      heritabilities.vector <- c(0.2, 0.5, 0.9)
+      replicates <- 50
+      origin_trait_variation <- origin   # choose between "SNPs", "SVs", "both"
+      
+      if (origin_trait_variation == "SVs") {
+        # if trait is explained by SVs -- select QTNs from genotypic data only with SVs
+        geno2trait_sim <- geno_SVs
+      }
+      
+      if (origin_trait_variation == "SNPs") {
+        # if trait is explained by SNPs -- select QTNs from genotypic data only with SNPs
+        geno2trait_sim <- num_hmp[which(!num_hmp[,1] %in% SVs),]
+        # colnames(geno2trait_sim) <- geno2trait_sim[1,]
+        # geno2trait_sim <- geno2trait_sim[-1,]
+      }
+      
+      if (origin_trait_variation == "both") {
+        # if trait is associated with both SNPs and SVs -- select QTNs randomly from both subsets
+        # (SVs only and SNPs only; still need to find a way to sample equally from SNPs and from SVs,
+        # since there are much more SNPs in the dataset below)
+        geno2trait_sim <- num_hmp_sv
+      }
+      
+      # check if directory already exists, create a new one if it doesn't
+      folder_name <- paste0("analysis/test_toy/test_function/", Additive.QTN.number, "-QTNs_from_",
+                            origin_trait_variation, "/")
+      if (dir.exists(folder_name) == FALSE) {
+        dir.create(folder_name, recursive = TRUE)
+      }
+      
+      # simulate trait for single environment
+      create.simulated.data(
+        genotypes = geno2trait_sim,
+        output.dir = folder_name,
+        Additive.QTN.number = Additive.QTN.number,
+        additive.effect = additive.effect,
+        big.additive.QTN.effect = big.additive.QTN.effect,
+        rep = replicates,
+        h2 = heritabilities.vector,
+        seed = 2019
+      )
     }
-
-    if (origin_trait_variation == "SNPs") {
-      # if trait is explained by SNPs -- select QTNs from genotypic data only with SNPs
-      geno2trait_sim <- num_hmp[which(!num_hmp[,1] %in% SVs),]
-      # colnames(geno2trait_sim) <- geno2trait_sim[1,]
-      # geno2trait_sim <- geno2trait_sim[-1,]
-    }
-
-    if (origin_trait_variation == "both") {
-      # if trait is associated with both SNPs and SVs -- select QTNs randomly from both subsets
-      # (SVs only and SNPs only; still need to find a way to sample equally from SNPs and from SVs,
-      # since there are much more SNPs in the dataset below)
-      geno2trait_sim <- num_hmp_sv
-    }
-
-    # create specific output folder names
-    folder_name <- paste0("trait-sim_manuscript/test_function2/", Additive.QTN.number, "-QTNs_from_",
-                          origin_trait_variation, "/")
-    dir.create(folder_name, recursive = TRUE)
-
-    # simulate trait for single environment
-    create.simulated.data(
-      genotypes = geno2trait_sim,
-      output.dir = folder_name,
-      Additive.QTN.number = Additive.QTN.number,
-      additive.effect = additive.effect,
-      big.additive.QTN.effect = big.additive.QTN.effect,
-      rep = replicates,
-      h2 = heritabilities.vector,
-      seed = 2019
-    )
   }
 }
 
+
+# now that the code above was ran, the simulation using my function simulate_trait() will work.
+
 # get the SV IDs list
-geno_SVs <- fread("Structural_Variation_demo.txt", header = TRUE, data.table = F)
+geno_SVs <- fread("data/Structural_Variation_demo.txt", header = TRUE, data.table = F)
 SVs <- geno_SVs[,1]
 
 # simulate data for toy dataset
 for (source_var in c("SNPs", "SVs", "both")) {
   simulate_trait(snp_data = NULL,
                  sv_data = NULL,
-                 snp_with_sv_data = "SNP55K_maize282_AGPv2_20100513_SNP-SV-merged_test.txt",
+                 snp_with_sv_data = "data/SNP55K_maize282_AGPv2_20100513_SNP-SV-merged_test.txt",
                  list_of_SV_IDs = SVs,
                  source_trait_variation = source_var,
-                 QTN_number = c(3,15,30),
+                 QTN_number = c(3,25,75),
                  large_QTN_effect = 0.7,
                  small_QTN_effect = 0.3,
                  heritability = c(0.2, 0.5, 0.9),
                  replicates = 50,
-                 output_folder_name = "test_function",
+                 output_folder_name = "analysis/test_toy",
                  seed_number = 2019)
 }
 
 # simulate data for USDA dataset (only SNPs, since I don't have SV info yet)
-simulate_trait(snp_data = "trait-sim_manuscript/Final_22kSNPs_DAS_UIUC_ParentalGenotypeData_122318.hmp.txt",
+simulate_trait(snp_data = "data/Final_22kSNPs_DAS_UIUC_ParentalGenotypeData_122318.hmp.txt",
                sv_data = NULL,
                snp_with_sv_data = NULL,
                list_of_SV_IDs = NULL,
                source_trait_variation = "SNPs",
-               QTN_number = c(3,15,30),
+               QTN_number = c(3,25,75),
                large_QTN_effect = 0.7,
                small_QTN_effect = 0.3,
                heritability = c(0.2, 0.5, 0.9),
                replicates = 50,
-               output_folder_name = "test_usda-parents",
+               output_folder_name = "analysis/test_usda-parents",
                seed_number = 2019)
 
-simulate_trait(snp_data = "trait-sim_manuscript/Final_22kSNPs_DAS_UIUC_RILsGenotypeData_122318.hmp.txt",
+simulate_trait(snp_data = "data/Final_22kSNPs_DAS_UIUC_RILsGenotypeData_122318.hmp.txt",
                sv_data = NULL,
                snp_with_sv_data = NULL,
                list_of_SV_IDs = NULL,
                source_trait_variation = "SNPs",
-               QTN_number = c(3,15,30),
+               QTN_number = c(3,25,75),
                large_QTN_effect = 0.7,
                small_QTN_effect = 0.3,
                heritability = c(0.2, 0.5, 0.9),
                replicates = 50,
-               output_folder_name = "test_usda-rils",
+               output_folder_name = "analysis/test_usda-rils",
                seed_number = 2019)
 
 
@@ -759,7 +780,7 @@ simulate_trait(snp_data = "trait-sim_manuscript/Final_22kSNPs_DAS_UIUC_RILsGenot
 #### k-fold cross validation (toy dataset) ----
 
 # get SV information
-geno_SVs <- fread("Structural_Variation_demo.txt", header = TRUE, data.table = F)
+geno_SVs <- fread("data/Structural_Variation_demo.txt", header = TRUE, data.table = F)
 SVs <- geno_SVs[,1]
 sv_info <- geno_SVs[,c(1,3,4)]
 sv_info <- sv_info[order(sv_info[,2], sv_info[,3]),]
@@ -778,71 +799,71 @@ this.seed.number <- -673994
 start_time <- proc.time()
 kfold_validation_on_sim_traits(snp_data = NULL,
                                sv_data = NULL,
-                               snp_with_sv_data = "SNP55K_maize282_AGPv2_20100513_SNP-SV-merged_test.txt",
+                               snp_with_sv_data = "data/SNP55K_maize282_AGPv2_20100513_SNP-SV-merged_test.txt",
                                list_of_SV_IDs = SVs,
                                sv_info = sv_info,
-                               dir_with_sim_traits = "one-trait_one-env",
+                               dir_with_sim_traits = "analysis/test_toy/",
                                marker_data_type = 1,
                                number_of_folds = 5,
                                seed_number = -673994,
                                testing = FALSE)
-timetaken(start_time)  # forgot to calculate for this one
+timetaken(start_time)  # 28 min
 
 # (2) only SNPs in LD with SV as markers
 start_time <- proc.time()
 kfold_validation_on_sim_traits(snp_data = NULL,
                                sv_data = NULL,
-                               snp_with_sv_data = "SNP55K_maize282_AGPv2_20100513_SNP-SV-merged_test.txt",
+                               snp_with_sv_data = "data/SNP55K_maize282_AGPv2_20100513_SNP-SV-merged_test.txt",
                                list_of_SV_IDs = SVs,
                                sv_info = sv_info,
-                               dir_with_sim_traits = "one-trait_one-env",
+                               dir_with_sim_traits = "analysis/test_toy/",
                                marker_data_type = 2,
                                number_of_folds = 5,
                                seed_number = -673994,
                                testing = FALSE)
-timetaken(start_time)  # 4 min
+timetaken(start_time)  # 5 min
 
 # (3) SNPs in varying LD with SV as markers
 start_time <- proc.time()
 kfold_validation_on_sim_traits(snp_data = NULL,
                                sv_data = NULL,
-                               snp_with_sv_data = "SNP55K_maize282_AGPv2_20100513_SNP-SV-merged_test.txt",
+                               snp_with_sv_data = "data/SNP55K_maize282_AGPv2_20100513_SNP-SV-merged_test.txt",
                                list_of_SV_IDs = SVs,
                                sv_info = sv_info,
-                               dir_with_sim_traits = "one-trait_one-env",
+                               dir_with_sim_traits = "analysis/test_toy/",
                                marker_data_type = 3,
                                number_of_folds = 5,
                                seed_number = -673994,
                                testing = FALSE)
-timetaken(start_time)  # 4 min
+timetaken(start_time)  # 5 min
 
 # (4) only actual SVs as markers
 start_time <- proc.time()
 kfold_validation_on_sim_traits(snp_data = NULL,
                                sv_data = NULL,
-                               snp_with_sv_data = "SNP55K_maize282_AGPv2_20100513_SNP-SV-merged_test.txt",
+                               snp_with_sv_data = "data/SNP55K_maize282_AGPv2_20100513_SNP-SV-merged_test.txt",
                                list_of_SV_IDs = SVs,
                                sv_info = sv_info,
-                               dir_with_sim_traits = "one-trait_one-env",
+                               dir_with_sim_traits = "analysis/test_toy/",
                                marker_data_type = 4,
                                number_of_folds = 5,
                                seed_number = -673994,
                                testing = FALSE)
-timetaken(start_time)  #  1 min
+timetaken(start_time)  #  2 min
 
 # (5) all SNPs and SVs as markers
 start_time <- proc.time()
 kfold_validation_on_sim_traits(snp_data = NULL,
                                sv_data = NULL,
-                               snp_with_sv_data = "SNP55K_maize282_AGPv2_20100513_SNP-SV-merged_test.txt",
+                               snp_with_sv_data = "data/SNP55K_maize282_AGPv2_20100513_SNP-SV-merged_test.txt",
                                list_of_SV_IDs = SVs,
                                sv_info = sv_info,
-                               dir_with_sim_traits = "one-trait_one-env",
+                               dir_with_sim_traits = "analysis/test_toy/",
                                marker_data_type = 5,
                                number_of_folds = 5,
                                seed_number = -673994,
                                testing = FALSE)
-timetaken(start_time)  # 33 min
+timetaken(start_time)  # 28 min
 
 
 
@@ -850,12 +871,12 @@ timetaken(start_time)  # 33 min
 
 # (1) all SNPs as markers - parental data
 start_time <- proc.time()
-kfold_validation_on_sim_traits(snp_data = "trait-sim_manuscript/Final_22kSNPs_DAS_UIUC_ParentalGenotypeData_122318.hmp.txt",
+kfold_validation_on_sim_traits(snp_data = "data/Final_22kSNPs_DAS_UIUC_ParentalGenotypeData_122318.hmp.txt",
                                sv_data = NULL,
                                snp_with_sv_data = NULL,
                                list_of_SV_IDs = NULL,
                                sv_info = NULL,
-                               dir_with_sim_traits = "test_usda-parents",
+                               dir_with_sim_traits = "analysis/test_usda-parents",
                                marker_data_type = 1,
                                number_of_folds = 5,
                                seed_number = -673994,
@@ -864,12 +885,12 @@ timetaken(start_time)  # 19s
 
 # (1) all SNPs as markers - ril data
 start_time <- proc.time()
-kfold_validation_on_sim_traits(snp_data = "trait-sim_manuscript/Final_22kSNPs_DAS_UIUC_RILsGenotypeData_122318.hmp.txt",
+kfold_validation_on_sim_traits(snp_data = "data/Final_22kSNPs_DAS_UIUC_RILsGenotypeData_122318.hmp.txt",
                                sv_data = NULL,
                                snp_with_sv_data = NULL,
                                list_of_SV_IDs = NULL,
                                sv_info = NULL,
-                               dir_with_sim_traits = "test_usda-rils",
+                               dir_with_sim_traits = "analysis/test_usda-rils",
                                marker_data_type = 1,
                                number_of_folds = 5,
                                seed_number = -673994,
