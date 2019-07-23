@@ -1754,8 +1754,19 @@ rrblup.kfoldfoldCV.numHapMap.input <- function(Y = NULL, Geno = NULL, traitname 
   snps.below.0.05.maf <- which(maf < 0.05)
   
   # Remove these SNPs from hm$GD
+  #### the line below was commented by Rafael Della Coletta
+  #hm.GD.without.snps.below.0.05.maf <- hm$GD[,-snps.below.0.05.maf]
+  #### the lines below were added by Rafael Della Coletta
+  if (length(snps.below.0.05.maf) > 0) {
+    hm.GD.without.snps.below.0.05.maf <- hm$GD[,-snps.below.0.05.maf]
+  } else {
+    hm.GD.without.snps.below.0.05.maf <- hm$GD
+  }
   
-  hm.GD.without.snps.below.0.05.maf <- hm$GD[,-snps.below.0.05.maf]
+  # this code was added because if there is no SNP with maf < 0.05, R will create a vector with
+  # "integer(0)", which will give an error when running "hm$GD[,-snps.below.0.05.maf]". I added
+  # an "if else" statement to avoid this behavior, since if there is no SNP with maf < 0.05, there
+  # is nothing to exclude from "hm$GD".
   
   ###############################
   
