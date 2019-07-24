@@ -95,7 +95,9 @@ I wrote the script `results_validations.R` to visualize prediction accuracies fo
 
 Overall, for both toy and USDA datasets, there is very little difference in prediction accuracies among simulated traits controlled by 3, 25 or 75 QTNs. In addition, increasing trait heritability consistently increased prediction accuracy. Although increasing the number of markers used (50, 1000 or all) also increased prediction accuracy, it's interesting to see that there is not much difference between using 1000 or all SNPs, especially in the USDA dataset.
 
+Looking at the plots from the toy dataset, you can see that using only SVs to predict traits has poor performance compared to other types of markers, even when the source of trait variation is due to SVs. This might have to do with how these SVs were simulated, and it will be interesting to see what happens when we add the real SVs from USDA data into the simulation.
 
+It will be interesting to test different parameters, such as the size of the large and small effects.
 
 
 <mark>TO DO:</mark>

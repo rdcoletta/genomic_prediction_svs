@@ -222,6 +222,12 @@ The above results indicates that there is not apparent big problem in the datase
 
 I created a new folder called `tests` to store files from the tests I run while adjusting the main simulation script. I also added another markdown document called `notes/testing_simulations.md` to keep track of the changes I make.
 
+Overall, preliminary results indicate that there is very little difference in prediction accuracies among simulated traits controlled by 3, 25 or 75 QTNs, while increasing trait heritability consistently increased prediction accuracy. Although increasing the number of markers used (50, 1000 or all) also increased prediction accuracy, it's interesting to see that there is not much difference between using 1000 or all 22,000 SNPs. These partial results can be visualized at `tests/analysis/test_usda-rils` folder.
+
+<mark>TO DO:</mark>
+* Write function to calculate LD between SNPs and SVs.
+* Simulate traits in multiple environments.
+* Project whole genome sequencing data with SVs to RILs (once data is available).
 
 
 
