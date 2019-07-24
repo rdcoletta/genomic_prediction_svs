@@ -1700,255 +1700,255 @@ timetaken(start_time)  # 1min
 
 #### testing k-fold validation by filtering SNPs ----
 
-# the following tests will only go until the filtering part (i.e., i did not run the k-fold
-# validation per se). Just went line by line of the function until the sampling loop.
-
-# test sampling condition
-{
-  snp_data = "SNP55K_maize282_AGPv2_20100513_NUM.txt"
-  sv_data = NULL
-  snp_with_sv_data = NULL
-  list_of_SV_IDs = NULL
-  sv_info = NULL
-  marker_data_type = 1
-  number_of_folds = 5
-  use_all_SNPs = TRUE    # this skips sampling markers
-  SNPs_to_sample = NULL
-  dir_with_sim_traits = "folder_name"
-  seed_number = -673994
-  testing = TRUE
-}
-
-{
-  snp_data = "SNP55K_maize282_AGPv2_20100513_NUM.txt"
-  sv_data = NULL
-  snp_with_sv_data = NULL
-  list_of_SV_IDs = NULL
-  sv_info = NULL
-  marker_data_type = 1
-  number_of_folds = 5
-  use_all_SNPs = FALSE   # this gives an error because SNPs_to_sample needs to have a value
-  SNPs_to_sample = NULL
-  dir_with_sim_traits = "folder_name"
-  seed_number = -673994
-  testing = TRUE
-}
-
-
-
-# snp_data only -- this should reduce geno_data to 1000 markers
-{
-  snp_data = "SNP55K_maize282_AGPv2_20100513_NUM.txt"
-  sv_data = NULL
-  snp_with_sv_data = NULL
-  list_of_SV_IDs = NULL
-  sv_info = NULL
-  marker_data_type = 1
-  number_of_folds = 5
-  use_all_SNPs = FALSE
-  SNPs_to_sample = 1000
-  dir_with_sim_traits = "folder_name"
-  seed_number = -673994
-  testing = TRUE
-}
-
-{
-  geno_SVs <- fread("Structural_Variation_demo.txt", header = TRUE, data.table = F)
-  SVs <- geno_SVs[,1]
-  sv_info <- geno_SVs[,c(1,3,4)]
-  sv_info <- sv_info[order(sv_info[,2], sv_info[,3]),]
-  
-  snp_data = "SNP55K_maize282_AGPv2_20100513_NUM.txt"
-  sv_data = NULL
-  snp_with_sv_data = NULL
-  list_of_SV_IDs = NULL
-  sv_info = sv_info
-  marker_data_type = 2
-  number_of_folds = 5
-  use_all_SNPs = FALSE
-  SNPs_to_sample = 1000
-  dir_with_sim_traits = "folder_name"
-  seed_number = -673994
-  testing = TRUE
-}
-
-{
-  geno_SVs <- fread("Structural_Variation_demo.txt", header = TRUE, data.table = F)
-  SVs <- geno_SVs[,1]
-  sv_info <- geno_SVs[,c(1,3,4)]
-  sv_info <- sv_info[order(sv_info[,2], sv_info[,3]),]
-  
-  snp_data = "SNP55K_maize282_AGPv2_20100513_NUM.txt"
-  sv_data = NULL
-  snp_with_sv_data = NULL
-  list_of_SV_IDs = NULL
-  sv_info = sv_info
-  marker_data_type = 3
-  number_of_folds = 5
-  use_all_SNPs = FALSE
-  SNPs_to_sample = 1000
-  dir_with_sim_traits = "folder_name"
-  seed_number = -673994
-  testing = TRUE
-}
-
-
-# sv_data only -- this shouldn't do anything to geno_data
-{
-  snp_data = NULL
-  sv_data = "Structural_Variation_demo.txt"
-  snp_with_sv_data = NULL
-  list_of_SV_IDs = NULL
-  sv_info = NULL
-  marker_data_type = 4
-  number_of_folds = 5
-  use_all_SNPs = TRUE
-  SNPs_to_sample = NULL
-  dir_with_sim_traits = "folder_name"
-  seed_number = -673994
-  testing = TRUE
-}
-
-{
-  snp_data = NULL
-  sv_data = "Structural_Variation_demo.txt"
-  snp_with_sv_data = NULL
-  list_of_SV_IDs = NULL
-  sv_info = NULL
-  marker_data_type = 4
-  number_of_folds = 5
-  use_all_SNPs = FALSE
-  SNPs_to_sample = 1000
-  dir_with_sim_traits = "folder_name"
-  seed_number = -673994
-  testing = TRUE
-}
-
-# snp_data + sv_data
-
-{
-  geno_SVs <- fread("Structural_Variation_demo.txt", header = TRUE, data.table = F)
-  SVs <- geno_SVs[,1]
-  sv_info <- geno_SVs[,c(1,3,4)]
-  sv_info <- sv_info[order(sv_info[,2], sv_info[,3]),]
-  
-  snp_data = "SNP55K_maize282_AGPv2_20100513_NUM.txt"
-  sv_data = "Structural_Variation_demo.txt"
-  snp_with_sv_data = NULL
-  list_of_SV_IDs = NULL
-  sv_info = sv_info
-  marker_data_type = 1
-  number_of_folds = 5
-  use_all_SNPs = FALSE
-  SNPs_to_sample = 1000
-  dir_with_sim_traits = "folder_name"
-  seed_number = -673994
-  testing = TRUE
-}
-
-{
-  geno_SVs <- fread("Structural_Variation_demo.txt", header = TRUE, data.table = F)
-  SVs <- geno_SVs[,1]
-  sv_info <- geno_SVs[,c(1,3,4)]
-  sv_info <- sv_info[order(sv_info[,2], sv_info[,3]),]
-  
-  snp_data = "SNP55K_maize282_AGPv2_20100513_NUM.txt"
-  sv_data = "Structural_Variation_demo.txt"
-  snp_with_sv_data = NULL
-  list_of_SV_IDs = NULL
-  sv_info = sv_info
-  marker_data_type = 2
-  number_of_folds = 5
-  use_all_SNPs = FALSE
-  SNPs_to_sample = 1000
-  dir_with_sim_traits = "folder_name"
-  seed_number = -673994
-  testing = TRUE
-}
-
-{
-  geno_SVs <- fread("Structural_Variation_demo.txt", header = TRUE, data.table = F)
-  SVs <- geno_SVs[,1]
-  sv_info <- geno_SVs[,c(1,3,4)]
-  sv_info <- sv_info[order(sv_info[,2], sv_info[,3]),]
-  
-  snp_data = "SNP55K_maize282_AGPv2_20100513_NUM.txt"
-  sv_data = "Structural_Variation_demo.txt"
-  snp_with_sv_data = NULL
-  list_of_SV_IDs = NULL
-  sv_info = sv_info
-  marker_data_type = 3
-  number_of_folds = 5
-  use_all_SNPs = FALSE
-  SNPs_to_sample = 1000
-  dir_with_sim_traits = "folder_name"
-  seed_number = -673994
-  testing = TRUE
-}
-
-{
-  geno_SVs <- fread("Structural_Variation_demo.txt", header = TRUE, data.table = F)
-  SVs <- geno_SVs[,1]
-  sv_info <- geno_SVs[,c(1,3,4)]
-  sv_info <- sv_info[order(sv_info[,2], sv_info[,3]),]
-  
-  snp_data = "SNP55K_maize282_AGPv2_20100513_NUM.txt"
-  sv_data = "Structural_Variation_demo.txt"
-  snp_with_sv_data = NULL
-  list_of_SV_IDs = NULL
-  sv_info = sv_info
-  marker_data_type = 4
-  number_of_folds = 5
-  use_all_SNPs = FALSE
-  SNPs_to_sample = 1000
-  dir_with_sim_traits = "folder_name"
-  seed_number = -673994
-  testing = TRUE
-}
-
-{
-  geno_SVs <- fread("Structural_Variation_demo.txt", header = TRUE, data.table = F)
-  SVs <- geno_SVs[,1]
-  sv_info <- geno_SVs[,c(1,3,4)]
-  sv_info <- sv_info[order(sv_info[,2], sv_info[,3]),]
-  
-  snp_data = "SNP55K_maize282_AGPv2_20100513_NUM.txt"
-  sv_data = "Structural_Variation_demo.txt"
-  snp_with_sv_data = NULL
-  list_of_SV_IDs = NULL
-  sv_info = sv_info
-  marker_data_type = 5
-  number_of_folds = 5
-  use_all_SNPs = FALSE
-  SNPs_to_sample = 1000
-  dir_with_sim_traits = "folder_name"
-  seed_number = -673994
-  testing = TRUE
-}
-
-# snp_with_sv_data
-
-{
-  geno_SVs <- fread("Structural_Variation_demo.txt", header = TRUE, data.table = F)
-  SVs <- geno_SVs[,1]
-  sv_info <- geno_SVs[,c(1,3,4)]
-  sv_info <- sv_info[order(sv_info[,2], sv_info[,3]),]
-  
-  snp_data = NULL
-  sv_data = NULL
-  snp_with_sv_data = "SNP55K_maize282_AGPv2_20100513_SNP-SV-merged_test.txt"
-  list_of_SV_IDs = SVs
-  sv_info = sv_info
-  dir_with_sim_traits = "folder_name"
-  marker_data_type = 5
-  number_of_folds = 5
-  use_all_SNPs = FALSE
-  SNPs_to_sample = 1000
-  seed_number = -673994
-  testing = FALSE
-}
-
-
-snp_data = "SNP55K_maize282_AGPv2_20100513_NUM.txt"
-sv_data = "Structural_Variation_demo.txt"
-snp_with_sv_data = "SNP55K_maize282_AGPv2_20100513_SNP-SV-merged_test.txt"
+# # the following tests will only go until the filtering part (i.e., i did not run the k-fold
+# # validation per se). Just went line by line of the function until the sampling loop.
+# 
+# # test sampling condition
+# {
+#   snp_data = "SNP55K_maize282_AGPv2_20100513_NUM.txt"
+#   sv_data = NULL
+#   snp_with_sv_data = NULL
+#   list_of_SV_IDs = NULL
+#   sv_info = NULL
+#   marker_data_type = 1
+#   number_of_folds = 5
+#   use_all_SNPs = TRUE    # this skips sampling markers
+#   SNPs_to_sample = NULL
+#   dir_with_sim_traits = "folder_name"
+#   seed_number = -673994
+#   testing = TRUE
+# }
+# 
+# {
+#   snp_data = "SNP55K_maize282_AGPv2_20100513_NUM.txt"
+#   sv_data = NULL
+#   snp_with_sv_data = NULL
+#   list_of_SV_IDs = NULL
+#   sv_info = NULL
+#   marker_data_type = 1
+#   number_of_folds = 5
+#   use_all_SNPs = FALSE   # this gives an error because SNPs_to_sample needs to have a value
+#   SNPs_to_sample = NULL
+#   dir_with_sim_traits = "folder_name"
+#   seed_number = -673994
+#   testing = TRUE
+# }
+# 
+# 
+# 
+# # snp_data only -- this should reduce geno_data to 1000 markers
+# {
+#   snp_data = "SNP55K_maize282_AGPv2_20100513_NUM.txt"
+#   sv_data = NULL
+#   snp_with_sv_data = NULL
+#   list_of_SV_IDs = NULL
+#   sv_info = NULL
+#   marker_data_type = 1
+#   number_of_folds = 5
+#   use_all_SNPs = FALSE
+#   SNPs_to_sample = 1000
+#   dir_with_sim_traits = "folder_name"
+#   seed_number = -673994
+#   testing = TRUE
+# }
+# 
+# {
+#   geno_SVs <- fread("Structural_Variation_demo.txt", header = TRUE, data.table = F)
+#   SVs <- geno_SVs[,1]
+#   sv_info <- geno_SVs[,c(1,3,4)]
+#   sv_info <- sv_info[order(sv_info[,2], sv_info[,3]),]
+#   
+#   snp_data = "SNP55K_maize282_AGPv2_20100513_NUM.txt"
+#   sv_data = NULL
+#   snp_with_sv_data = NULL
+#   list_of_SV_IDs = NULL
+#   sv_info = sv_info
+#   marker_data_type = 2
+#   number_of_folds = 5
+#   use_all_SNPs = FALSE
+#   SNPs_to_sample = 1000
+#   dir_with_sim_traits = "folder_name"
+#   seed_number = -673994
+#   testing = TRUE
+# }
+# 
+# {
+#   geno_SVs <- fread("Structural_Variation_demo.txt", header = TRUE, data.table = F)
+#   SVs <- geno_SVs[,1]
+#   sv_info <- geno_SVs[,c(1,3,4)]
+#   sv_info <- sv_info[order(sv_info[,2], sv_info[,3]),]
+#   
+#   snp_data = "SNP55K_maize282_AGPv2_20100513_NUM.txt"
+#   sv_data = NULL
+#   snp_with_sv_data = NULL
+#   list_of_SV_IDs = NULL
+#   sv_info = sv_info
+#   marker_data_type = 3
+#   number_of_folds = 5
+#   use_all_SNPs = FALSE
+#   SNPs_to_sample = 1000
+#   dir_with_sim_traits = "folder_name"
+#   seed_number = -673994
+#   testing = TRUE
+# }
+# 
+# 
+# # sv_data only -- this shouldn't do anything to geno_data
+# {
+#   snp_data = NULL
+#   sv_data = "Structural_Variation_demo.txt"
+#   snp_with_sv_data = NULL
+#   list_of_SV_IDs = NULL
+#   sv_info = NULL
+#   marker_data_type = 4
+#   number_of_folds = 5
+#   use_all_SNPs = TRUE
+#   SNPs_to_sample = NULL
+#   dir_with_sim_traits = "folder_name"
+#   seed_number = -673994
+#   testing = TRUE
+# }
+# 
+# {
+#   snp_data = NULL
+#   sv_data = "Structural_Variation_demo.txt"
+#   snp_with_sv_data = NULL
+#   list_of_SV_IDs = NULL
+#   sv_info = NULL
+#   marker_data_type = 4
+#   number_of_folds = 5
+#   use_all_SNPs = FALSE
+#   SNPs_to_sample = 1000
+#   dir_with_sim_traits = "folder_name"
+#   seed_number = -673994
+#   testing = TRUE
+# }
+# 
+# # snp_data + sv_data
+# 
+# {
+#   geno_SVs <- fread("Structural_Variation_demo.txt", header = TRUE, data.table = F)
+#   SVs <- geno_SVs[,1]
+#   sv_info <- geno_SVs[,c(1,3,4)]
+#   sv_info <- sv_info[order(sv_info[,2], sv_info[,3]),]
+#   
+#   snp_data = "SNP55K_maize282_AGPv2_20100513_NUM.txt"
+#   sv_data = "Structural_Variation_demo.txt"
+#   snp_with_sv_data = NULL
+#   list_of_SV_IDs = NULL
+#   sv_info = sv_info
+#   marker_data_type = 1
+#   number_of_folds = 5
+#   use_all_SNPs = FALSE
+#   SNPs_to_sample = 1000
+#   dir_with_sim_traits = "folder_name"
+#   seed_number = -673994
+#   testing = TRUE
+# }
+# 
+# {
+#   geno_SVs <- fread("Structural_Variation_demo.txt", header = TRUE, data.table = F)
+#   SVs <- geno_SVs[,1]
+#   sv_info <- geno_SVs[,c(1,3,4)]
+#   sv_info <- sv_info[order(sv_info[,2], sv_info[,3]),]
+#   
+#   snp_data = "SNP55K_maize282_AGPv2_20100513_NUM.txt"
+#   sv_data = "Structural_Variation_demo.txt"
+#   snp_with_sv_data = NULL
+#   list_of_SV_IDs = NULL
+#   sv_info = sv_info
+#   marker_data_type = 2
+#   number_of_folds = 5
+#   use_all_SNPs = FALSE
+#   SNPs_to_sample = 1000
+#   dir_with_sim_traits = "folder_name"
+#   seed_number = -673994
+#   testing = TRUE
+# }
+# 
+# {
+#   geno_SVs <- fread("Structural_Variation_demo.txt", header = TRUE, data.table = F)
+#   SVs <- geno_SVs[,1]
+#   sv_info <- geno_SVs[,c(1,3,4)]
+#   sv_info <- sv_info[order(sv_info[,2], sv_info[,3]),]
+#   
+#   snp_data = "SNP55K_maize282_AGPv2_20100513_NUM.txt"
+#   sv_data = "Structural_Variation_demo.txt"
+#   snp_with_sv_data = NULL
+#   list_of_SV_IDs = NULL
+#   sv_info = sv_info
+#   marker_data_type = 3
+#   number_of_folds = 5
+#   use_all_SNPs = FALSE
+#   SNPs_to_sample = 1000
+#   dir_with_sim_traits = "folder_name"
+#   seed_number = -673994
+#   testing = TRUE
+# }
+# 
+# {
+#   geno_SVs <- fread("Structural_Variation_demo.txt", header = TRUE, data.table = F)
+#   SVs <- geno_SVs[,1]
+#   sv_info <- geno_SVs[,c(1,3,4)]
+#   sv_info <- sv_info[order(sv_info[,2], sv_info[,3]),]
+#   
+#   snp_data = "SNP55K_maize282_AGPv2_20100513_NUM.txt"
+#   sv_data = "Structural_Variation_demo.txt"
+#   snp_with_sv_data = NULL
+#   list_of_SV_IDs = NULL
+#   sv_info = sv_info
+#   marker_data_type = 4
+#   number_of_folds = 5
+#   use_all_SNPs = FALSE
+#   SNPs_to_sample = 1000
+#   dir_with_sim_traits = "folder_name"
+#   seed_number = -673994
+#   testing = TRUE
+# }
+# 
+# {
+#   geno_SVs <- fread("Structural_Variation_demo.txt", header = TRUE, data.table = F)
+#   SVs <- geno_SVs[,1]
+#   sv_info <- geno_SVs[,c(1,3,4)]
+#   sv_info <- sv_info[order(sv_info[,2], sv_info[,3]),]
+#   
+#   snp_data = "SNP55K_maize282_AGPv2_20100513_NUM.txt"
+#   sv_data = "Structural_Variation_demo.txt"
+#   snp_with_sv_data = NULL
+#   list_of_SV_IDs = NULL
+#   sv_info = sv_info
+#   marker_data_type = 5
+#   number_of_folds = 5
+#   use_all_SNPs = FALSE
+#   SNPs_to_sample = 1000
+#   dir_with_sim_traits = "folder_name"
+#   seed_number = -673994
+#   testing = TRUE
+# }
+# 
+# # snp_with_sv_data
+# 
+# {
+#   geno_SVs <- fread("Structural_Variation_demo.txt", header = TRUE, data.table = F)
+#   SVs <- geno_SVs[,1]
+#   sv_info <- geno_SVs[,c(1,3,4)]
+#   sv_info <- sv_info[order(sv_info[,2], sv_info[,3]),]
+#   
+#   snp_data = NULL
+#   sv_data = NULL
+#   snp_with_sv_data = "SNP55K_maize282_AGPv2_20100513_SNP-SV-merged_test.txt"
+#   list_of_SV_IDs = SVs
+#   sv_info = sv_info
+#   dir_with_sim_traits = "folder_name"
+#   marker_data_type = 5
+#   number_of_folds = 5
+#   use_all_SNPs = FALSE
+#   SNPs_to_sample = 1000
+#   seed_number = -673994
+#   testing = FALSE
+# }
+# 
+# 
+# snp_data = "SNP55K_maize282_AGPv2_20100513_NUM.txt"
+# sv_data = "Structural_Variation_demo.txt"
+# snp_with_sv_data = "SNP55K_maize282_AGPv2_20100513_SNP-SV-merged_test.txt"
