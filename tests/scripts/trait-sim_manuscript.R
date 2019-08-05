@@ -99,8 +99,8 @@ read_input_files <- function(snp_file = NULL, output_num = FALSE, sv_file = NULL
         outfile_name <- sub(pattern = ".txt", replacement = "", x = paste0(snp_file))
         write.table(num_hmp, file = paste0(outfile_name, "_NUM-test.txt"), quote = FALSE, sep = "\t",
                     row.names = FALSE)
-        print("Numeric hapmap created")
-        print(getwd())
+        cat("Numeric hapmap created")
+        cat(getwd())
       }
     }
     else {
@@ -159,7 +159,7 @@ filter_SNPs_in_LD <- function(geno_data, sv_info, LD_type = "linked", num_cores 
   # register cores for parallelizing
   registerDoParallel(numCores)
   
-  print("Converting numeric alleles... ")
+  cat("Converting numeric alleles... ")
   # split dataset in chromosomes and run then in parallel
   LD_data_converted <- foreach (i=1:10, .combine = rbind) %dopar% {
     
@@ -191,7 +191,7 @@ filter_SNPs_in_LD <- function(geno_data, sv_info, LD_type = "linked", num_cores 
   # register cores for parallelizing
   registerDoParallel(numCores)
   
-  print("Calculating LD...")
+  cat("Calculating LD...")
   
   # start calculating LD between every SV and a marker within 1Mb from SV, for each chromosome
   LD_results <- foreach (chr=1:10, .combine = rbind) %dopar% {
@@ -268,7 +268,7 @@ filter_SNPs_in_LD <- function(geno_data, sv_info, LD_type = "linked", num_cores 
   
   if (plot_partial_LD_decay == TRUE) {
     
-    print("Plotting LD decay between SVs and SNPs withing 1Mb of a SV...")
+    cat("Plotting LD decay between SVs and SNPs withing 1Mb of a SV...")
     
     # plot LD decay for each chromosome (based on markers +/- 500kb of a SV)
     partial_LD_decay <- ggplot(LD_results, aes(x = abs(dist_to_sv), y = LD)) +
@@ -306,12 +306,12 @@ filter_SNPs_in_LD <- function(geno_data, sv_info, LD_type = "linked", num_cores 
     # filter original genotypic data
     SNPs_to_keep <- unique(LD_results_filtered[, "marker_name"])
     geno_data_filtered <- geno_data[which(geno_data[, 1] %in% SNPs_to_keep), ]
-    print("Done!")
+    cat("Done!")
     
     return(geno_data_filtered)
   
     } else {
-    print("No SNPs in LD with SVs")
+    cat("No SNPs in LD with SVs")
   }
   
 }
@@ -397,7 +397,7 @@ simulate_trait <- function(snp_data = NULL, sv_data = NULL, snp_with_sv_data = N
     }
     # read in file depending on user input
     if (!is.null(snp_data) & !is.null(sv_data) & is.null(snp_with_sv_data)) {
-      print("Merging SNP and SV datasets...")
+      cat("Merging SNP and SV datasets...")
       geno_data <- read_input_files(snp_file = snp_data, sv_file = sv_data, merge_SNP_SV = TRUE)
       geno2trait_sim <- geno_data$num_hmp_sv
     }
@@ -463,10 +463,10 @@ kfold_validation_on_sim_traits <- function(snp_data = NULL, sv_data = NULL, snp_
   if (!is.null(snp_data) & is.null(sv_data) & is.null(snp_with_sv_data)) {
     # get the correct genotypic data
     geno_data <- read_input_files(snp_file = snp_data, sv_file = NULL, merge_SNP_SV = FALSE)
-    print(paste("Total number of markers:", NROW(geno_data)))
+    cat(paste("Total number of markers:", NROW(geno_data)))
     
     ### REMOVE MONOMORPHIC MARKERS
-    print("Keeping only polymorphic markers...")
+    cat("Keeping only polymorphic markers...")
     monomorphic.markers <- c()
     for (row in 1:NROW(geno_data)) {
       # get all genotypes from a marker in the population
@@ -477,7 +477,7 @@ kfold_validation_on_sim_traits <- function(snp_data = NULL, sv_data = NULL, snp_
         monomorphic.markers <- append(monomorphic.markers, row)
       }
     }
-    print(paste("Monomorphic markers removed:", length(monomorphic.markers)))
+    cat(paste("Monomorphic markers removed:", length(monomorphic.markers)))
     geno_data <- geno_data[-monomorphic.markers, ]
     
     
@@ -491,7 +491,7 @@ kfold_validation_on_sim_traits <- function(snp_data = NULL, sv_data = NULL, snp_
       }
       geno_data <- filter_SNPs_in_LD(geno_data, sv_info, LD_type = "linked", num_cores = detectCores(),
                                      plot_partial_LD_decay = TRUE)
-      print(paste("Number of SNPs in LD kept:", NROW(geno_data)))
+      cat(paste("Number of SNPs in LD kept:", NROW(geno_data)))
       # get list of SNP IDs
       SNPs_list <- geno_data[,1]
     }
@@ -503,7 +503,7 @@ kfold_validation_on_sim_traits <- function(snp_data = NULL, sv_data = NULL, snp_
       }
       geno_data <- filter_SNPs_in_LD(geno_data, sv_info, LD_type = "varying_LD", num_cores = detectCores(),
                                      plot_partial_LD_decay = TRUE)
-      print(paste("Number of SNPs in LD kept:", NROW(geno_data)))
+      cat(paste("Number of SNPs in LD kept:", NROW(geno_data)))
       # get list of SNP IDs
       SNPs_list <- geno_data[,1]
     }
@@ -517,7 +517,7 @@ kfold_validation_on_sim_traits <- function(snp_data = NULL, sv_data = NULL, snp_
   if (is.null(snp_data) & !is.null(sv_data) & is.null(snp_with_sv_data)) {
     # get the correct genotypic data
     geno_data <- read_input_files(snp_file = NULL, sv_file = sv_data, merge_SNP_SV = FALSE)
-    print(paste("Total number of markers:", NROW(geno_data)))
+    cat(paste("Total number of markers:", NROW(geno_data)))
     # make sure these options are set to default
     use_all_SNPs <- TRUE
     SNPs_to_sample <- NULL
@@ -532,10 +532,10 @@ kfold_validation_on_sim_traits <- function(snp_data = NULL, sv_data = NULL, snp_
     # get the correct genotypic data for marker types 1, 2 or 3
     if (marker_data_type == 1 ||  marker_data_type == 2 || marker_data_type == 3) {
       geno_data <- read_input_files(snp_file = snp_data, sv_file = NULL, merge_SNP_SV = FALSE)
-      print(paste("Total number of markers:", NROW(geno_data)))
+      cat(paste("Total number of markers:", NROW(geno_data)))
       
       ### REMOVE MONOMORPHIC MARKERS
-      print("Keeping only polymorphic markers...")
+      cat("Keeping only polymorphic markers...")
       monomorphic.markers <- c()
       for (row in 1:NROW(geno_data)) {
         # get all genotypes from a marker in the population
@@ -546,7 +546,7 @@ kfold_validation_on_sim_traits <- function(snp_data = NULL, sv_data = NULL, snp_
           monomorphic.markers <- append(monomorphic.markers, row)
         }
       }
-      print(paste("Monomorphic markers removed:", length(monomorphic.markers)))
+      cat(paste("Monomorphic markers removed:", length(monomorphic.markers)))
       geno_data <- geno_data[-monomorphic.markers, ]
       
       # get list of SNP IDs
@@ -559,7 +559,7 @@ kfold_validation_on_sim_traits <- function(snp_data = NULL, sv_data = NULL, snp_
         }
         geno_data <- filter_SNPs_in_LD(geno_data, sv_info, LD_type = "linked", num_cores = detectCores(),
                                        plot_partial_LD_decay = TRUE)
-        print(paste("Number of SNPs in LD kept:", NROW(geno_data)))
+        cat(paste("Number of SNPs in LD kept:", NROW(geno_data)))
         # get list of SNP IDs
         SNPs_list <- geno_data[,1]
       }
@@ -571,7 +571,7 @@ kfold_validation_on_sim_traits <- function(snp_data = NULL, sv_data = NULL, snp_
         }
         geno_data <- filter_SNPs_in_LD(geno_data, sv_info, LD_type = "varying_LD", num_cores = detectCores(),
                                        plot_partial_LD_decay = TRUE)
-        print(paste("Number of SNPs in LD kept:", NROW(geno_data)))
+        cat(paste("Number of SNPs in LD kept:", NROW(geno_data)))
         # get list of SNP IDs
         SNPs_list <- geno_data[,1]
       }
@@ -580,7 +580,7 @@ kfold_validation_on_sim_traits <- function(snp_data = NULL, sv_data = NULL, snp_
     # get the correct genotypic data for marker type 4
     if (marker_data_type == 4) {
       geno_data <- read_input_files(snp_file = NULL, sv_file = sv_data, merge_SNP_SV = FALSE)
-      print(paste("Total number of markers:", NROW(geno_data)))
+      cat(paste("Total number of markers:", NROW(geno_data)))
       # make sure these options are set to default
       use_all_SNPs <- TRUE
       SNPs_to_sample <- NULL
@@ -588,9 +588,9 @@ kfold_validation_on_sim_traits <- function(snp_data = NULL, sv_data = NULL, snp_
     
     # get the correct genotypic data for marker type 5
     if (marker_data_type == 5) {
-      print("Merging SNP and SV datasets...")
+      cat("Merging SNP and SV datasets...")
       geno_data <- read_input_files(snp_file = snp_data, sv_file = sv_data, merge_SNP_SV = TRUE)
-      print(paste("Total number of markers:", NROW(geno_data)))
+      cat(paste("Total number of markers:", NROW(geno_data)))
       # get sv info
       sv_info <- geno_data$geno_SVs
       sv_info <- sv_info[,c(1,3,4)]
@@ -599,7 +599,7 @@ kfold_validation_on_sim_traits <- function(snp_data = NULL, sv_data = NULL, snp_
       geno_data <- geno_data$num_hmp_sv
       
       ### REMOVE MONOMORPHIC MARKERS
-      print("Keeping only polymorphic markers...")
+      cat("Keeping only polymorphic markers...")
       monomorphic.markers <- c()
       for (row in 1:NROW(geno_data)) {
         # get all genotypes from a marker in the population
@@ -610,7 +610,7 @@ kfold_validation_on_sim_traits <- function(snp_data = NULL, sv_data = NULL, snp_
           monomorphic.markers <- append(monomorphic.markers, row)
         }
       }
-      print(paste("Monomorphic markers removed:", length(monomorphic.markers)))
+      cat(paste("Monomorphic markers removed:", length(monomorphic.markers)))
       geno_data <- geno_data[-monomorphic.markers, ]
       
       # get list of SNP IDs
@@ -622,10 +622,10 @@ kfold_validation_on_sim_traits <- function(snp_data = NULL, sv_data = NULL, snp_
   if (!is.null(snp_with_sv_data)) {
     # get the correct genotypic data
     geno_data <- fread(snp_with_sv_data, header = TRUE, data.table = F)
-    print(paste("Total number of markers:", NROW(geno_data)))
+    cat(paste("Total number of markers:", NROW(geno_data)))
     
     ### REMOVE MONOMORPHIC MARKERS
-    print("Keeping only polymorphic markers...")
+    cat("Keeping only polymorphic markers...")
     monomorphic.markers <- c()
     for (row in 1:NROW(geno_data)) {
       # get all genotypes from a marker in the population
@@ -636,7 +636,7 @@ kfold_validation_on_sim_traits <- function(snp_data = NULL, sv_data = NULL, snp_
         monomorphic.markers <- append(monomorphic.markers, row)
       }
     }
-    print(paste("Monomorphic markers removed:", length(monomorphic.markers)))
+    cat(paste("Monomorphic markers removed:", length(monomorphic.markers)))
     geno_data <- geno_data[-monomorphic.markers, ]
     
     # get list of SNP IDs
@@ -660,7 +660,7 @@ kfold_validation_on_sim_traits <- function(snp_data = NULL, sv_data = NULL, snp_
         }
         geno_data <- filter_SNPs_in_LD(geno_data, sv_info, LD_type = "linked", num_cores = detectCores(),
                                        plot_partial_LD_decay = TRUE)
-        print(paste("Number of SNPs in LD kept:", NROW(geno_data)))
+        cat(paste("Number of SNPs in LD kept:", NROW(geno_data)))
         # get list of SNP IDs
         SNPs_list <- geno_data[,1]
       }
@@ -672,7 +672,7 @@ kfold_validation_on_sim_traits <- function(snp_data = NULL, sv_data = NULL, snp_
         }
         geno_data <- filter_SNPs_in_LD(geno_data, sv_info, LD_type = "varying_LD", num_cores = detectCores(),
                                        plot_partial_LD_decay = TRUE)
-        print(paste("Number of SNPs in LD kept:", NROW(geno_data)))
+        cat(paste("Number of SNPs in LD kept:", NROW(geno_data)))
         # get list of SNP IDs
         SNPs_list <- geno_data[,1]
       }
@@ -703,7 +703,7 @@ kfold_validation_on_sim_traits <- function(snp_data = NULL, sv_data = NULL, snp_
     if (is.null(SNPs_to_sample)) {
       stop("Please provide the number of SNPs to be sampled for the prediction model.")
     }
-    print(paste("Sampling", SNPs_to_sample, "markers..."))
+    cat(paste("Sampling", SNPs_to_sample, "markers..."))
     # sample only SNPs without replacement
     set.seed(seed_number)
     SNPs.sampled <- sample(SNPs_list, SNPs_to_sample, replace = FALSE)
@@ -720,11 +720,11 @@ kfold_validation_on_sim_traits <- function(snp_data = NULL, sv_data = NULL, snp_
     # (or should i take average from 50 reps and do only one cross validation?)
     for (curr_file in trait_files) {
       # debug
-      print("------------------------------------")
-      print(paste0("file being parsed: ", curr_dir, curr_file))
-      print(paste0("dimensions geno_data: ", NROW(geno_data), " x ", NCOL(geno_data)))
-      print(paste0("marker type: ", marker_data_type))
-      print("------------------------------------")
+      cat("------------------------------------")
+      cat(paste0("file being parsed: ", curr_dir, curr_file))
+      cat(paste0("dimensions geno_data: ", NROW(geno_data), " x ", NCOL(geno_data)))
+      cat(paste0("marker type: ", marker_data_type))
+      cat("------------------------------------")
       # read in file with simulated trait replicated 50 times
       sim_trait_file <- fread(paste0(curr_dir, "/", curr_file), data.table = F)
       
