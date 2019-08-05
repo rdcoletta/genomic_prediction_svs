@@ -16,8 +16,7 @@
 #    to be the source of variation, since there are much more SNPs in the dataset (instead of 
 #    randomly selecting variants between SNPs and SVs).
 
-# 2. For the "filter_SNPs_in_LD" function, I will need to how to select SNPs in LD by actually
-#    calculating LD and not using an arbitrary number of bases up and downstream the SV.
+# 2. Should I remove SNPs with AF < 0.25 or > 0.75?
 
 # 3. Add functionality to write a log with the output produced in R console.
 
@@ -48,6 +47,12 @@ library(rrBLUP)
 library(MASS)
 library(multtest)
 library(gplots)
+library(foreach)
+library(doParallel)
+library(genetics)
+library(dplyr)
+library(tibble)
+library(ggplot2)
 
 source("scripts/simulation_auxiliar-functions.R")
 source("scripts/GAPIT_Code_from_Internet_20120411_Allelic_Effect.R")
@@ -66,6 +71,7 @@ numericalize_hapmap <- function(geno_data, SNP_effect = "Add", SNP_impute = "Maj
   colnames(num_hmp)[6:NCOL(num_hmp)] <- as.character(hm$GT)
   # add values to df
   num_hmp[,1] <- hm$GI[["SNP"]]
+  num_hmp[,2] <- geno_data[-1,2]  # alleles
   num_hmp[,3] <- hm$GI[["Chromosome"]]
   num_hmp[,4] <- hm$GI[["Position"]]
   num_hmp[,6:NCOL(num_hmp)] <- t(hm$GD)
@@ -142,56 +148,173 @@ read_input_files <- function(snp_file = NULL, output_num = FALSE, sv_file = NULL
 
 
 
-filter_SNPs_in_LD <- function(geno_data, sv_info, LD_type = "linked") {
-  # since i still have to develop a way to calculate LD, i will use just the position of the SNPs
-  # relative to a SV to "simulate" SNPs linked to SV (e.g. +/- 10kb) or in varying degrees of LD
-  # (e.g. +/- 50kb)
+filter_SNPs_in_LD <- function(geno_data, sv_info, LD_type = "linked", num_cores = detectCores(),
+                              plot_partial_LD_decay = TRUE) {
   
-  # 'geno_data' should be a data frame with SNP data (not a file name!)
-  # 'sv_info' should be a tab-delimied data frame with 3 columns: sv_id, chrm, position
-  # 'LD_type' should be "linked" or "varying"
+  # remove duplicated rows
+  LD_data <- distinct(.data = geno_data, Snp, .keep_all = TRUE)
   
-  # create an empty data frame to store results
-  geno_data_LD <- data.frame(matrix(nrow = 0, ncol = NCOL(geno_data)))
-  colnames(geno_data_LD) <- colnames(geno_data)
+  # get available cores for paralellizing
+  numCores <- num_cores
+  # register cores for parallelizing
+  registerDoParallel(numCores)
   
-  if (LD_type == "linked") print("Keeping only SNPs in LD with SVs...")
-  if (LD_type == "varying") print("Keeping only SNPs in varying LD with SVs...")
-  
-  # for each chromosome in sv_info
-  for (chrm in unique(sv_info[,2])) {
-    # for each position in this subset
-    pos_in_curr_chrm <- which(sv_info[,2] == chrm)
-    for (pos in sv_info[pos_in_curr_chrm,3]) {
-      # add 10kb up and downstream (if "linked") or 50kb (if "varying") to create a range of
-      # possible values to select snps
-      linked_SNPs_distance <- 10000
-      if (LD_type == "linked") {
-        # select the range of bp with SNPs linked to SV by adding 10kb up and downstream the SV position 
-        range_LD <- seq(from = pos - linked_SNPs_distance, to = pos + linked_SNPs_distance, by = 1)
-      }
-      if (LD_type == "varying") {
-        # select the range of bp with SNPs linked to SV by adding 50kb up and downstream the SV position
-        # and by removing the bp within 10kb of the SV
-        not_linked_SNPs_distance <- 50000
-        range_linked_SNPs <- seq(from = pos - linked_SNPs_distance, to = pos + linked_SNPs_distance, by = 1)
-        range_not_linked_SNPs <- seq(from = pos - not_linked_SNPs_distance, to = pos + not_linked_SNPs_distance, by = 1)
-        # select only SNPs that are not linked to SV but have some degree of LD
-        range_LD <- setdiff(range_not_linked_SNPs, range_linked_SNPs)
-      }
-      # go to geno_data, subset data by the appropriate chromosome
-      geno_data_subset <- geno_data[which(geno_data[,3] == chrm),]
-      # grab all rows for which the position column is in the possible range created
-      geno_data_subset <- geno_data_subset[which(geno_data_subset[,4] %in% range_LD),]
-      # append SNPs in LD to data frame
-      geno_data_LD <- rbind(geno_data_LD, geno_data_subset)
+  print("Converting numeric alleles... ")
+  # split dataset in chromosomes and run then in parallel
+  LD_data_converted <- foreach (i=1:10, .combine = rbind) %dopar% {
+    
+    subset_by_chrm <- LD_data[which(LD_data[,"chr"] == i),]
+    
+    # for each marker in a chromosome, convert numeric alleles to letters
+    allele_count2genotype <- function(marker_row) {
+      marker_alleles <- unlist(strsplit(marker_row[2], split = "/"))
+      #### will need to add line of code to deal with CNVs (i.e., allele numbers > 2 should be set to 2)
+      results_conversion <- as.genotype.allele.count(as.numeric(marker_row[6:length(marker_row)]),
+                                                     alleles = marker_alleles)
+      return(results_conversion)
     }
+    
+    # apply() results in a matrix, but I need to transpose it first before transforming into dataframe
+    converted_df <- data.frame(t(apply(subset_by_chrm, MARGIN = 1, FUN = allele_count2genotype)),
+                               stringsAsFactors = FALSE)
+    
+    # foreach function will bind the df below for each chromosome by row (".combine = rbind")
+    cbind(subset_by_chrm[, 1:5], converted_df)
+    
   }
-  # remove any duplicates that may have been selected in case there were two SVs very close to each other
-  geno_data_LD <- geno_data_LD[!duplicated(geno_data_LD),]
-  # return a data frame only with SNPs in LD
-  return(geno_data_LD)
-}   
+  colnames(LD_data_converted) <- colnames(LD_data)
+  # clean clusters
+  stopImplicitCluster()
+  # 18sec for 5 genotypes and ~5k markers per chrm 
+  # 4min for 280 genotypes and ~5k markers per chrm
+  
+  # register cores for parallelizing
+  registerDoParallel(numCores)
+  
+  print("Calculating LD...")
+  
+  # start calculating LD between every SV and a marker within 1Mb from SV, for each chromosome
+  LD_results <- foreach (chr=1:10, .combine = rbind) %dopar% {
+    # split dataset in chromosomes
+    subset_by_chrm <- which(LD_data_converted[,"chr"] == chr)
+    markers_in_chr <- LD_data_converted[subset_by_chrm, ]
+    
+    # grab all SV names for that chromosome
+    sv_names <- sv_info[which(sv_info[, 2] == chr), 1]
+    # extract SVs from all markers of chromosomes 
+    SVs_in_chr <- markers_in_chr[which(markers_in_chr[, 1] %in% sv_names), ]
+    
+    # create empty df to store LD information
+    LD_df <- data.frame(sv = as.character(),
+                        chr = as.character(),
+                        marker_name = as.character(),
+                        marker_pos = as.numeric(),
+                        dist_to_sv = as.numeric(),
+                        LD = as.numeric(),
+                        stringsAsFactors = FALSE)
+    
+    for (sv in 1:NROW(SVs_in_chr)) {
+      
+      # get info from current SV being parsed
+      curr_sv_name <- SVs_in_chr[sv, 1]
+      curr_sv_pos <- as.numeric(SVs_in_chr[sv, 4])
+      curr_sv_geno <- SVs_in_chr[sv, 6:NCOL(SVs_in_chr)]
+      
+      # get the genotypes for calculating LD with package "genetics"
+      g1 <- as.character(curr_sv_geno)
+      g1 <- genotype(g1)
+      
+      for (marker in 1:NROW(markers_in_chr)) {
+        
+        # get info about current marker being parsed
+        curr_marker_pos <- as.numeric(markers_in_chr[marker, 4])
+        
+        # measure LD only against markers +/- 1Mb from the SV
+        if (abs(curr_sv_pos - curr_marker_pos) < 1000000) {
+          
+          curr_marker_name <- markers_in_chr[marker, 1]
+          curr_marker_geno <- markers_in_chr[marker, 6:NCOL(markers_in_chr)]
+          
+          # get the genotypes for calculating LD with package "genetics"
+          g2 <- as.character(curr_marker_geno)
+          g2 <- genotype(g2)
+          
+          # calculate LD and get R^2 results only
+          LD_result <- LD(g1, g2)
+          LD_result <- round(LD_result$`R^2`, digits = 3)
+          
+          # make data frame with results
+          LD_df <- rbind(LD_df,
+                         list("sv" = curr_sv_name,
+                              "chr" = chr,
+                              "marker_name" = curr_marker_name,
+                              "marker_pos" = curr_marker_pos,
+                              "dist_to_sv" = curr_marker_pos - curr_sv_pos,
+                              "LD" = LD_result),
+                         stringsAsFactors = FALSE)
+          
+        }
+      }
+    }
+    
+    # foreach function will bind LD_df for each chromosome by row
+    LD_df
+    
+  }
+  # clean clusters
+  stopImplicitCluster()
+  # 6 min for markers within +/- 500kb and 280 genotypes
+  # 11 min for markers within +/- 1Mb and 280 genotypes
+  
+  if (plot_partial_LD_decay == TRUE) {
+    
+    print("Plotting LD decay between SVs and SNPs withing 1Mb of a SV...")
+    
+    # plot LD decay for each chromosome (based on markers +/- 500kb of a SV)
+    partial_LD_decay <- ggplot(LD_results, aes(x = abs(dist_to_sv), y = LD)) +
+      facet_wrap(~chr) +
+      geom_point(size = 0.1, alpha = 0.2) +
+      scale_x_continuous(labels = function(x) x/1000) +
+      labs(title = "LD decay",
+           x = "Distance between marker and SV (kb)",
+           y = bquote("LD"~(r^2)))
+    
+    plot_name <- paste0(dir_with_sim_traits, "/partial-LD-decay_between_SNPs-and-SVs.png")
+    
+    # save plot
+    ggsave(filename = plot_name, plot = partial_LD_decay, device = "png")
+    
+  }
+  
+  # filter results based on LD level desired
+  if (LD_type == "linked") {
+    # linked > 0.8
+    LD_results_filtered <- LD_results[which(LD_results[, "LD"] >= 0.8), ]
+    
+    # remove LD of a SV with itself
+    sv_names <- sv_info[, 1]
+    LD_results_filtered <- LD_results_filtered[which(!LD_results_filtered[,3] %in% sv_names), ]
+  }
+  
+  if (LD_type == "varying_LD") {
+    # 0.5 <= varying_LD < 0.8
+    LD_results_filtered <- LD_results[which(LD_results[, "LD"] >= 0.5 & LD_results[, "LD"] < 0.8 ), ]
+  }
+  
+  # only merge results with other chromosome if LD_df_filtered has a value (to avoid errors...)
+  if (NROW(LD_results_filtered) > 0) {
+    # filter original genotypic data
+    SNPs_to_keep <- unique(LD_results_filtered[, "marker_name"])
+    geno_data_filtered <- geno_data[which(geno_data[, 1] %in% SNPs_to_keep), ]
+    print("Done!")
+    
+    return(geno_data_filtered)
+  
+    } else {
+    print("No SNPs in LD with SVs")
+  }
+  
+}
 
 
 
@@ -366,7 +489,8 @@ kfold_validation_on_sim_traits <- function(snp_data = NULL, sv_data = NULL, snp_
       if (is.null(sv_info)) {
         stop("No information about SV position found! Please provide a tab-delimied data frame with 3 columns: SV_id, chrm, position")
       }
-      geno_data <- filter_SNPs_in_LD(geno_data, sv_info, LD_type = "linked")
+      geno_data <- filter_SNPs_in_LD(geno_data, sv_info, LD_type = "linked", num_cores = detectCores(),
+                                     plot_partial_LD_decay = TRUE)
       print(paste("Number of SNPs in LD kept:", NROW(geno_data)))
       # get list of SNP IDs
       SNPs_list <- geno_data[,1]
@@ -377,7 +501,8 @@ kfold_validation_on_sim_traits <- function(snp_data = NULL, sv_data = NULL, snp_
       if (is.null(sv_info)) {
         stop("No information about SV position found! Please provide a tab-delimied data frame with 3 columns: SV_id, chrm, position")
       }
-      geno_data <- filter_SNPs_in_LD(geno_data, sv_info, LD_type = "varying")
+      geno_data <- filter_SNPs_in_LD(geno_data, sv_info, LD_type = "varying_LD", num_cores = detectCores(),
+                                     plot_partial_LD_decay = TRUE)
       print(paste("Number of SNPs in LD kept:", NROW(geno_data)))
       # get list of SNP IDs
       SNPs_list <- geno_data[,1]
@@ -432,7 +557,8 @@ kfold_validation_on_sim_traits <- function(snp_data = NULL, sv_data = NULL, snp_
         if (is.null(sv_info)) {
           stop("No information about SV position found! Please provide a tab-delimied data frame with 3 columns: SV_id, chrm, position")
         }
-        geno_data <- filter_SNPs_in_LD(geno_data, sv_info, LD_type = "linked")
+        geno_data <- filter_SNPs_in_LD(geno_data, sv_info, LD_type = "linked", num_cores = detectCores(),
+                                       plot_partial_LD_decay = TRUE)
         print(paste("Number of SNPs in LD kept:", NROW(geno_data)))
         # get list of SNP IDs
         SNPs_list <- geno_data[,1]
@@ -443,7 +569,8 @@ kfold_validation_on_sim_traits <- function(snp_data = NULL, sv_data = NULL, snp_
         if (is.null(sv_info)) {
           stop("No information about SV position found! Please provide a tab-delimied data frame with 3 columns: SV_id, chrm, position")
         }
-        geno_data <- filter_SNPs_in_LD(geno_data, sv_info, LD_type = "varying")
+        geno_data <- filter_SNPs_in_LD(geno_data, sv_info, LD_type = "varying_LD", num_cores = detectCores(),
+                                       plot_partial_LD_decay = TRUE)
         print(paste("Number of SNPs in LD kept:", NROW(geno_data)))
         # get list of SNP IDs
         SNPs_list <- geno_data[,1]
@@ -531,7 +658,8 @@ kfold_validation_on_sim_traits <- function(snp_data = NULL, sv_data = NULL, snp_
         if (is.null(sv_info)) {
           stop("No information about SV position found! Please provide a tab-delimied data frame with 3 columns: SV_id, chrm, position")
         }
-        geno_data <- filter_SNPs_in_LD(geno_data, sv_info, LD_type = "linked")
+        geno_data <- filter_SNPs_in_LD(geno_data, sv_info, LD_type = "linked", num_cores = detectCores(),
+                                       plot_partial_LD_decay = TRUE)
         print(paste("Number of SNPs in LD kept:", NROW(geno_data)))
         # get list of SNP IDs
         SNPs_list <- geno_data[,1]
@@ -542,7 +670,8 @@ kfold_validation_on_sim_traits <- function(snp_data = NULL, sv_data = NULL, snp_
         if (is.null(sv_info)) {
           stop("No information about SV position found! Please provide a tab-delimied data frame with 3 columns: SV_id, chrm, position")
         }
-        geno_data <- filter_SNPs_in_LD(geno_data, sv_info, LD_type = "varying")
+        geno_data <- filter_SNPs_in_LD(geno_data, sv_info, LD_type = "varying_LD", num_cores = detectCores(),
+                                       plot_partial_LD_decay = TRUE)
         print(paste("Number of SNPs in LD kept:", NROW(geno_data)))
         # get list of SNP IDs
         SNPs_list <- geno_data[,1]
