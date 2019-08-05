@@ -29,7 +29,7 @@ Final_22kSNPs_DAS_UIUC_ParentalGenotypeData_122318.csv
 Final_22kSNPs_DAS_UIUC_RILsGenotypeData-Part1_122318.csv
 Final_22kSNPs_DAS_UIUC_RILsGenotypeData-Part2_122318.csv
 ```
-> **Note:** there are more genotypes (parents and RILs) in those files besides the ones used in the USDA project.
+> There are more genotypes (parents and RILs) in those files besides the ones used in the USDA project.
 
 
 ### HapMap format
@@ -53,11 +53,11 @@ id_table_22kSNPs_DAS_UIUC_ParentalGenotypeData.txt
 id_table_22kSNPs_DAS_UIUC_RILsGenotypeData.txt
 ```
 
-> **Note:** RILs have their genotype ID instead of name because some RILs had multiple IDs. That's why I generated a list relating names to IDs.
+> RILs have their genotype ID instead of name because some RILs had multiple IDs. That's why I generated a list relating names to IDs.
 
 Since there are genotypic data for more parents and RILs than used in the USDA project, I need to keep only the genotypes described in the USDA project that will have phenotypic data collected. To do this, Candy sent the file `data/2018_field_planning.xlsx` that contains all the RILs crossesd to generate the 400 hybrids. They can be found under **USDA crosses** on `X10_Nursery_Book` and `X9_Nursery_Book` sheets. I manually copied all this information and saved on file `data/usda_RILs_2018.txt`.
 
-> **Note:** Taking a quick look at this file, I noticed that there are only 328 unique RILs and one hybrid (LH82*PHG47). I'm not sure why there is a F1 cross there, so I need to ask Candy. Also, I was expecting more RILs to generate the hybrids (328 vs 525 RILs). It will be good to talk to Candy about that.
+> Taking a quick look at this file, I noticed that there are only 328 unique RILs and one hybrid (LH82*PHG47). I'm not sure why there is a F1 cross there, so I need to ask Candy. Also, I was expecting more RILs to generate the hybrids (328 vs 525 RILs). It will be good to talk to Candy about that.
 
 The `scripts/remove_extra_geno-data.R` script
 
@@ -148,7 +148,7 @@ To estimate recombination frequency for each biparental population of all 325 RI
 
 1. Filter the sorted diploid hapmap files to have genotypic information only from parents and RILs that make up a specific biparental cross. It takes information from the file `data/usda_biparental-crosses.txt` to do that, and output files on `data/biparental-crosses` (two files per cross: one hapmap for the parents, and another for RILs).
 
-  > **Note:** the `alleles` column of the filtered hapmap files are not correct, because it shows the alleles present in all parents and RILs (not only for that particular biparental cross). This might be corrected in future versions of the script, if needed.
+  > The `alleles` column of the filtered hapmap files are not correct, because it shows the alleles present in all parents and RILs (not only for that particular biparental cross). This might be corrected in future versions of the script, if needed.
 
 2. Combine the hapmap files for each biparental population and converts them into the correct input format required by [rqtl](http://www.rqtl.org/), the R package that estimates the allele frequency.
 
@@ -158,7 +158,7 @@ To estimate recombination frequency for each biparental population of all 325 RI
 
   * Remove missing data (remove individual if half of the markers are missing, remove markers missing in half of individuals).
 
-    > **Note:** these cut-offs were arbitrary.
+    > These cut-offs were arbitrary.
 
   * Remove duplicated individuals.
 
@@ -176,14 +176,14 @@ To estimate recombination frequency for each biparental population of all 325 RI
 
   * **Write table** with genetic and physical positions of markers.
 
-    > **Note:** all ouput goes to the the respective **cross folder** in `analysis/qc/`. It also generates a log file called `rqtl_log.txt`.
+    > All ouput goes to the the respective **cross folder** in `analysis/qc/`. It also generates a log file called `rqtl_log.txt`.
 
 
 **Plot allele frequencies of filtered markers**
 
 I also wrote the file `usda_allele-freq_dist.R`. This script extracts the marker names from the recombination frequency tables for each cross (`analysis/qc/{cross}/recomb-freq_{cross}_rils.txt`), which were filtered to be polymorphic between parents and not show segregation distortion, to filter Tassel's `_SiteSummary` tables. This filtered table was used to make plots of the distributions of allele frequencies for each biparental population. The output was stored their respective **cross folder** in `analysis/qc/`.
 
-> **Note:** Some of my first plots of the distributions had a weird shape. This was solved when I increased `binwidth` of histograms from `0.05` to `0.07`.
+> Some of my first plots of the distributions had a weird shape. This was solved when I increased `binwidth` of histograms from `0.05` to `0.07`.
 
 Then, as Candy suggested, I checked if markers that have allele frequency < 0.25 or > 0.75 were the same across populations. The majority of such markers (1,038) are unique of a population, while only 81 of these markers have extreme allele frequencies in more than one population.
 

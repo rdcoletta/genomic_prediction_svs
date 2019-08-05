@@ -17,7 +17,7 @@ I simulated traits using the function `simulate_trait()` that I wrote. I basical
 * Choose the source of variation: if only SNPs are responsible for the trait, only SVs, or both SNPs and SVs contribute.
 * Select the number of QTNs controlling the trait, the effect of the largest and smallest QTNs, the heritability and the number of replicates per simulated trait.
 
-> **Note:** there is currently a bug in the code. If I run my `simulate_trait()` function right away, it generates an incomplete output, but it doesn't show the simulated traits. However, if I run the `create_simulated_data()` function (from Samuel) outside `simulate_trait()` and then run `simulate_trait()`, my function works just fine (i.e., the simulated traits are generated). I think there is a problem in setting up a connection to write the phenotypic files, but will need to investigate this more.
+> There is currently a bug in the code. If I run my `simulate_trait()` function right away, it generates an incomplete output, but it doesn't show the simulated traits. However, if I run the `create_simulated_data()` function (from Samuel) outside `simulate_trait()` and then run `simulate_trait()`, my function works just fine (i.e., the simulated traits are generated). I think there is a problem in setting up a connection to write the phenotypic files, but will need to investigate this more.
 
 
 
@@ -31,7 +31,7 @@ I used k-fold validation to get genomic prediction accuracies for the simulated 
 * Define how many folds to perform validation (default is 5-fold validation).
 * Decide if you want to use all SNPs in the genotypic dataset, or randomly sample a certain number of SNPs (e.g., 1000).
 
-> **Note:** I still have to implement the calculation of LD in this script. I've been used fixed distances to determine SNP in LD with SV (+/- 10kb) or varying LD (+/- 50 kb and excluding the first +/- 10kb).
+> I still have to implement the calculation of LD in this script. I've been used fixed distances to determine SNP in LD with SV (+/- 10kb) or varying LD (+/- 50 kb and excluding the first +/- 10kb).
 
 It should be noted that I did small modifications to the original `rrblup.kfoldfoldCV()` function from Alex to adapt it to my needs. Thus, I'm using my version of this function, which is called `rrblup.kfoldfoldCV.numHapMap.input()`. Basically, the main difference is that my version requires a numeric hapmap format as input instead of the standard hapmap.
 
@@ -59,7 +59,7 @@ After running the `kfold_validation_on_sim_traits()` function, the genomic predi
 * all marker types were used when not subsetting marker data (1 = all SNPs, 2 = SNPs in LD with SV, 3 = SNPs with varying LD with SV, 4 = only SVs, or 5 = both SNPs and SVs), and all but `marker_data_type = 4` were used when subsetting SNPs to 1000 or 50;
 * testing arguments was set to `TRUE` (i.e., only 3 replicates of the simulated trait was analyzed).
 
-> **Note:** Check script to know which dataset file was used for each type of marker used.
+> Check script to know which dataset file was used for each type of marker used.
 
 
 
@@ -84,7 +84,7 @@ After running the `kfold_validation_on_sim_traits()` function, the genomic predi
 * SNPs were the only marker type used (`marker_data_type = 1`), because I still don't have the SV information for the USDA dataset;
 * testing arguments was set to `TRUE` (i.e., only 3 replicates of the simulated trait was analyzed).
 
-> **Note:** Once I get the SV data, I will be able to run the other options (2 to 5), similarly to the toy dataset.
+> Once I get the SV data, I will be able to run the other options (2 to 5), similarly to the toy dataset.
 
 
 
@@ -101,6 +101,11 @@ It will be interesting to test different parameters, such as the size of the lar
 
 
 <mark>TO DO:</mark>
-2. Make sure code follows Google style guide for R.
-3. Move `results_validations.R` to simulation folder, change the name of the script to `...`, and then run it to generate plots for different number of markers.
-4. Move `trait-sim_manuscript.R` to simulation folder, change the name of the script to `...`. Once everything is working, add loops to parse dataset instead of copying-pasting to alter parameter(s).
+* Run karyotype script for all extreme RILs for all crosses
+> It's important to check the number of recombinations per cromosome. At each generation you advance in RILs, you expect about 1-2 recombination events (although after later generations, F5-6, you should expect less because then you start recommbining blocks that have the same genotypes). For those RILs that have extreme genotypes, you should expect to see recombination more towards the end of chromosomes, that's why you would see a overrepressentation of one genotype (recombination is not always in the same place, it's a distribution).
+* Test different leveles of QTN effects. Look at Sam's code and find out what really is going on with the code: only large effect go for geometric series? Or does the geometric series start from the smallest effect QTLs.
+* Perhaps calculate LD with PLINK before using R. To speed up time, since package "genetics" is taking too long.
+> <mark>Ask Candy:</mark> Do I need to use some sort of window approach to calculate LD? Or should I calculate all pairwise LD between all markers and then take the average R^2 for a certain window (and only then select SNPs linked to SV)?
+* Make sure code follows Google style guide for R.
+* Move `results_validations.R` to simulation folder, change the name of the script to `...`, and then run it to generate plots for different number of markers.
+* Move `trait-sim_manuscript.R` to simulation folder, change the name of the script to `...`. Once everything is working, add loops to parse dataset instead of copying-pasting to alter parameter(s).
