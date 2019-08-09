@@ -100,6 +100,15 @@ Looking at the plots from the toy dataset, you can see that using only SVs to pr
 It will be interesting to test different parameters, such as the size of the large and small effects.
 
 
+## Preliminary SV calls dataset
+
+On August 9, 2019, Patrick sent me 5 `.vcf` files containing structural variation calls from the software Lumpy. Each file is a SV call of 100 lines against one of the following reference genomes: B73, Mo17, PH207, PHB47, or W22. **This results are preliminary** and there are a lot of false-positives in there. However, they will be useful for me to write scripts to select the 8 lines I need, project the SVs from parents to RILs, and incorporate these "real" SV data in my simulation scripts (instead of the fake toy dataset).
+
+The files are located at `tests/data/`, and I will use only the SVs called against the B73 reference genome `B73v4_2019-08-09.ls.RT.vcf` for testing.
+
+
+
+
 <mark>TO DO:</mark>
 * Run karyotype script for all extreme RILs for all crosses
 > It's important to check the number of recombinations per cromosome. At each generation you advance in RILs, you expect about 1-2 recombination events (although after later generations, F5-6, you should expect less because then you start recommbining blocks that have the same genotypes). For those RILs that have extreme genotypes, you should expect to see recombination more towards the end of chromosomes, that's why you would see a overrepressentation of one genotype (recombination is not always in the same place, it's a distribution).
