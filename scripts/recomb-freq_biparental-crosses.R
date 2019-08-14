@@ -211,7 +211,8 @@ EstimateRecombinationFreq <- function(cross, plot = FALSE) {
   checkAlleles(rqtl, threshold = 5)
   
   # retrieve recombination frequency and physical positions and add them in the same df
-  df.gen.phys.positions <- data.frame(chr = as.numeric(), pos = as.numeric(), rf = as.numeric())
+  df.gen.phys.positions <- data.frame(chr = as.numeric(), pos = as.numeric(), rf = as.numeric(),
+                                      pop_size = as.numeric())
   
   # chrm names are strings, and they have a white space for chrm <10
   for (chr in c(" 1", " 2", " 3", " 4", " 5", " 6", " 7", " 8", " 9", "10")) {
@@ -229,11 +230,14 @@ EstimateRecombinationFreq <- function(cross, plot = FALSE) {
     # retrieve information of the physical positions of markers in a chromosome
     pos.chrm <- pull.map(rqtl, chr = chr, as.table = TRUE)
     
+    # add info about how many individual there in the population
+    pop_size <- NROW(rqtl$pheno)
+    
     # make sure the marker names match in both rf and physical positions
     if (all(names(rf) == rownames(pos.chrm))) {
       for (i in 1:length(rf)) {
         # add them into the same df
-        df.gen.phys.per.chr <- cbind(pos.chrm, rf)
+        df.gen.phys.per.chr <- cbind(pos.chrm, rf, pop_size)
       }
     } else {
       cat("\n'rf' and 'pos.chrm' have different marker names")
