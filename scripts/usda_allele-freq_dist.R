@@ -32,6 +32,7 @@ for (cross in cross.list) {
   markers.filename <- paste0("analysis/qc/", cross, "/recomb-freq_", cross, "_rils.txt")
   markers.infile <- fread(markers.filename, header = TRUE, data.table = FALSE)
   markers <- markers.infile[, "marker"]
+  pop.size <- markers.infile[1, "pop_size"]
   
   # read in tassel summary table
   tassel.filename <- paste0("analysis/qc/", cross, "/", cross, "_SiteSummary.txt")
@@ -62,8 +63,7 @@ for (cross in cross.list) {
     scale_x_continuous(name = "Allele Frequency", limits = c(0, 1), breaks = seq(0,1,0.25)) + 
     scale_fill_manual(values = "#053061") +
     labs(title = paste0(cross),
-         subtitle = paste0("Population size = ", tassel.infile[1,"Number of Taxa"], " / markers = ",
-                           NROW(tassel.infile)),
+         subtitle = paste0("Population size = ", pop.size, " / markers = ", NROW(tassel.infile)),
          y = "Count")
   
   # save plot
