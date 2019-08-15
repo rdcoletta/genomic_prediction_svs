@@ -137,7 +137,10 @@ for (RIL.pop in RIL.pop.list) {
             axis.ticks.x = element_blank(),
             panel.grid.major = element_blank(),
             panel.grid.minor = element_blank(),
-            plot.caption = element_text(size = rel(1.1), color = "DimGray")) + 
+            plot.caption = element_text(size = rel(1.1), color = "DimGray"),
+            axis.text = element_text(size=rel(2)),
+            axis.title = element_text(size=rel(2)),
+            strip.text.x = element_text(size=rel(2))) +
       facet_grid(cols = vars(chr), switch = "y") +
       labs(caption = paste0(RIL.pop, " - ", gsub("RIL_", "RIL ", RIL), "\n\n",
                             "AA freq (blue): ", round(geno.freq.AA, digits = 2), "\n",

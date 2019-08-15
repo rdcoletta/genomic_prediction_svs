@@ -61,10 +61,12 @@ for (cross in cross.list) {
   ggplot(allele.freq, aes(x = AF_value, fill = "#053061")) +
     geom_histogram(binwidth = 0.07, show.legend = FALSE) +
     scale_x_continuous(name = "Allele Frequency", limits = c(0, 1), breaks = seq(0,1,0.25)) + 
-    scale_fill_manual(values = "#053061") +
+    scale_fill_manual(values = "black") +
     labs(title = paste0(cross),
          subtitle = paste0("Population size = ", pop.size, " / markers = ", NROW(tassel.infile)),
-         y = "Count")
+         y = "Count") +
+    theme(axis.text = element_text(size=rel(2)),
+          axis.title = element_text(size=rel(2)))
   
   # save plot
   figure_name <- paste0("analysis/qc/", cross, "/allele-freq_dist_", cross, ".png")
