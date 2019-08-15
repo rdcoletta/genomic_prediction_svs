@@ -100,21 +100,36 @@ Looking at the plots from the toy dataset, you can see that using only SVs to pr
 It will be interesting to test different parameters, such as the size of the large and small effects.
 
 
-## Preliminary SV calls dataset
+
+
+# Preliminary SV calls dataset
 
 On August 9, 2019, Patrick sent me 5 `.vcf` files containing structural variation calls from the software Lumpy. Each file is a SV call of 100 lines against one of the following reference genomes: B73, Mo17, PH207, PHB47, or W22. **This results are preliminary** and there are a lot of false-positives in there. However, they will be useful for me to write scripts to select the 8 lines I need, project the SVs from parents to RILs, and incorporate these "real" SV data in my simulation scripts (instead of the fake toy dataset).
 
 The files are located at `tests/data/`, and I will use only the SVs called against the B73 reference genome `B73v4_2019-08-09.ls.RT.vcf` for testing.
 
 
+## VCF to Hapmap format
+
+I wrote the python script `tests/scripts/vcf2hapmap.py` which extract information about structural variants and transform into a numeric hapmap format. Since the `.vcf` file that Patrick sent me contains 100 inbred lines, I had to select only the 7 inbred parents used in the USDA project (you provide this information as an argument in the command line). The type of SV is displayed in the marker ID (e.g., `del.[ID]` for deletions, and `dup.[ID]` for duplications). Each line will have either a value of `0` if it doesn't have the SV, or `2` if it has the SV. Also, since SVs spam hundreds (or thousands) of bp and the exact breakpoints are hard to call, the position indicated in the hapmap file is the middle point of the SV.
+
+The conversion from VCF to Hapmap was quickly executed by the following commands to generate the file `tests/data/usda_SVs_7parents.hmp.txt`:
+
+```bash
+cd tests/scripts/
+# for help on how to use this script
+python vcf2hapmap.py --help
+# run the script
+python vcf2hapmap.py ../data/B73v4_2019-08-09.ls.RT.vcf ../data/usda_SVs_7parents.hmp.txt B73,LH82,PH207,PHG35,PHG39,PHG47,PHJ40
+```
+
+
+
+## Projection of SVs from parents to RILs
+
+
+
 
 
 <mark>TO DO:</mark>
-* Run karyotype script for all extreme RILs for all crosses
-> It's important to check the number of recombinations per cromosome. At each generation you advance in RILs, you expect about 1-2 recombination events (although after later generations, F5-6, you should expect less because then you start recommbining blocks that have the same genotypes). For those RILs that have extreme genotypes, you should expect to see recombination more towards the end of chromosomes, that's why you would see a overrepressentation of one genotype (recombination is not always in the same place, it's a distribution).
 * Test different leveles of QTN effects. Look at Sam's code and find out what really is going on with the code: only large effect go for geometric series? Or does the geometric series start from the smallest effect QTLs.
-* Perhaps calculate LD with PLINK before using R. To speed up time, since package "genetics" is taking too long.
-> <mark>Ask Candy:</mark> Do I need to use some sort of window approach to calculate LD? Or should I calculate all pairwise LD between all markers and then take the average R^2 for a certain window (and only then select SNPs linked to SV)?
-* Make sure code follows Google style guide for R.
-* Move `results_validations.R` to simulation folder, change the name of the script to `...`, and then run it to generate plots for different number of markers.
-* Move `trait-sim_manuscript.R` to simulation folder, change the name of the script to `...`. Once everything is working, add loops to parse dataset instead of copying-pasting to alter parameter(s).
