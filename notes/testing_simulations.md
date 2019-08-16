@@ -111,21 +111,22 @@ The files are located at `tests/data/`, and I will use only the SVs called again
 
 ## VCF to Hapmap format
 
-I wrote the python script `tests/scripts/vcf2hapmap.py` which extract information about structural variants and transform into a numeric hapmap format. Since the `.vcf` file that Patrick sent me contains 100 inbred lines, I had to select only the 7 inbred parents used in the USDA project (you provide this information as an argument in the command line). The type of SV is displayed in the marker ID (e.g., `del.[ID]` for deletions, and `dup.[ID]` for duplications). Each line will have either a value of `0` if it doesn't have the SV, or `2` if it has the SV. Also, since SVs spam hundreds (or thousands) of bp and the exact breakpoints are hard to call, the position indicated in the hapmap file is the middle point of the SV.
+I wrote the python script `tests/scripts/vcf2hapmap.py` which extract information about structural variants and transform into a numeric hapmap format file sorted by chromosome and positions. Since the `.vcf` file that Patrick sent me contains 100 inbred lines, I had to select only the 7 inbred parents used in the USDA project (you provide this information as an argument in the command line). The type of SV is displayed in the marker ID (e.g., `del.[ID]` for deletions, and `dup.[ID]` for duplications). Each line will have either a value of `0` if it doesn't have the SV, or `2` if it has the SV. Also, since SVs spam hundreds (or thousands) of bp and the exact breakpoints are hard to call, the position indicated in the hapmap file is the middle point of the SV.
 
-The conversion from VCF to Hapmap was quickly executed by the following commands to generate the file `tests/data/usda_SVs_7parents.hmp.txt`:
+The conversion from VCF to Hapmap was quickly executed by the following commands to generate the file `tests/data/usda_SVs_7parents.sorted.hmp.txt`:
 
 ```bash
 cd tests/scripts/
 # for help on how to use this script
 python vcf2hapmap.py --help
 # run the script
-python vcf2hapmap.py ../data/B73v4_2019-08-09.ls.RT.vcf ../data/usda_SVs_7parents.hmp.txt B73,LH82,PH207,PHG35,PHG39,PHG47,PHJ40
+python vcf2hapmap.py ../data/B73v4_2019-08-09.ls.RT.vcf ../data/usda_SVs_7parents.sorted.hmp.txt B73,LH82,PH207,PHG35,PHG39,PHG47,PHJ40
 ```
 
 
 
 ## Projection of SVs from parents to RILs
+
 
 
 

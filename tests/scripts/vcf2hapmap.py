@@ -7,6 +7,8 @@ created by Rafael Della Coletta
 
 
 import argparse as ap
+import pandas as pd
+
 
 # initialize argument parser (pass user input from command line to script)
 parser = ap.ArgumentParser(formatter_class=ap.RawDescriptionHelpFormatter,
@@ -14,7 +16,7 @@ parser = ap.ArgumentParser(formatter_class=ap.RawDescriptionHelpFormatter,
 description: this script reads a VCF file containing structural variant calls,
              and transform it into a numeric hapmap file.
 
-example: vcf2hapmap.py my_file.vcf my_results.hmp.txt B73,LH82,PH207''')
+example: vcf2hapmap.py my_file.vcf my_results.sorted.hmp.txt B73,LH82,PH207''')
 # add positional arguments
 parser.add_argument("vcf_file", type=str,
                     help="VCF file with SV calls")
@@ -95,6 +97,7 @@ for line in infile:
             else:
                 genotype = "0"
             inbreds_geno.append(genotype)
+        # write output
         print(id, "NA", chr, pos, "NA", "NA", "NA", "NA", "NA", "NA", "NA",
               "\t".join(inbreds_geno), sep="\t", file=outfile)
 
@@ -102,3 +105,19 @@ for line in infile:
 # close files
 infile.close()
 outfile.close()
+
+
+# since i was using the middle point of the SV as the its position in the
+# hapmap file, it's possible that the position of the SVs are not ordered
+# correctly (i.e., ascending order). Thus, i need to open previous output
+# and sort SVs by chromosome and position
+
+
+# open file as data frame
+hapmap = pd.read_table(output_name, sep="\t", keep_default_na=False)
+
+# sort by chromosome and then by position
+hapmap_sorted = hapmap.sort_values(["chrom", "pos"])
+
+# write sorted hapmap
+hapmap_sorted.to_csv(output_name, sep="\t", index=False)
