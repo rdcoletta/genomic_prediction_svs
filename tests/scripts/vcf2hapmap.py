@@ -93,12 +93,12 @@ for line in infile:
             # print(line[index])
             inbred_info = line[index].split(":")
             if inbred_info[0] == "1/1":
-                genotype = "2"
+                genotype = "TT"
             else:
-                genotype = "0"
+                genotype = "AA"
             inbreds_geno.append(genotype)
         # write output
-        print(id, "NA", chr, pos, "NA", "NA", "NA", "NA", "NA", "NA", "NA",
+        print(id, "A/T", chr, pos, "NA", "NA", "NA", "NA", "NA", "NA", "NA",
               "\t".join(inbreds_geno), sep="\t", file=outfile)
 
 
