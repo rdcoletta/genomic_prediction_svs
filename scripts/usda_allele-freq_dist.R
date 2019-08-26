@@ -81,29 +81,10 @@ extreme.markers <- unlist(extreme.markers.list, use.names = FALSE)
 
 # total number of markers found
 length(extreme.markers)
-# 1119
+# 975
 
 # total number of unique markers (i.e., without markers that show up in more than one population)
 length(unique(extreme.markers))
-# 1038
+# 910
 
-# only 81 markers have AF < 0.25 or > 0.75 in more than one population, and the majority of such
-# markers are unique to 
-
-
-# how many of the 1038 markers that have extreme AF in only one population are actually present in
-# other population and has AF between 0.25 and 0.75?
-for (i in 1:length(all.markers.list)) {
-  print(
-    round(sum(extreme.markers.unique %in% all.markers.list[[i]]) / length(extreme.markers.unique),
-          digits = 2)
-  )
-}
-
-# how many of the 81 markers with extreme AF in more than one population are present in each population?
-for (i in 1:length(all.markers.list)) {
-  print(
-    round(sum(extreme.markers.duplicated %in% extreme.markers.list[[i]]) / length(extreme.markers.duplicated),
-          digits = 2)
-  )
-}
+# only 65 (975 - 910) markers have AF < 0.25 or > 0.75 in more than one population

@@ -41,6 +41,11 @@ geno2hmp <- function(geno_file, outfile_path, id_table_outfile_path, names = TRU
     colnames(hmp_data)[12:NCOL(hmp_data)] <- as.character(geno_data[2,4:NCOL(geno_data)])
   }
   
+  # convert missing data "-" to "N"
+  hmp_data[, 12:NCOL(hmp_data)] <- apply(X = hmp_data[, 12:NCOL(hmp_data)],
+                                         MARGIN = c(1,2),
+                                         FUN = function(x) gsub(pattern = "-", replacement = "N", x))
+  
   # print hapmap converted genotypic data
   fwrite(hmp_data, file = outfile_path, sep = "\t", na = NA, quote = FALSE)
   
@@ -83,6 +88,12 @@ ril_data2 <- fread("data/SNP_chip/Final_22kSNPs_DAS_UIUC_RILsGenotypeData-Part2_
 # filter part 2 so it has only the genotypic information
 ril_data2_filter <- ril_data2[-(1:2),4:NCOL(ril_data2)]
 colnames(ril_data2_filter) <- ril_data2[2,4:NCOL(ril_data2)]
+
+# convert missing data "-" to "N" from part 2
+ril_data2_filter <- data.frame(apply(X = ril_data2_filter,
+                                     MARGIN = c(1,2),
+                                     FUN = function(x) gsub(pattern = "-", replacement = "N", x)),
+                               check.names = FALSE)
 
 # append genotypic info of part 2 to 
 ril_data_combined <- cbind(ril_data1, ril_data2_filter)

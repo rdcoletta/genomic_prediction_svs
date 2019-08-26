@@ -48,7 +48,7 @@ Hmp2Rqtl <- function(cross) {
   missing.geno.parents <- c()
   for (row in 1:NROW(combined.hmp.filter)) {
     # return TRUE if there is a "-" on at least one of the parents genotypes
-    if (grepl("-", combined.hmp.filter[row,4]) || grepl("-", combined.hmp.filter[row,5])) {
+    if (grepl("N", combined.hmp.filter[row,4]) || grepl("N", combined.hmp.filter[row,5])) {
       missing.geno.parents <- append(missing.geno.parents, row)
     }
   }
@@ -85,8 +85,8 @@ Hmp2Rqtl <- function(cross) {
       if (all(ril.geno == parentB.geno)) {
         combined.hmp.filter[row,ril] <- "B"
       }
-      if (all(ril.geno == c("-","-"))) {
-        combined.hmp.filter[row,ril] <- "-"
+      if (all(ril.geno == c("N","N"))) {
+        combined.hmp.filter[row,ril] <- "N"
       }
       if (all(ril.geno == hetAB) || all(ril.geno == hetBA)) {
         combined.hmp.filter[row,ril] <- "H"

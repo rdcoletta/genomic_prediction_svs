@@ -53,7 +53,7 @@ id_table_22kSNPs_DAS_UIUC_ParentalGenotypeData.txt
 id_table_22kSNPs_DAS_UIUC_RILsGenotypeData.txt
 ```
 
-> RILs have their genotype ID instead of name because some RILs had multiple IDs. That's why I generated a list relating names to IDs.
+> RILs have their genotype ID instead of name because some RILs had multiple IDs. That's why I generated a list relating names to IDs. Also, I converted `-` to `N` to represent missing data for compatibility with TASSEL 5 software.
 
 Since there are genotypic data for more parents and RILs than used in the USDA project, I need to keep only the genotypes described in the USDA project that will have phenotypic data collected. To do this, Candy sent the file `data/2018_field_planning.xlsx` that contains all the RILs crossesd to generate the 400 hybrids. They can be found under **USDA crosses** on `X10_Nursery_Book` and `X9_Nursery_Book` sheets. I manually copied all this information and saved on file `data/usda_RILs_2018.txt`.
 
@@ -181,11 +181,11 @@ To estimate recombination frequency for each biparental population of all 325 RI
 
 **Plot allele frequencies of filtered markers**
 
-I also wrote the file `usda_allele-freq_dist.R`. This script extracts the marker names from the recombination frequency tables for each cross (`analysis/qc/{cross}/recomb-freq_{cross}_rils.txt`), which were filtered to be polymorphic between parents and not show segregation distortion, to filter Tassel's `_SiteSummary` tables. This filtered table was used to make plots of the distributions of allele frequencies for each biparental population. The output was stored their respective **cross folder** in `analysis/qc/`.
+I also wrote the file `scripts/usda_allele-freq_dist.R`. This script extracts the marker names from the recombination frequency tables for each cross (`analysis/qc/{cross}/recomb-freq_{cross}_rils.txt`), which were filtered to be polymorphic between parents and not show segregation distortion, to filter Tassel's `_SiteSummary` tables. This filtered table was used to make plots of the distributions of allele frequencies for each biparental population. The output was stored their respective **cross folder** in `analysis/qc/`.
 
 > Some of my first plots of the distributions had a weird shape. This was solved when I increased `binwidth` of histograms from `0.05` to `0.07`.
 
-Then, as Candy suggested, I checked if markers that have allele frequency < 0.25 or > 0.75 were the same across populations. The majority of such markers (1,038) are unique of a population, while only 81 of these markers have extreme allele frequencies in more than one population.
+Then, as Candy suggested, I checked if markers that have allele frequency < 0.25 or > 0.75 were the same across populations. The majority of such markers (910) are unique of a population, while only 65 of these markers have extreme allele frequencies in more than one population.
 
 
 **Karyotype of RILs**
@@ -211,9 +211,29 @@ As part of the R script `script/plot_ril_karyotypes.R`, I filtered the files abo
 
 After looking at the karyotypes from RIL 2 (genotype frequency ~50/50) and RIL 3 (genotype frequency ~25/75) of cross B73 x LH82, I was not able to see any striking difference or something weird that can be causing the deviation on allele frequency. I will show them to Candy, to see if she picks up anything.
 
+> It's important to check the number of recombinations per cromosome. At each generation you advance in RILs, you expect about 1-2 recombination events (although after later generations, F5-6, you should expect less because then you start recommbining blocks that have the same genotypes). For those RILs that have extreme genotypes, you should expect to see recombination more towards the end of chromosomes, that's why you would see a overrepressentation of one genotype (recombination is not always in the same place, it's a distribution).
+
+
+**Percent heterozygosity**
+
+<mark>TO DO:
+* For each RIL that has the same parent, check the % heterozigosity.
+
+
+
 **QC conclusion**
 
 The above results indicates that there is not apparent big problem in the dataset that will be used for simulations.
+
+
+### Parental data QC
+
+It's also important to make sure the parental lines also have good quality data, especially because parental genotypic data will be used for projection of SVs into RILs.
+
+<mark>TO DO:
+* Summary of parents from original SNP dataset: nnumber of homos, hets, missing data, and draw karyotype for each of them.
+* Check if SNP data comes from B73_v4 (to make sure the coordinates are correct); ask Martin or check the calls from B73 calls to see if it matches the reference.
+
 
 
 
@@ -225,9 +245,9 @@ I created a new folder called `tests` to store files from the tests I run while 
 Overall, preliminary results indicate that there is very little difference in prediction accuracies among simulated traits controlled by 3, 25 or 75 QTNs, while increasing trait heritability consistently increased prediction accuracy. Although increasing the number of markers used (50, 1000 or all) also increased prediction accuracy, it's interesting to see that there is not much difference between using 1000 or all 22,000 SNPs. These partial results can be visualized at `tests/analysis/test_usda-rils` folder.
 
 <mark>TO DO:</mark>
-* Write function to calculate LD between SNPs and SVs.
-* Simulate traits in multiple environments.
 * Project whole genome sequencing data with SVs to RILs (once data is available).
+* Simulate traits in multiple environments.
+
 
 
 
