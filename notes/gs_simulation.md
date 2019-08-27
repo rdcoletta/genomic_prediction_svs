@@ -214,11 +214,22 @@ After looking at the karyotypes from RIL 2 (genotype frequency ~50/50) and RIL 3
 > It's important to check the number of recombinations per cromosome. At each generation you advance in RILs, you expect about 1-2 recombination events (although after later generations, F5-6, you should expect less because then you start recommbining blocks that have the same genotypes). For those RILs that have extreme genotypes, you should expect to see recombination more towards the end of chromosomes, that's why you would see a overrepressentation of one genotype (recombination is not always in the same place, it's a distribution).
 
 
-**Percent heterozygosity**
+**Percent heterozygosity per RIL population**
 
-<mark>TO DO:
-* For each RIL that has the same parent, check the % heterozigosity.
+I wrote `scripts/markers_summary.R` to check number of missing, homozygous, and heterozygous genotypes in RILs (and parents). This script takes information from `data/usda_22kSNPs_325rils.sorted.diploid.hmp.txt` and `data/usda_biparental-crosses.txt` to calculate these summaries. The files generated were the table `summary_markers_325rils.txt` and the boxplots `summary_markers_325rils_missing-per-cross.png` and `summary_markers_325rils_het-per-cross.png` at the `analysis/qc` folder.
 
+By looking at the boxplot of missing data, what stands out is that cross `B73xPHG47` had the highest variation and amount of missing data than other populations, and few populations showed very few RILs with more extreme missing data. Although the maximum amount of missing data for a RIL was about 9%, the median amount of missing data per cross was below 2.5%.
+
+For heterozygous markers, they were also mostly between 0 and 3% (which would be the expected for an F6 population), however population `B73xPHG47` also displayed a lot of variation and higher values of heterozygous markers. Very few RILs displayed high levels of heterozygosity, but those values were much higher than the expected (between 10 to 30%).
+
+> I wrote this script to double check TASSEL's summary (in fact, the results are the same from the ones produced by TASSEL when using the `GenotypeSummary` plugin at `analysis/qc/{cross}/{cross}_TaxaSummary.txt`, but are now displayed in only one file), to generate plots and to do the same with parents genotypes (see below).
+
+
+**Percent heterozygosity per parent**
+
+The script `scripts/markers_summary.R` also checks the number of missing, homozygous and heterozygous genotypes in RILs that have the same parent. This can help identify any problems with a parent during generation of RILs. The boxplots `summary_markers_325rils_missing-per-parent.png` and `summary_markers_325rils_het-per-parent.png` were generated and saved at the `analysis/qc` folder. There is nothing that stands out in these plots, so I cannot see any parent that contributes with more heterozygosity or missing data.
+
+> Quick note that RILs for the parent PHJ40 were not genotyped (hence the 6 parents in the plots, instead of 7).
 
 
 **QC conclusion**
@@ -228,11 +239,11 @@ The above results indicates that there is not apparent big problem in the datase
 
 ### Parental data QC
 
-It's also important to make sure the parental lines also have good quality data, especially because parental genotypic data will be used for projection of SVs into RILs.
+It's also important to make sure the parental lines also have good quality data, especially because parental genotypic data will be used for projection of SVs into RILs. The `scripts/markers_summary.R` also summarizes the number of missing, homozygous and heterozygous markers for the parents. It uses information from `data/usda_22kSNPs_7parents.sorted.diploid.hmp.txt`. The files generated were the table `summary_markers_7parents.txt` and the boxplots `summary_markers_7parents_missing.png` and `summary_markers_7parents_het.png` at the `analysis/qc` folder. By looking at the bar plots, it's very clear that PHG35 has higher missing and het markers than other parents (~4% compared to ~0.3% of other parents).
 
-<mark>TO DO:
-* Summary of parents from original SNP dataset: nnumber of homos, hets, missing data, and draw karyotype for each of them.
-* Check if SNP data comes from B73_v4 (to make sure the coordinates are correct); ask Martin or check the calls from B73 calls to see if it matches the reference.
+Another way to inspect parents is by plotting the karyotypes with homo, het, and missing markers to see if there are some regions of the genome with higher proportion of hets and missing data. To do that, I wrote `scripts/plot_parents_karyotypes.R` based on my previous script to plot karyotypes for RILs. The karyotypes were saved in `analysis/qc/parents`.
+
+Looking at the karyotypes, the distribution of both missing and het markers seem to occur more further away from the centromeres but in a bit random way. Except for PHG35, I don't see any big clusters of missing and/or het markers. Since PHG35 had much more missing and het data than other parents, it's easier to see some clusters of such markers, which may due to difficulties in hybridization in the chip between PHG35 and B73 (reference genome). Perhaps, the SVs called between these two parents may corroborate this observation.
 
 
 
