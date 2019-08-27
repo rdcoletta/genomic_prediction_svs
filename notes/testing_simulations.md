@@ -109,33 +109,6 @@ On August 9, 2019, Patrick sent me 5 `.vcf` files containing structural variatio
 The files are located at `tests/data/`, and I will use only the SVs called against the B73 reference genome `B73v4_2019-08-09.ls.RT.vcf` for testing.
 
 
-## VCF to Hapmap format
-
-I wrote the python script `tests/scripts/vcf2hapmap.py` which extract information about structural variants and transform into a numeric hapmap format file sorted by chromosome and positions. Since the `.vcf` file that Patrick sent me contains 100 inbred lines, I had to select only the 7 inbred parents used in the USDA project (you provide this information as an argument in the command line).
-
-The type of SV is displayed in the marker ID (e.g., `del.[ID]` for deletions, and `dup.[ID]` for duplications). Each line will have either a value of `AA` if SV is `A`bsent, or `TT` if SV is `T`here. I had to do that because I will use Tassel to project genotypes from parents to RILs, and it doesn't accept anything other than nucleotides (thus, I couldn't use numbers to indicate presence/absence of SV, as originally thought).
-
-> After projection of parental genotypes into RILs, the hapmap will be transformed into the numeric format for genomic prediction simulations. Thus, for SVs, `AA` will be transformed into `0` and `TT` to `2`.
-
-Also, since SVs spam hundreds (or thousands) of bp and the exact breakpoints are hard to call, the position indicated in the hapmap file wil be the middle point of the SV.
-
-The conversion from VCF to Hapmap was quickly executed by the following commands to generate the file `tests/data/usda_SVs_7parents.sorted.hmp.txt`:
-
-```bash
-cd tests/scripts/
-# for help on how to use this script
-python vcf2hapmap.py --help
-# run the script
-python vcf2hapmap.py ../data/B73v4_2019-08-09.ls.RT.vcf ../data/usda_SVs_7parents.sorted.hmp.txt B73,LH82,PH207,PHG35,PHG39,PHG47,PHJ40
-```
-
-
-
-## Projection of SVs from parents to RILs
-
-
-
-
 
 
 

@@ -5,3 +5,4 @@ data/*
 *.Rhistory
 tests/analysis/*
 tests/data/*
+tests/scripts/id2pedigree.R
