@@ -86,7 +86,7 @@ for line in infile:
         else:
             sv_type = "dup"
         # add sv type into id
-        id = sv_type + "." + line[header_idx[2]]
+        id = sv_type + "." + chr + "." + str(sv_start) + "." + str(sv_end)
         # parse each inbred line (based on its index on header)
         inbreds_geno = []
         for index in header_idx[5:]:
