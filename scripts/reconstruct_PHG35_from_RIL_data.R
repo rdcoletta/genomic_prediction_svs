@@ -13,230 +13,167 @@ if(!require("ggplot2")) install.packages("ggplot2")
 
 
 
-CorrectAlleleColumn <- function(genotypes) {
-  
-  genotypes <- unique(genotypes)
-  alleles <- c()
-  for (geno in genotypes) {
-    allele <- unlist(strsplit(geno, split = ""))
-    alleles <- append(alleles,unique(allele))
-  }
-  alleles <- paste0(unique(alleles), collapse = "/")
-  return(alleles)
-  
-}
-
-
-
-CountGenotypes <- function(genotypes, allele1, allele2) {
-  
-  alleles <- unlist(strsplit(genotypes, split = ""))
-  if ("N" %in% alleles) {
-    return("missing")
-  } else {
-    if (alleles[1] == alleles[2] & alleles[1] == allele1) {
-      return("homo1")
-    } else if (alleles[1] == alleles[2] & alleles[1] == allele2) {
-      return("homo2")
-    } else {
-      return("het")
-    }
-  }
-  
-}
-
 
 # open file with crosses information and select only crosses with PHG35
 crosses <- fread(crosses.file, header = TRUE, data.table = FALSE)
 crosses <- crosses[grep("PHG35", crosses[, "cross"]), ]
 crosses[, "cross"] <- gsub("*", "x", crosses[, "cross"], fixed = TRUE)
 
+# create empty list to store PHG35 reconstruction for each cross
+reconstructed.PHG35.all.crosses <- list()
 
 for (cross in crosses[, "cross"]) {
-  
+
   # only parse PHG35 crosses that will be used for projection
   donors.list <- list.files(path = data.per.cross, pattern = "parents.sorted.hmp.txt",
                             recursive = TRUE, full.names = FALSE)
   donors.list <- gsub("usda_SNPs-SVs_", "", donors.list)
   donors.list <- gsub("_parents.sorted.hmp.txt", "", donors.list)
   donors.list <- donors.list[grep("PHG35", donors.list)]
-  
+
   if (cross %in% donors.list) {
-    
-    cat("Analyzing cross", cross)
-    
+
+    cat("Analyzing cross", cross, "\n")
+
     # load parental data
     parents.hmp <- list.files(path = data.per.cross, pattern = paste0(cross, "_parents.sorted.hmp.txt"),
-                             recursive = TRUE, full.names = TRUE)
+                              recursive = TRUE, full.names = TRUE)
     parents.hmp <- fread(parents.hmp, header = TRUE, data.table = FALSE)
-    
+
+    # get column number of non-PHG35 parent
+    parent2 <- unlist(strsplit(cross, split = "x"))
+    parent2 <- parent2[grep("PHG35", parent2, invert = TRUE)]
+    col.reseq.parent2 <- which(colnames(parents.hmp) == parent2)
+
     # load ril data
     rils.hmp <- list.files(path = data.per.cross, pattern = paste0(cross, "_RILs.sorted.hmp.txt"),
                            recursive = TRUE, full.names = TRUE)
     rils.hmp <- fread(rils.hmp, header = TRUE, data.table = FALSE)
-    
-    # correct allelle columns on parental and ril data
-    parents.hmp[, "alleles"] <- apply(parents.hmp[, 12:NCOL(parents.hmp)], MARGIN = 1, FUN = CorrectAlleleColumn)
-    rils.hmp[, "alleles"] <- apply(rils.hmp[, 12:NCOL(rils.hmp)], MARGIN = 1, FUN = CorrectAlleleColumn)
-    
-    # check which SNP calls disagree
-    disagree <- c()
-    for (row in 1:NROW(parents.hmp)) {
-      
-      parents.alleles <- unlist(strsplit(parents.hmp[row, "alleles"], split = "/"))
-      rils.alleles <- unlist(strsplit(rils.hmp[row, "alleles"], split = "/"))
 
-      # ignore missing data
-      rils.alleles <- rils.alleles[grep("N", rils.alleles, invert = TRUE)]
-      
-      if (length(rils.alleles) > 0 & !all(rils.alleles %in% parents.alleles)) {
-        disagree <- append(disagree, row)
-      }
-      
-    }
-    
-    # for each snp that disagrees:
-    #   - see if one of the parents call is missing
-    #   - if parents alleles are not missing, see what's the proportion of allele1 and allele2 and how many homo1, het and homo2
-    
-    
-    df.disagree <- data.frame(matrix(nrow = 0, ncol = 9))
-    colnames(df.disagree) <- list("SNP", "alleles_parents", "alleles_rils", "missing_in_PHG35_reseq",
-                                  "missing_in_other_parent_reseq", "homo1", "het", "homo2", "missing")
-    
-    parents <- unlist(strsplit(cross, split = "x"))
-    not.PHG35.parent <- parents[parents != "PHG35"]
-    
-    for (snp in disagree) {
-      
-      if ("NN" %in% parents.hmp[snp, "PHG35"] & "NN" %in% parents.hmp[snp, not.PHG35.parent]) {
-        df.disagree <- rbind(df.disagree, list(SNP = parents.hmp[snp, 1],
-                                               alleles_parents = parents.hmp[snp, 2],
-                                               alleles_rils = rils.hmp[snp, 2],
-                                               missing_in_PHG35_reseq = TRUE,
-                                               missing_in_other_parent_reseq = TRUE,
-                                               homo1 = NA,
-                                               het = NA,
-                                               homo2 = NA,
-                                               missing = NA),
-                             stringsAsFactors = FALSE)
-        
-      } else if ("NN" %in% parents.hmp[snp, "PHG35"]) {
-        df.disagree <- rbind(df.disagree, list(SNP = parents.hmp[snp, 1],
-                                               alleles_parents = parents.hmp[snp, 2],
-                                               alleles_rils = rils.hmp[snp, 2],
-                                               missing_in_PHG35_reseq = TRUE,
-                                               missing_in_other_parent_reseq = FALSE,
-                                               homo1 = NA,
-                                               het = NA,
-                                               homo2 = NA,
-                                               missing = NA),
-                             stringsAsFactors = FALSE)
-        
-      } else if ("NN" %in% parents.hmp[snp, not.PHG35.parent]) {
-        df.disagree <- rbind(df.disagree, list(SNP = parents.hmp[snp, 1],
-                                               alleles_parents = parents.hmp[snp, 2],
-                                               alleles_rils = rils.hmp[snp, 2],
-                                               missing_in_PHG35_reseq = FALSE,
-                                               missing_in_other_parent_reseq = TRUE,
-                                               homo1 = NA,
-                                               het = NA,
-                                               homo2 = NA,
-                                               missing = NA),
-                             stringsAsFactors = FALSE)
-        
-      } else {
-        
-        ril.alleles <- unlist(strsplit(rils.hmp[snp, 2], split = "/"))
-        ril.alleles <- ril.alleles[ril.alleles != "N"]
-        allele1 <- ril.alleles[1]
-        allele2 <- ril.alleles[2]
-        
-        # count genotypes
-        geno.count <- sapply(rils.hmp[snp, 12:NCOL(rils.hmp)], FUN = CountGenotypes, allele1, allele2)
-        # tally up genotypes
-        homo1 <- round(sum(geno.count == "homo1") / length(geno.count), digits = 2)
-        het <- round(sum(geno.count == "het") / length(geno.count), digits = 2)
-        homo2 <- round(sum(geno.count == "homo2") / length(geno.count), digits = 2)
-        missing <- round(sum(geno.count == "missing") / length(geno.count), digits = 2)
-        
-        df.disagree <- rbind(df.disagree, list(SNP = parents.hmp[snp, 1],
-                                               alleles_parents = parents.hmp[snp, 2],
-                                               alleles_rils = rils.hmp[snp, 2],
-                                               missing_in_PHG35_reseq = FALSE,
-                                               missing_in_other_parent_reseq = FALSE,
-                                               homo1 = homo1,
-                                               het = het,
-                                               homo2 = homo2,
-                                               missing = missing),
-                             stringsAsFactors = FALSE)
-        
+    # create empty vector to store reconstructed PHG35 alleles
+    reconstructed.PHG35 <- rep("NN", times = NROW(parents.hmp))
+
+    for (row in 1:NROW(parents.hmp)) {
+
+      # skip SVs
+      if (!grepl("^del|^dup|^inv|^tra", parents.hmp[row, 1])) {
+
+        # get allele on resequencing data from non-PHG35 parent
+        alleles.parent2 <- unlist(strsplit(parents.hmp[row, col.reseq.parent2], split = ""))
+
+        # only proceed if allele in non-PHG35 parent is not missing and is homozygous
+        if (alleles.parent2[1] == alleles.parent2[2] & all(unique(alleles.parent2) != "N")) {
+
+          # get alleles on ril data
+          alleles.rils <- as.character(rils.hmp[row, 12:NCOL(rils.hmp)])
+          alleles.rils <- unlist(strsplit(paste0(alleles.rils, collapse = ""), split = ""))
+          # count allele frequency
+          df.allele.count <- data.frame(table(alleles.rils), stringsAsFactors = FALSE)
+          df.allele.count <- cbind(df.allele.count, percent = NA)
+          # but first exclude missing allele ("N") if there are other two alleles
+          if (NROW(df.allele.count) > 2) {
+            df.allele.count <- df.allele.count[which(df.allele.count[, "alleles.rils"] != "N"), ]
+          }
+          # get percent allele frequency
+          for (allele in 1:NROW(df.allele.count)) {
+            allele.freq <- df.allele.count[allele, "Freq"] / sum(df.allele.count[, "Freq"])
+            df.allele.count[allele, "percent"] <- round(allele.freq, digits = 2)
+          }
+
+          # keep only alleles with allele frequency > 0.05 (since it can be an artifact from SNP calling)
+          alleles.rils <- df.allele.count[which(df.allele.count[, "percent"] > 0.05), "alleles.rils"]
+          alleles.rils <- as.character(alleles.rils)
+
+          # exclude allele from non-PHG35 parent to get PHG35 allele
+          allele.PHG35 <- alleles.rils[!alleles.rils %in% alleles.parent2]
+
+          # if there's only one allele in "alleles.rils" it means it is monomorphic between the two
+          # parents, thus "allele.PHG35" should have the same allele as the other parent
+          if (length(allele.PHG35) == 0) {
+            allele.PHG35 <- unique(alleles.parent2)
+          }
+          # if there are two alleles remaining in "allele.PHG35" it means that there is either a
+          # third allele for this locus or there is missing data on rils and I can't confirm whether
+          # this missing allele is from PHG35 or parent2
+          if (length(allele.PHG35) > 1) {
+            allele.PHG35 <- "N"
+          }
+
+          # debug
+          if (length(reconstructed.PHG35[row]) != length(paste0(allele.PHG35, allele.PHG35))) {
+            print(row)
+          }
+
+
+          reconstructed.PHG35[row] <- paste0(allele.PHG35, allele.PHG35)
+          # note: there won't be any heterozygote for reconstructed PHG35
+
+        }
       }
     }
-    
-    total.missing.PHG35 <- sum(df.disagree[, "missing_in_PHG35_reseq"] == TRUE)
-    percent.missing.PHG35 <- (total.missing.PHG35 / NROW(df.disagree)) * 100
-    percent.missing.PHG35 <- round(percent.missing.PHG35, digits = 2)
-    
-    # cat("  ", total.missing.PHG35, " (", percent.missing.PHG35, "%) of disagreements are due to missing data on resequencing of PHG35 parent\n", sep = "")
-    cat(" (", NROW(df.disagree), " disagreements)\n", sep = "")
-    
-    
-    filter.alleles.both.parents <- sapply(df.disagree[, "alleles_parents"], FUN = function(alleles) {
-      alleles <- unlist(strsplit(alleles, split = "/"))
-      return(length(alleles))
-    })
-    
-    
-    # missing data in both parents
-    summary.missing.both <- NROW(df.disagree[which(filter.alleles.both.parents == 1 & df.disagree[, "missing_in_PHG35_reseq"] == TRUE), ])
-    cat("  ", summary.missing.both, " (", round((summary.missing.both / NROW(df.disagree)) * 100, digits = 2),
-        "%) of SNPs that disagree between parents and RILs are due to missing data both parents\n", sep = "")
-    
-    # missing data only in PHG35 parent
-    summary.missing.PHG35 <- NROW(df.disagree[which(filter.alleles.both.parents > 1 & df.disagree[, "missing_in_PHG35_reseq"] == TRUE), ])
-    cat("  ", summary.missing.PHG35, " (", round((summary.missing.PHG35 / NROW(df.disagree)) * 100, digits = 2),
-        "%) of SNPs that disagree between parents and RILs are due to missing data in PHG35 parent\n", sep = "")
-    
-    # missing data only in other parent
-    summary.missing.notPHG35 <- NROW(df.disagree[which(filter.alleles.both.parents > 1 & df.disagree[, "missing_in_PHG35_reseq"] == FALSE & df.disagree[, "missing_in_other_parent_reseq"] == TRUE), ])
-    
-    cat("  ", summary.missing.notPHG35, " (", round((summary.missing.notPHG35 / NROW(df.disagree)) * 100, digits = 2),
-        "%) of SNPs that disagree between parents and RILs are due to missing data in the non-PHG35 parent\n", sep = "")
-    
-    # what if I have monomorphic call for a SNP in RIL data mixed with missing data, and the parents
-    # data have the allele called in RILs? I can't know if the SNP is actually monomorphic, or if
-    # the missing data would actually be a different allele.
-    summary.undefined <- NROW(df.disagree[which(filter.alleles.both.parents == 1 & df.disagree[, "missing_in_PHG35_reseq"] == FALSE), ])
-    # View(df.disagree[which(filter.alleles.both.parents == 1 & df.disagree[, "missing_in_PHG35_reseq"] == FALSE), ])
-    
-    cat("  ", summary.undefined, " (", round((summary.undefined / NROW(df.disagree)) * 100, digits = 2),
-        "%) of SNPs that disagree between parents and RILs are due to uncertainty in SNP being mono or polymorphic\n", sep = "")
-    
-    # actual disagreement 
-    summary.actual.disagree <- NROW(df.disagree[which(filter.alleles.both.parents > 1 & df.disagree[, "missing_in_PHG35_reseq"] == FALSE & df.disagree[, "missing_in_other_parent_reseq"] == FALSE), ])
-    # View(df.disagree[which(filter.alleles.both.parents > 1 & df.disagree[, "missing_in_PHG35_reseq"] == FALSE & df.disagree[, "missing_in_other_parent_reseq"] == FALSE), ])
-    
-    cat("  ", summary.actual.disagree, " (", round((summary.actual.disagree / NROW(df.disagree)) * 100, digits = 2),
-        "%) of SNPs that disagree between parents and RILs are due to PHG35 allele being different between resequencing and SNP data\n\n", sep = "")
-    
-    
-    summary.df <- data.frame(reason_disagreement = factor(c("missing both\nparents", "missing PHG35", "missing other\nparent",
-                                       "uncertainty", "actual disagree"), levels = (c("missing both\nparents", "missing PHG35", "missing other\nparent",
-                                                                                      "uncertainty", "actual disagree"))),
-                             counts = c(summary.missing.both, summary.missing.PHG35, summary.missing.notPHG35,
-                                        summary.undefined, summary.actual.disagree))
-    
-    
-    if (!dir.exists("tests/analysis/PHG35_disagreements")) {
-      dir.create("tests/analysis/PHG35_disagreements")
-    }
-    
-    summary.plot <- ggplot(summary.df, aes(x = reason_disagreement, y = counts)) +
-      geom_col()
-    ggsave(filename = paste0("tests/analysis/PHG35_disagreements/", cross, "_summary.png"),
-           plot = summary.plot, device = "png")
-    
+
+    # append reconstructed PHG35 for this cross into list
+    reconstructed.PHG35.all.crosses[[cross]] <- reconstructed.PHG35
+
   }
-  
+}
+
+# get final reconstructed PHG35 by merging results from all crosses and transforming disagreements
+# in missing data
+reconstructed.PHG35.df <- data.frame(do.call(cbind, reconstructed.PHG35.all.crosses), stringsAsFactors = FALSE)
+reconstructed.PHG35.final <- apply(reconstructed.PHG35.df[, ], MARGIN = 1, function(genotypes) {
+  # get unique genotypes among all crosses for that SNP
+  genotypes <- unique(genotypes)
+  # if there are more than one genotype
+  if (length(genotypes) > 1) {
+    # exclude missing data
+    genotypes <- genotypes[genotypes != "NN"]
+    # even if after excluding missing data, there is more than one unique genotype, make SNP as NN
+    if (length(genotypes) > 1) {
+      genotypes <- "NN"
+    }
+  }
+  return(genotypes)
+})
+
+
+# sum(reconstructed.PHG35.final != "NN")
+
+
+# fix all parental data with the new reconstructed PHG35 data
+# make sure to not replace the SV calls though
+
+for (cross in crosses[, "cross"]) {
+
+  # only parse PHG35 crosses that will be used for projection
+  donors.list <- list.files(path = data.per.cross, pattern = "parents.sorted.hmp.txt",
+                            recursive = TRUE, full.names = FALSE)
+  donors.list <- gsub("usda_SNPs-SVs_", "", donors.list)
+  donors.list <- gsub("_parents.sorted.hmp.txt", "", donors.list)
+  donors.list <- donors.list[grep("PHG35", donors.list)]
+
+  if (cross %in% donors.list) {
+
+    cat("Analyzing cross", cross, "\n")
+
+    # load parental data
+    parents.hmp <- list.files(path = data.per.cross, pattern = paste0(cross, "_parents.sorted.hmp.txt"),
+                              recursive = TRUE, full.names = TRUE)
+    parents.hmp <- fread(parents.hmp, header = TRUE, data.table = FALSE)
+
+    for (row in 1:NROW(parents.hmp)) {
+      # skip SVs
+      if (!grepl("^del|^dup|^inv|^tra", parents.hmp[row, 1])) {
+        # change resequencing data
+        parents.hmp[row, "PHG35"] <- reconstructed.PHG35.final[row]
+      }
+    }
+
+    # write fixed hmp file
+    fixed.outfile <- list.files(path = data.per.cross, pattern = paste0(cross, "_parents.sorted.hmp.txt"),
+                                recursive = TRUE, full.names = TRUE)
+    fixed.outfile <- gsub("sorted.hmp.txt", "sorted.PHG35-reconstructed.hmp.txt", fixed.outfile)
+    fwrite(parents.hmp, file = fixed.outfile, quote = FALSE, sep = "\t", na = "NA", row.names = FALSE)
+
+  }
 }
