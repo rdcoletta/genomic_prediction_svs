@@ -64,3 +64,26 @@ This script generated these files on `data/` folder:
   ```
 
 > RILs have their genotype ID instead of name because some RILs had multiple IDs. That's why I generated a list relating names to IDs. Also, I converted `-` to `N` to represent missing data for compatibility with TASSEL 5 software.
+
+Since there are genotypic data for more parents and RILs than used in the USDA project, I need to keep only the genotypes described in the USDA project that will have phenotypic data collected. To do this, Candy sent the file `data/2018_field_planning.xlsx` that contains all the RILs crossesd to generate the 400 hybrids. They can be found under **USDA crosses** on `X10_Nursery_Book` and `X9_Nursery_Book` sheets. I manually copied all this information and saved on file `data/usda_RILs_2018.txt`.
+
+> Taking a quick look at this file, I noticed that there are only 328 unique RILs and one hybrid (LH82*PHG47). I'm not sure why there is a F1 cross there, so I need to ask Candy. Also, I was expecting more RILs to generate the hybrids (328 vs 525 RILs). It will be good to talk to Candy about that.
+
+The `scripts/remove_extra_geno-data.R` script removes extra genotypic data that will not be used in the USDA project from hapmap files:
+
+```bash
+Rscript scripts/remove_extra_geno-data.R data/Final_22kSNPs_DAS_UIUC_ParentalGenotypeData_122318.hmp.txt \
+                                         data/usda_22kSNPs_7parents.hmp.txt \
+                                         data/Final_22kSNPs_DAS_UIUC_RILsGenotypeData_122318.hmp.txt \
+                                         data/usda_22kSNPs_325rils.hmp.txt \
+                                         data/usda_RILs_2018.txt
+```
+
+This file generated the following files on `data/` folder, and will be used in further downstream analysis:
+
+```bash
+# parental data
+usda_22kSNPs_7parents.hmp.txt
+# RIL data (325 out of 328 RILs were genotyped)
+usda_22kSNPs_325rils.hmp.txt
+```
