@@ -6,3 +6,6 @@ data/*
 tests/analysis/*
 tests/data/*
 tests/scripts/id2pedigree.R
+plink*
+GAPIT*
+*.pdf

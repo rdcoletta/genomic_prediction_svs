@@ -1,26 +1,58 @@
-#### description ----
+#### arguments for command line ----
 
-# tranform genotypic data of 22k SNPs from both parental lines and RILs from USDA project
+args <- commandArgs(trailingOnly = TRUE)
+
+# help
+if (all(length(args) == 1 & args == "-h" | args == "--help")) {
+  cat("
+Description: this script tranforms genotypic data of 22k SNPs from both
+             parental lines and RILs from the USDA project
+
+Usage: Rscript usda_geno2hmp.R parents_file rils_file1 rils_file2 output_folder")
+  quit()
+}
+
+# make sure the correct number of arguments are used
+if (length(args) != 4) {
+  stop("incorrect number of arguments provided.
+  
+Usage: Rscript usda_geno2hmp.R parents_file rils_file1 rils_file2 output_folder
+       ")
+}
+
+# assign arguments to variables
+parents.file <- args[1]
+rils1.file <- args[2]
+rils2.file <- args[3]
+output.folder <- args[4]
+
+
+# parents.file <- "data/SNP_chip/Final_22kSNPs_DAS_UIUC_ParentalGenotypeData_122318.csv"
+# rils1.file <- "data/SNP_chip/Final_22kSNPs_DAS_UIUC_RILsGenotypeData-Part1_122318.csv"
+# rils2.file <- "data/SNP_chip/Final_22kSNPs_DAS_UIUC_RILsGenotypeData-Part2_122318.csv"
+# output.folder <- "data"
 
 
 
-#### libraries used ----
+#### libraries ----
 
-library(data.table)
+if(!require("data.table")) install.packages("data.table")
+
 
 
 
 #### functions ----
 
-geno2hmp <- function(geno_file, outfile_path, id_table_outfile_path, names = TRUE) {
+geno2hmp <- function(geno.file, output.folder, names = TRUE) {
+  
   # read in table
-  geno_data <- fread(geno_file, header = FALSE, data.table = F)
+  geno.data <- fread(geno.file, header = FALSE, data.table = FALSE)
   
   # create hapmap structrue
-  hmp_data <- data.frame("rs" = geno_data[-(1:2),1],
+  hmp.data <- data.frame("rs" = geno.data[-(1:2),1],
                          "alleles" = NA,
-                         "chrom" = geno_data[-(1:2),2],
-                         "pos" = geno_data[-(1:2),3],
+                         "chrom" = geno.data[-(1:2),2],
+                         "pos" = geno.data[-(1:2),3],
                          "strand" = NA,
                          "assembly" = NA,
                          "center" = NA,
@@ -30,40 +62,47 @@ geno2hmp <- function(geno_file, outfile_path, id_table_outfile_path, names = TRU
                          "QCcode" = NA)
   
   # add genotypes
-  hmp_data <- cbind(hmp_data, geno_data[-(1:2),4:NCOL(geno_data)])
+  hmp.data <- cbind(hmp.data, geno.data[-(1:2),4:NCOL(geno.data)])
   
   if (names == TRUE) {
     # include genotype names as column names
-    colnames(hmp_data)[12:NCOL(hmp_data)] <- as.character(geno_data[1,4:NCOL(geno_data)])
+    colnames(hmp.data)[12:NCOL(hmp.data)] <- as.character(geno.data[1,4:NCOL(geno.data)])
   }
   if (names == FALSE) {
     # include genotype IDs as column names
-    colnames(hmp_data)[12:NCOL(hmp_data)] <- as.character(geno_data[2,4:NCOL(geno_data)])
+    colnames(hmp.data)[12:NCOL(hmp.data)] <- as.character(geno.data[2,4:NCOL(geno.data)])
   }
   
   # convert missing data "-" to "N"
-  hmp_data[, 12:NCOL(hmp_data)] <- apply(X = hmp_data[, 12:NCOL(hmp_data)],
+  hmp.data[, 12:NCOL(hmp.data)] <- apply(X = hmp.data[, 12:NCOL(hmp.data)],
                                          MARGIN = c(1,2),
                                          FUN = function(x) gsub(pattern = "-", replacement = "N", x))
   
-  # print hapmap converted genotypic data
-  fwrite(hmp_data, file = outfile_path, sep = "\t", na = NA, quote = FALSE)
+  # create output name
+  outname <- rev(unlist(strsplit(geno.file, split = "/")))[1]
+  outname <- gsub(".csv", ".hmp.txt", outname, fixed = TRUE)
+  outname <- gsub("-Part[0-9]", "", outname , perl = TRUE)
+  # hmp file
+  outfile.path <- paste0(output.folder, "/", outname)
+  # id table
+  id.table.outfile.path <- gsub(".hmp.txt", ".txt", outname, fixed = TRUE)
+  id.table.outfile.path <- paste0(output.folder, "/id_table_", id.table.outfile.path)
   
+  # print hapmap converted genotypic data
+  fwrite(hmp.data, file = outfile.path, sep = "\t", na = NA, quote = FALSE)
   
   # also print a table relating parent name and its ID when genotyping
-  id_table <- data.frame("genotype_name" = as.character(geno_data[1,4:NCOL(geno_data)]),
-                         "genotype_id" = as.character(geno_data[2,4:NCOL(geno_data)]))
-  fwrite(id_table, file = id_table_outfile_path, sep = "\t")
+  id.table <- data.frame("genotype_name" = as.character(geno.data[1,4:NCOL(geno.data)]),
+                         "genotype_id" = as.character(geno.data[2,4:NCOL(geno.data)]))
+  fwrite(id.table, file = id.table.outfile.path, sep = "\t")
 }
 
 
 
 #### parental data ----
 
-geno2hmp(geno_file = "data/SNP_chip/Final_22kSNPs_DAS_UIUC_ParentalGenotypeData_122318.csv",
-         outfile_path = "data/Final_22kSNPs_DAS_UIUC_ParentalGenotypeData_122318.hmp.txt",
-         id_table_outfile_path = "data/id_table_22kSNPs_DAS_UIUC_ParentalGenotypeData.txt",
-         names = TRUE)
+cat("Converting parental data\n")
+geno2hmp(geno.file = parents.file, output.folder = output.folder, names = TRUE)
 
 
 
@@ -72,46 +111,51 @@ geno2hmp(geno_file = "data/SNP_chip/Final_22kSNPs_DAS_UIUC_ParentalGenotypeData_
 # this dataset is divided in two separate files. First, i will use function above to convert part 1
 # to hapmap, and then will append only genotypic information of part 2 into part 1
 
-geno2hmp(geno_file = "data/SNP_chip/Final_22kSNPs_DAS_UIUC_RILsGenotypeData-Part1_122318.csv",
-         outfile_path = "data/Final_22kSNPs_DAS_UIUC_RILsGenotypeData_122318.hmp.txt",
-         id_table_outfile_path = "data/id_table_22kSNPs_DAS_UIUC_RILsGenotypeData.txt",
-         names = FALSE)
+cat("Converting ril data\n")
+cat("  file 1\n")
+geno2hmp(geno.file = rils1.file, output.folder = output.folder, names = FALSE)
 
-
+cat("  file 2\n")
 # read ril data again
-ril_data1 <- fread("data/Final_22kSNPs_DAS_UIUC_RILsGenotypeData_122318.hmp.txt",
-                   header = TRUE, data.table = F)
+ril1.hmp <- rev(unlist(strsplit(rils1.file, split = "/")))[1]
+ril1.hmp <- gsub(".csv", ".hmp.txt", ril1.hmp, fixed = TRUE)
+ril1.hmp <- gsub("-Part[0-9]", "", ril1.hmp , perl = TRUE)
+ril1.hmp <- paste0(output.folder, "/", ril1.hmp)
 
-ril_data2 <- fread("data/SNP_chip/Final_22kSNPs_DAS_UIUC_RILsGenotypeData-Part2_122318.csv",
-                   header = FALSE, data.table = F)
+ril.data1 <- fread(ril1.hmp, header = TRUE, data.table = FALSE)
+ril.data2 <- fread(rils2.file, header = FALSE, data.table = FALSE)
 
 # filter part 2 so it has only the genotypic information
-ril_data2_filter <- ril_data2[-(1:2),4:NCOL(ril_data2)]
-colnames(ril_data2_filter) <- ril_data2[2,4:NCOL(ril_data2)]
+ril.data2.filter <- ril.data2[-(1:2),4:NCOL(ril.data2)]
+colnames(ril.data2.filter) <- ril.data2[2,4:NCOL(ril.data2)]
 
 # convert missing data "-" to "N" from part 2
-ril_data2_filter <- data.frame(apply(X = ril_data2_filter,
-                                     MARGIN = c(1,2),
+ril.data2.filter <- data.frame(apply(X = ril.data2.filter, MARGIN = c(1,2),
                                      FUN = function(x) gsub(pattern = "-", replacement = "N", x)),
                                check.names = FALSE)
 
 # append genotypic info of part 2 to 
-ril_data_combined <- cbind(ril_data1, ril_data2_filter)
-View(ril_data_combined)
+ril.data.combined <- cbind(ril.data1, ril.data2.filter)
+# View(ril.data.combined)
 
 # overwrite RIL data so it has both parts now
-fwrite(ril_data_combined, file = "data/Final_22kSNPs_DAS_UIUC_RILsGenotypeData_122318.hmp.txt",
-       sep = "\t", na = NA, quote = FALSE)
+fwrite(ril.data.combined, file = ril1.hmp, sep = "\t", na = NA, quote = FALSE)
 
 
 # append the rest of ids of part 2 on table that already has the part 1
-id_table_rils <- fread("data/id_table_22kSNPs_DAS_UIUC_RILsGenotypeData.txt",
-                       header = TRUE, data.table = F)
 
-id_table_ril_part2 <- data.frame("genotype_name" = as.character(ril_data2[1,4:NCOL(ril_data2)]),
-                                 "genotype_id" = as.character(ril_data2[2,4:NCOL(ril_data2)]))
+# id table
+id.table.file <- gsub(".hmp.txt", ".txt", ril1.hmp, fixed = TRUE)
+id.table.file <- gsub("/", "/id_table_", id.table.file)
 
-id_table_rils_combined <- rbind(id_table_rils, id_table_ril_part2)
+
+id.table.rils <- fread(id.table.file, header = TRUE, data.table = F)
+
+id.table.ril.part2 <- data.frame("genotype_name" = as.character(ril.data2[1,4:NCOL(ril.data2)]),
+                                 "genotype_id" = as.character(ril.data2[2,4:NCOL(ril.data2)]))
+
+id.table.rils.combined <- rbind(id.table.rils, id.table.ril.part2)
 
 # overwrite previous table file
-fwrite(id_table_rils_combined, file = "data/id_table_22kSNPs_DAS_UIUC_RILsGenotypeData.txt", sep = "\t")
+fwrite(id.table.rils.combined, file = id.table.file, sep = "\t")
+cat("Done!\n")
