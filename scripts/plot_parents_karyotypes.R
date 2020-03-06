@@ -1,47 +1,68 @@
-#### intro ----
+#### arguments for command line ----
 
-# plot karyotypes for parents
+args <- commandArgs(trailingOnly = TRUE)
 
-# code for plot was modified from Carles Hernandez-Ferrer's blog:
-# https://carleshf.github.io/chromosome_karyotype_plot_with_ggplot2/
+# help
+if (all(length(args) == 1 & args == "-h" | args == "--help")) {
+  cat("
+      Description: plot karyotypes of parents.
+      Credits: code for plot was modified from Carles Hernandez-Ferrer's blog at
+               https://carleshf.github.io/chromosome_karyotype_plot_with_ggplot2/
+      
+      
+      Usage: Rscript plot_parents_karyotypes.R [chr_info] [centromere_info] [parents_hapmap] [output_folder]")
+  quit()
+}
+
+# make sure the correct number of arguments are used
+if (length(args) != 4) {
+  stop("incorrect number of arguments provided.
+       
+       Usage: Rscript plot_parents_karyotypes.R [chr_info] [centromere_info] [parents_hapmap] [output_folder]
+       ")
+}
+
+# assign arguments to variables
+chr.info <- args[1]
+cent.info <- args[2]
+parents.file <- args[3]
+out.folder <- args[4]
+
+# chr.info <- "data/B73_RefGen_V4_chrm_info.txt"
+# cent.info <- "data/centromeres_Schneider-2016-pnas_v4.bed"
+# parents.file <- "data/usda_22kSNPs_7parents.sorted.diploid.hmp.txt"
+# out.folder <- "analysis/qc/parents"
 
 
 #### libraries ----
 
-library(ggplot2)
-library(data.table)
+if(!require("data.table")) install.packages("data.table")
+if(!require("ggplot2")) install.packages("ggplot2")
 
 
 
 #### load chromosome and centromere positions ----
 
 # chromosomes
-chrms <- read.delim("data/B73_RefGen_V4_chrm_info.txt", sep = "\t", header = TRUE)
-chrms <- data.frame(chr = chrms$chr,
-                    start_pos = 0,
-                    end_pos = chrms$length)
+chrms <- read.delim(chr.info, sep = "\t", header = TRUE)
+chrms <- data.frame(chr = chrms$chr, start_pos = 0, end_pos = chrms$length)
 
 # centromeres
-centros <- read.delim("data/centromeres_Schneider-2016-pnas_v4.bed", sep = "\t", header = TRUE)
-centros <- data.frame(chr = centros$chr,
-                      start_pos = centros$start_pos,
-                      end_pos = centros$end_pos)
+centros <- read.delim(cent.info, sep = "\t", header = TRUE)
+centros <- data.frame(chr = centros$chr, start_pos = centros$start_pos, end_pos = centros$end_pos)
 
 
 
 #### plot karyotypes ----
 
 # load data
-geno.parents <- fread("data/usda_22kSNPs_7parents.sorted.diploid.hmp.txt",
-                      header = TRUE, data.table = FALSE)
+geno.parents <- fread(parents.file, header = TRUE, data.table = FALSE)
 
 # get names of parents
 name.parents <- colnames(geno.parents)[12:NCOL(geno.parents)]
 
 # create folder to store results
-if (!dir.exists("analysis/qc/parents")) {
-  dir.create("analysis/qc/parents")
-}
+if (!dir.exists(out.folder)) dir.create(out.folder)
 
 
 for (parent in name.parents) {
@@ -115,7 +136,7 @@ for (parent in name.parents) {
                           "Missing markers (red): ", missing.count),
          x = "Chromosomes", y = "Genomic positions (Mb)")
   
-  karyo.name <- paste0("analysis/qc/parents/karyotype_", parent, ".png")
+  karyo.name <- paste0(out.folder, "/karyotype_", parent, ".png")
   ggsave(filename = karyo.name, plot = karyo.plot, device = "png")
 
 }

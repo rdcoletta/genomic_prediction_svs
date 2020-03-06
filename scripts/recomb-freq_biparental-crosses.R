@@ -1,33 +1,58 @@
-#### description ----
+#### arguments for command line ----
 
-# this script will filter the hapmap files of parents and RILs to have only data for each
-# biparental cross, and then run rqtl to estimate the recombination frequency and plot them
-# against the physical positions for each chromosome.
+args <- commandArgs(trailingOnly = TRUE)
+
+# help
+if (all(length(args) == 1 & args == "-h" | args == "--help")) {
+  cat("
+      Description: this script will filter the hapmap files of parents and RILs to have only data for each
+                   biparental cross, and then run rqtl to estimate the recombination frequency and plot them
+                   against the physical positions for each chromosome.
+      
+      Usage: Rscript recomb-freq_biparental-crosses.R [infile_parents] [infile_rils] [cross_info] [qc_folder] [out_dir]")
+  quit()
+}
+
+# make sure the correct number of arguments are used
+if (length(args) != 5) {
+  stop("incorrect number of arguments provided.
+       
+       Usage: Rscript recomb-freq_biparental-crosses.R [infile_parents] [infile_rils] [cross_info] [qc_folder] [out_dir]
+       ")
+}
+
+# assign arguments to variables
+infile.parents <- args[1]
+infile.rils <- args[2]
+cross.info <- args[3]
+qc.folder <- args[4]
+out.dir <- args[5]
+
+
+# infile.parents <- "data/usda_22kSNPs_7parents.sorted.diploid.hmp.txt"
+# infile.rils <- "data/usda_22kSNPs_325rils.sorted.diploid.hmp.txt"
+# cross.info <- "data/usda_biparental-crosses.txt"
+# qc.folder <- "analysis/qc"
+# out.dir <- "data/biparental-crosses"
 
 
 
-#### libraries ----
+#### libraries used ----
 
-library(data.table)
-library(tibble)
-library(qtl)
-library(dplyr)
-library(tidyr)
-library(ggplot2)
-library(grid)
-library(gridExtra)
+if(!require("data.table")) install.packages("data.table")
+if(!require("tibble")) install.packages("tibble")
+if(!require("qtl")) install.packages("qtl")
+if(!require("dplyr")) install.packages("dplyr")
+if(!require("tidyr")) install.packages("tidyr")
+if(!require("ggplot2")) install.packages("ggplot2")
+if(!require("grid")) install.packages("grid")
+if(!require("gridExtra")) install.packages("gridExtra")
 
 
 
 #### functions ----
 
-Hmp2Rqtl <- function(cross) {
-  
-  # load data
-  parents <- fread(paste0("data/biparental-crosses/usda_22kSNPs_", cross, "_parents.hmp.txt"),
-                   header = TRUE, data.table = FALSE)
-  rils <- fread(paste0("data/biparental-crosses/usda_22kSNPs_", cross, "_rils.hmp.txt"),
-                header = TRUE, data.table = FALSE)
+Hmp2Rqtl <- function(parents, rils, out.dir) {
   
   # combine parent and ril data
   combined.hmp <- cbind(parents, rils[,12:NCOL(rils)])
@@ -38,7 +63,7 @@ Hmp2Rqtl <- function(cross) {
   polymorphic.markers <- c()
   for (row in 1:NROW(combined.hmp)) {
     # return TRUE if the genotypes from parents are different
-    if (combined.hmp[row,4] != combined.hmp[row,5]) {
+    if (combined.hmp[row, 4] != combined.hmp[row, 5]) {
       polymorphic.markers <- append(polymorphic.markers, row)
     }
   }
@@ -107,13 +132,12 @@ Hmp2Rqtl <- function(cross) {
   names(input.rqtl) <- NULL
   
   # write table
-  write.csv(input.rqtl, paste0("data/biparental-crosses/usda_22kSNPs_", cross, "_rqtl-format.csv"),
+  write.csv(input.rqtl, paste0(out.dir, "/usda_22kSNPs_", cross, "_rqtl-format.csv"),
             quote = FALSE, row.names = FALSE)
 }
 
 
-
-EstimateRecombinationFreq <- function(cross, plot = FALSE) {
+EstimateRecombinationFreq <- function(cross, dir.csv, dir.qc, plot = FALSE) {
   
   # print message about the cross being analyzed
   cat("\n\n---------------------------\n",
@@ -121,14 +145,14 @@ EstimateRecombinationFreq <- function(cross, plot = FALSE) {
       "\n---------------------------\n\n")
 
   # load cross
-  rqtl <- read.cross(format = "csv", dir = "data/biparental-crosses/",
+  rqtl <- read.cross(format = "csv", dir = dir.csv,
                      file = paste0("usda_22kSNPs_", cross, "_rqtl-format.csv"),
                      crosstype = "riself", estimate.map = FALSE)
   
   # print initial summary of the cross
   summary(rqtl)
   # write initial summary of the cross
-  summary.outfile.initial <- paste0("analysis/qc/", cross, "/summary_", cross, "_rils.txt")
+  summary.outfile.initial <- paste0(dir.qc, "/", cross, "/summary_", cross, "_rils.txt")
   capture.output(summary(rqtl), file = summary.outfile.initial, type = "output")
   
   # remove individual if half of the markers are missing
@@ -189,7 +213,7 @@ EstimateRecombinationFreq <- function(cross, plot = FALSE) {
     labs(title = "Genotype frequency by individual RIL", x = "RIL", y = "Genotype Frequency") +
     scale_color_manual(values = c("#053061", "#b2182b"))
   # save figure
-  geno.freq.figure <- paste0("analysis/qc/", cross, "/geno-freq_", cross, "_by_individual_rils.png")
+  geno.freq.figure <- paste0(dir.qc, "/", cross, "/geno-freq_", cross, "_by_individual_rils.png")
   ggsave(filename = geno.freq.figure, plot = geno.freq.plot, device = "png")
   
   # save the genotypic data after filtering
@@ -201,7 +225,7 @@ EstimateRecombinationFreq <- function(cross, plot = FALSE) {
   geno.data.filtered[geno.data.filtered == 1] <- "AA"
   geno.data.filtered[geno.data.filtered == 2] <- "BB"
   # write table
-  geno.filter.name <- paste0("analysis/qc/", cross, "/geno-data_", cross, "_after_filtering.txt")
+  geno.filter.name <- paste0(dir.qc, "/", cross, "/geno-data_", cross, "_after_filtering.txt")
   write.table(geno.data.filtered, geno.filter.name, sep = "\t", quote = FALSE, row.names = FALSE)
   
   # estimate recombination frequency
@@ -253,11 +277,11 @@ EstimateRecombinationFreq <- function(cross, plot = FALSE) {
   df.gen.phys.positions[, "chr"] <- gsub(" ", "", df.gen.phys.positions[, "chr"])
   
   # write final summary of cross after all filtering
-  summary.outfile.final <- paste0("analysis/qc/", cross, "/summary_", cross, "_rils_after-filters.txt")
+  summary.outfile.final <- paste0(dir.qc, "/", cross, "/summary_", cross, "_rils_after-filters.txt")
   capture.output(summary(rqtl), file = summary.outfile.final, type = "output")
   
   # write table with both physical and genetic distances
-  outfile.name <- paste0("analysis/qc/", cross, "/recomb-freq_", cross, "_rils.txt")
+  outfile.name <- paste0(dir.qc, "/", cross, "/recomb-freq_", cross, "_rils.txt")
   write.table(df.gen.phys.positions, outfile.name, sep = "\t", quote = FALSE, row.names = FALSE)
   
   
@@ -278,7 +302,7 @@ EstimateRecombinationFreq <- function(cross, plot = FALSE) {
         scale_x_continuous(labels = scales::comma)
     }
     
-    fig.name <- paste0("analysis/qc/", cross, "/plot_genetic_vs_physical_dist_", cross, ".png")
+    fig.name <- paste0(dir.qc, "/", cross, "/plot_genetic_vs_physical_dist_", cross, ".png")
     ggsave(filename = fig.name,
            plot = grid.arrange(grobs = plot.list,
                                bottom = textGrob(paste("Population size:", NROW(rqtl$pheno), "RILs"),
@@ -294,26 +318,28 @@ EstimateRecombinationFreq <- function(cross, plot = FALSE) {
 #### filtering hmp according to biparental crosses ----
 
 # read genotypic data for parents and RILs
-geno.data.parents <- fread("data/usda_22kSNPs_7parents.sorted.diploid.hmp.txt",
-                           header = TRUE, data.table = FALSE)
-geno.data.rils <- fread("data/usda_22kSNPs_325rils.sorted.diploid.hmp.txt",
-                        header = TRUE, data.table = FALSE)
+geno.data.parents <- fread(infile.parents, header = TRUE, data.table = FALSE)
+geno.data.rils <- fread(infile.rils, header = TRUE, data.table = FALSE)
 
 # read table with biparental crosses
-rils.per.cross <- fread("data/usda_biparental-crosses.txt", header = TRUE, data.table = FALSE)
+rils.per.cross <- fread(cross.info, header = TRUE, data.table = FALSE)
 # change "*" to "x" in cross column (use "fixed = TRUE" to avoid special character)
 rils.per.cross[, "cross"] <- gsub("*", "x", fixed = TRUE, rils.per.cross[,"cross"])
 
 # get the names of crosses with genotypic data
-crosses.with.geno.data <- list.dirs("analysis/qc", full.names = FALSE, recursive = FALSE)
+crosses.with.geno.data <- list.dirs(qc.folder, full.names = FALSE, recursive = FALSE)
 
+# create output folder
+if (!dir.exists(out.dir)) dir.create(out.dir)
+
+# separate hmp by cross
 for (cross in crosses.with.geno.data) {
   # parents
   parent <- strsplit(cross, split = "x")[[1]]
   geno.data.parents.cross <- cbind(geno.data.parents[, c(1:11)],
                                    geno.data.parents[, c(parent[1], parent[2])])
 
-  parents.filename <- paste0("data/biparental-crosses/usda_22kSNPs_", cross, "_parents.hmp.txt")
+  parents.filename <- paste0(out.dir, "/usda_22kSNPs_", cross, "_parents.hmp.txt")
   write.table(geno.data.parents.cross, parents.filename, sep = "\t", quote = FALSE,
               row.names = FALSE)
 
@@ -323,7 +349,7 @@ for (cross in crosses.with.geno.data) {
   geno.data.rils.cross <- cbind(geno.data.rils[, c(1:11)],
                                 geno.data.rils[, which(colnames(geno.data.rils) %in% rils)])
   
-  rils.filename <- paste0("data/biparental-crosses/usda_22kSNPs_", cross, "_rils.hmp.txt")
+  rils.filename <- paste0(out.dir, "/usda_22kSNPs_", cross, "_rils.hmp.txt")
   write.table(geno.data.rils.cross, rils.filename, sep = "\t", quote = FALSE,
               row.names = FALSE)
 }
@@ -332,26 +358,28 @@ for (cross in crosses.with.geno.data) {
 
 #### prepare input file for rqtl ----
 
-# get the names of crosses with genotypic data
-crosses.with.geno.data <- list.dirs("analysis/qc", full.names = FALSE, recursive = FALSE)
-
-# write csv files for input in rqtl
 for (cross in crosses.with.geno.data) {
-  Hmp2Rqtl(cross)
+  
+  cat(cross, "\n")
+  
+  # load data first
+  geno.cross.parents <- fread(paste0(out.dir, "/usda_22kSNPs_", cross, "_parents.hmp.txt"), header = TRUE, data.table = FALSE)
+  geno.cross.rils <- fread(paste0(out.dir, "/usda_22kSNPs_", cross, "_rils.hmp.txt"), header = TRUE, data.table = FALSE)
+  
+  # write csv files for input in rqtl
+  Hmp2Rqtl(parents = geno.cross.parents, rils = geno.cross.rils, out.dir = out.dir)
+  
 }
 
 
 
 #### run rqtl to get estimated recombination frequency ----
 
-# get the names of crosses with genotypic data
-crosses.with.geno.data <- list.dirs("analysis/qc", full.names = FALSE, recursive = FALSE)
-
 # write log of this program
-sink("analysis/qc/rqtl_log.txt")
+sink(paste0(qc.folder, "/rqtl_log.txt"))
 
 for (cross in crosses.with.geno.data) {
-  EstimateRecombinationFreq(cross, plot = TRUE)
+  EstimateRecombinationFreq(cross = cross, dir.csv = out.dir, dir.qc = qc.folder, plot = TRUE)
 }
 
 # close sink connection

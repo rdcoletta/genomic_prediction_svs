@@ -1,103 +1,70 @@
-#### intro ----
+#### arguments for command line ----
 
-# plot karyotypes for RILs of a biparental cross
+args <- commandArgs(trailingOnly = TRUE)
 
-# code for plot was modified from Carles Hernandez-Ferrer's blog:
-# https://carleshf.github.io/chromosome_karyotype_plot_with_ggplot2/
+# help
+if (all(length(args) == 1 & args == "-h" | args == "--help")) {
+  cat("
+      Description: plot karyotypes for RILs of a biparental cross.
+      Credits: code for plot was modified from Carles Hernandez-Ferrer's blog at
+               https://carleshf.github.io/chromosome_karyotype_plot_with_ggplot2/
+      
+      
+      Usage: Rscript plot_ril_karyotypes.R [chr_info] [centromere_info] [qc_folder]")
+  quit()
+}
+
+# make sure the correct number of arguments are used
+if (length(args) != 3) {
+  stop("incorrect number of arguments provided.
+       
+       Usage: Rscript plot_ril_karyotypes.R [chr_info] [centromere_info] [qc_folder]
+       ")
+}
+
+# assign arguments to variables
+chr.info <- args[1]
+cent.info <- args[2]
+qc.folder <- args[3]
+
+# chr.info <- "data/B73_RefGen_V4_chrm_info.txt"
+# cent.info <- "data/centromeres_Schneider-2016-pnas_v4.bed"
+# qc.folder <- "analysis/qc"
 
 
 #### libraries ----
 
-library(ggplot2)
-library(data.table)
+if(!require("data.table")) install.packages("data.table")
+if(!require("ggplot2")) install.packages("ggplot2")
 
-
-#### get centromeres in v4 coordinates ----
-
-# read in data
-v2.to.v4 <- read.delim("data/centromeres_v2-to-v4.bed", sep = "\t", header = FALSE)
-colnames(v2.to.v4) <- c("chr", "start", "end")
-v3.to.v4 <- read.delim("data/centromeres_v3-to-v4.bed", sep = "\t", header = FALSE)
-colnames(v3.to.v4) <- c("chr", "start", "end")
-
-# data frame containing the rows for each chromosome
-v3.to.v4.chromosomes <- data.frame(chr = 1:9,
-                                   row_start = c(1, 198, 497, 697, 881, 1218, 1348, 1431, 1617),
-                                   row_end = c(197, 496, 696, 880, 1217, 1347, 1430, 1616, 1814))
-# i don't need to subset v3.to.v4 data by rows because there is only one chr in this df
-
-# create empty data frame to store coordinates of centromeres in v4 assembly
-centromeres.v4 <- data.frame(chr = as.numeric(),
-                             start_pos = as.numeric(),
-                             end_pos = as.numeric(),
-                             centro_size = as.numeric())
-
-# get min and max coordinates for each chromosome in v4
-for (row in 1:NROW(v3.to.v4.chromosomes)) {
-  
-  # subset by row
-  row_start <- v3.to.v4.chromosomes[row, "row_start"]
-  row_end <- v3.to.v4.chromosomes[row, "row_end"]
-  chr.info <- v2.to.v4[row_start:row_end,]
-  
-  # remove coordinates from other chromosomes
-  curr.chr <- v3.to.v4.chromosomes[row, "chr"]
-  chr.info <- subset(chr.info, subset = chr == curr.chr)
-  
-  # get min and max values
-  v4.start <- min(chr.info$start)
-  v4.end <- max(chr.info$end)
-  v4.size <- v4.end - v4.start
-  
-  # write to centromeres df
-  centromeres.v4 <- rbind(centromeres.v4, c(curr.chr, v4.start, v4.end, v4.size))
-  
-}
-
-# get the coordinates for chr 10 now
-v3.to.v4 <- subset(v3.to.v4, subset = chr == 10)
-v4.start <- min(v3.to.v4$start)
-v4.end <- max(v3.to.v4$end)
-v4.size <- v4.end - v4.start
-centromeres.v4 <- rbind(centromeres.v4, c(10, v4.start, v4.end, v4.size))
-
-# fix column names
-colnames(centromeres.v4) <- c("chr", "start_pos", "end_pos", "centro_size")
-
-# write file
-write.table(centromeres.v4, file = "data/centromeres_Schneider-2016-pnas_v4.bed",
-            sep = "\t", quote = FALSE, row.names = FALSE)
 
 
 
 #### load chromosome and centromere positions ----
 
 # chromosomes
-chrms <- read.delim("data/B73_RefGen_V4_chrm_info.txt", sep = "\t", header = TRUE)
-chrms <- data.frame(chr = chrms$chr,
-                    start_pos = 0,
-                    end_pos = chrms$length)
+chrms <- fread(chr.info, header = TRUE, data.table = FALSE)
+chrms <- data.frame(chr = chrms$chr, start_pos = 0, end_pos = chrms$length)
 
 # centromeres
-centros <- read.delim("data/centromeres_Schneider-2016-pnas_v4.bed", sep = "\t", header = TRUE)
-centros <- data.frame(chr = centros$chr,
-                      start_pos = centros$start_pos,
-                      end_pos = centros$end_pos)
+centros <- read.delim(cent.info, sep = "\t", header = TRUE)
+centros <- data.frame(chr = centros$chr, start_pos = centros$start_pos, end_pos = centros$end_pos)
 
 
 
 #### plot karyotypes ----
 
 # get names of RIL populations
-RIL.pop.list <- list.dirs(path = "analysis/qc/", full.names = FALSE, recursive = FALSE)
+RIL.pop.list <- list.dirs(path = qc.folder, full.names = FALSE, recursive = FALSE)
+RIL.pop.list <- RIL.pop.list[grep("x", RIL.pop.list)]
 
 for (RIL.pop in RIL.pop.list) {
   # load data with marker positions
-  markers.filename <- paste0("analysis/qc/", RIL.pop, "/recomb-freq_", RIL.pop, "_rils.txt")
+  markers.filename <- paste0(qc.folder, "/", RIL.pop, "/recomb-freq_", RIL.pop, "_rils.txt")
   markers.infile <- fread(markers.filename, header = TRUE, data.table = FALSE)
   
   # load genotypic data for all RILs in the RIL population
-  geno.data.filename <- paste0("analysis/qc/", RIL.pop, "/geno-data_", RIL.pop, "_after_filtering.txt")
+  geno.data.filename <- paste0(qc.folder, "/", RIL.pop, "/geno-data_", RIL.pop, "_after_filtering.txt")
   geno.data.infile <- fread(geno.data.filename, header = TRUE, data.table = FALSE)
   
   # randomly select 5 RILs per population to plot karyotype
@@ -147,7 +114,7 @@ for (RIL.pop in RIL.pop.list) {
                             "BB freq (red): ", round(geno.freq.BB, digits = 2)),
            x = "Chromosomes", y = "Genomic positions (Mb)")
     
-    karyo.name <- paste0("analysis/qc/", RIL.pop, "/karyotype_", RIL.pop, "_", gsub("RIL_", "ril-", RIL),".png")
+    karyo.name <- paste0(qc.folder, "/", RIL.pop, "/karyotype_", RIL.pop, "_", gsub("RIL_", "ril-", RIL),".png")
     ggsave(filename = karyo.name, plot = karyo.plot, device = "png")
   }
 }

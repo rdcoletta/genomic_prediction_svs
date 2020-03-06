@@ -1,24 +1,48 @@
-#### description ----
+#### arguments for command line ----
 
-# extract the marker names from the recombination frequency tables (polymorphic, no seg distortion,
-# etc.; `analysis/qc > cross folder > recomb-freq txt file`) and filter tassel's _SiteSummary
-# tables. Then use this filtered table to make plots of distributions of allele frequencies.
+args <- commandArgs(trailingOnly = TRUE)
+
+# help
+if (all(length(args) == 1 & args == "-h" | args == "--help")) {
+  cat("
+      Description: extract the marker names from the recombination frequency tables (polymorphic, no seg distortion,
+                   etc.) and filter tassel's site summary tables. Then use this filtered table to make plots of
+                   distributions of allele frequencies.
+
+      
+      Usage: Rscript usda_allele-freq_dist.R [qc_folder]")
+  quit()
+}
+
+# make sure the correct number of arguments are used
+if (length(args) != 1) {
+  stop("incorrect number of arguments provided.
+       
+       Usage: Rscript usda_allele-freq_dist.R [qc_folder]
+       ")
+}
+
+# assign arguments to variables
+qc.folder <- args[1]
+
+
+# qc.folder <- "analysis/qc"
 
 
 
 #### libraries ----
 
-library(data.table)
-library(dplyr)
-library(tidyr)
-library(ggplot2)
+if(!require("data.table")) install.packages("data.table")
+if(!require("dplyr")) install.packages("dplyr")
+if(!require("tidyr")) install.packages("tidyr")
+if(!require("ggplot2")) install.packages("ggplot2")
 
 
 
 #### create histograms for all crosses ----
 
 # add folder names (i.e. cross names) into a vector
-cross.list <- list.dirs("analysis/qc", full.names = FALSE, recursive = FALSE)
+cross.list <- list.dirs(qc.folder, full.names = FALSE, recursive = FALSE)
 
 # create a list to store all markers for all populations
 all.markers.list <- list()
@@ -29,13 +53,13 @@ extreme.markers.list <- list()
 for (cross in cross.list) {
   
   # read in file with polymorphic markers without segregation distortion from rqtl analysis
-  markers.filename <- paste0("analysis/qc/", cross, "/recomb-freq_", cross, "_rils.txt")
+  markers.filename <- paste0(qc.folder, "/", cross, "/recomb-freq_", cross, "_rils.txt")
   markers.infile <- fread(markers.filename, header = TRUE, data.table = FALSE)
   markers <- markers.infile[, "marker"]
   pop.size <- markers.infile[1, "pop_size"]
   
   # read in tassel summary table
-  tassel.filename <- paste0("analysis/qc/", cross, "/", cross, "_SiteSummary.txt")
+  tassel.filename <- paste0(qc.folder, "/", cross, "/", cross, "_SiteSummary.txt")
   tassel.infile <- fread(tassel.filename, header = TRUE, data.table = FALSE)
   
   # filter site summary table from tassel based on polymorphic markers from rqtl
@@ -58,7 +82,7 @@ for (cross in cross.list) {
     select(`Major Allele Frequency`, `Minor Allele Frequency`) %>%
     gather(key = "AF_type", value = "AF_value")
   
-  ggplot(allele.freq, aes(x = AF_value, fill = "#053061")) +
+  af.plot <- ggplot(allele.freq, aes(x = AF_value, fill = "#053061")) +
     geom_histogram(binwidth = 0.07, show.legend = FALSE) +
     scale_x_continuous(name = "Allele Frequency", limits = c(0, 1), breaks = seq(0,1,0.25)) + 
     scale_fill_manual(values = "black") +
@@ -69,22 +93,17 @@ for (cross in cross.list) {
           axis.title = element_text(size=rel(2)))
   
   # save plot
-  figure_name <- paste0("analysis/qc/", cross, "/allele-freq_dist_", cross, ".png")
-  ggsave(figure_name, device = "png")
+  figure_name <- paste0(qc.folder, "/", cross, "/allele-freq_dist_", cross, ".png")
+  ggsave(filename = figure_name, plot = af.plot, device = "png")
 }
 
 
-
-#### markers with AF < 0.25 or > 0.75 ----
-
-extreme.markers <- unlist(extreme.markers.list, use.names = FALSE)
-
-# total number of markers found
-length(extreme.markers)
-# 975
-
-# total number of unique markers (i.e., without markers that show up in more than one population)
-length(unique(extreme.markers))
-# 910
-
-# only 65 (975 - 910) markers have AF < 0.25 or > 0.75 in more than one population
+# # markers with AF < 0.25 or > 0.75
+# extreme.markers <- unlist(extreme.markers.list, use.names = FALSE)
+# # total number of markers found
+# length(extreme.markers)
+# # 975
+# # total number of unique markers (i.e., without markers that show up in more than one population)
+# length(unique(extreme.markers))
+# # 910
+# # only 65 (975 - 910) markers have AF < 0.25 or > 0.75 in more than one population

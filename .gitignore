@@ -3,9 +3,7 @@ data/*
 .DS_Store
 .Rproj.user
 *.Rhistory
-tests/analysis/*
-tests/data/*
-tests/scripts/id2pedigree.R
+tests/*
 plink*
 GAPIT*
 *.pdf
