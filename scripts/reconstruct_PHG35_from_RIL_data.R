@@ -1,7 +1,6 @@
 
 
 crosses.file <- "tests/data/usda_biparental-crosses.txt"
-# data.per.cross <- "tests/data/merged_hapmaps_by_cross"
 parents.filename <- "data/usda_22kSNPs_7parents.sorted.diploid.v4.hmp.txt"
 rils.filename <- "data/usda_22kSNPs_325rils.sorted.diploid.v4.hmp.txt"
 output.folder <- "tests/data/reconstructed_PHG35/"
@@ -98,7 +97,6 @@ for (cross in crosses[, "cross"]) {
           print(row)
         }
 
-
         reconstructed.PHG35[row] <- paste0(allele.PHG35, allele.PHG35)
         # note: there won't be any heterozygote for reconstructed PHG35
 
@@ -141,3 +139,183 @@ fixed.outfile <- gsub(pattern = "7parents.sorted.diploid.v4.hmp.txt",
                       replacement = "7parents.sorted.diploid.v4.PHG35-reconstructed.hmp.txt",
                       parents.filename)
 fwrite(parents.hmp, file = fixed.outfile, quote = FALSE, sep = "\t", na = "NA", row.names = FALSE)
+
+
+
+
+#### compare reconstructed with previous PHG35 from SNPchip and resequencing ----
+
+# add reconstructed versions in the same hapmap
+hmp.reconstructed <- cbind(parents.hmp[, 1:11],
+                           reconstructed.PHG35.df,
+                           final_reconstruction = reconstructed.PHG35.final)
+
+# load other versions
+hmp.reseq <- fread("data/usda_22kSNPs_7parents.sorted.diploid.v4.PHG35-corrected.hmp.txt",
+                   header = TRUE, data.table = FALSE)
+hmp.chip <- fread("data/usda_22kSNPs_7parents.sorted.diploid.hmp.txt",
+                  header = TRUE, data.table = FALSE)
+
+# resequencing data has the same SNPs as the reconstructed version, but SNP chip have a few more
+all(hmp.reconstructed[,1] == hmp.reseq[,1])
+# so need to exclude these extra snps from chip
+snps.to.keep <- as.character(hmp.reconstructed[, 1])
+hmp.chip <- hmp.chip[which(hmp.chip[, 1] %in% snps.to.keep), ]
+hmp.chip <- hmp.chip[match(hmp.reconstructed[,1], hmp.chip[,1]), ]
+all(hmp.reconstructed[,1] == hmp.chip[,1])
+
+# merge all PHG35 versions into one dataframe
+PHG35.versions <- cbind(hmp.reconstructed[, 12:NCOL(hmp.reconstructed)],
+                        resequencing = hmp.reseq[, "PHG35"],
+                        snp_chip = hmp.chip[, "PHG35"])
+
+# create directory to save matrices
+dir.create("analysis/qc/PHG35_reconstruction")
+
+
+# make pairwise comparisons of similarities (don't count if missing in one of the genomes)
+CalcSimMatrix <- function(PHG35.versions, report = c("percent", "total")) {
+  
+  # create empty matrix
+  sim.matrix <- matrix(NA, nrow = NCOL(PHG35.versions), ncol = NCOL(PHG35.versions))
+  rownames(sim.matrix) <- colnames(PHG35.versions)
+  colnames(sim.matrix) <- colnames(PHG35.versions)
+  
+  for (v1 in 1:NCOL(PHG35.versions)) {
+    for (v2 in 1:NCOL(PHG35.versions)) {
+      
+      # select only two versions
+      comparison <- cbind(as.character(PHG35.versions[, v1]), as.character(PHG35.versions[, v2]))
+      # remove missing data
+      comparison <- comparison[which(comparison[, 1] != "NN" & comparison[, 2] != "NN"), ]
+      # calculate similarity
+      if (report == "percent")  similarity <- sum(comparison[, 1] == comparison[, 2]) / NROW(comparison)
+      if (report == "total")  similarity <- sum(comparison[, 1] == comparison[, 2])
+      # add results to correct place at matrix
+      name.row <- colnames(PHG35.versions)[v1]
+      name.col <- colnames(PHG35.versions)[v2]
+      sim.matrix[name.row, name.col] <- round(similarity, digits = 2)
+      
+    }
+  }
+  
+  return(sim.matrix)
+}
+
+sim.matrix.percent <- CalcSimMatrix(PHG35.versions, report = "percent")
+sim.matrix <- CalcSimMatrix(PHG35.versions, report = "total")
+sim.matrix[upper.tri(sim.matrix, diag = FALSE)] <- sim.matrix.percent[upper.tri(sim.matrix.percent, diag = FALSE)]
+
+fwrite(data.frame(sim.matrix), "analysis/qc/PHG35_reconstruction/similarity_matrix.txt",
+       quote = FALSE, sep = "\t", row.names = TRUE)
+
+
+
+# make pairwise comparisons of disagreements (don't count if missing in one of the genomes)
+CalcDisagreeMatrix <- function(PHG35.versions, report = c("percent", "total"), type = c("reverse", "het", "diff_allele")) {
+  
+  # create empty matrix
+  matrix.disagree <- matrix(NA, nrow = NCOL(PHG35.versions), ncol = NCOL(PHG35.versions))
+  rownames(matrix.disagree) <- colnames(PHG35.versions)
+  colnames(matrix.disagree) <- colnames(PHG35.versions)
+  
+  for (v1 in 1:NCOL(PHG35.versions)) {
+    for (v2 in 1:NCOL(PHG35.versions)) {
+      
+      # select only two versions of PHG35
+      comparison <- cbind(as.character(PHG35.versions[, v1]), as.character(PHG35.versions[, v2]))
+      # remove missing data
+      comparison <- comparison[which(comparison[, 1] != "NN" & comparison[, 2] != "NN"), ]
+      # select only disagreements
+      comparison <- comparison[which(comparison[, 1] != comparison[, 2]), ]
+      # transform second column to reverse column
+      comparison[, 2] <- sapply(comparison[, 2], FUN = function(geno) {
+        alleles <- unlist(strsplit(geno, split = ""))
+        comp.alleles <- sapply(alleles, function(allele) {
+          if (allele == "A") return("T")
+          else if (allele == "T") return("A")
+          else if (allele == "C") return("G")
+          else if (allele == "G") return("C")
+        })
+        comp.alleles <- paste0(comp.alleles, collapse = "")
+        return(comp.alleles)
+      })
+      
+      # only proceed if there are disagreements
+      if (NROW(comparison) > 0) {
+        
+        if (type == "reverse") {
+          # calculate how much they disagree after phasing (i.e. controlling for reverse strand)
+          if (report == "percent") disagree <- sum(comparison[, 1] == comparison[, 2]) / NROW(comparison)
+          if (report == "total") disagree <- sum(comparison[, 1] == comparison[, 2])
+        }
+        
+        if (type == "het" | type == "diff_allele") {
+          # select disagreements after phasing
+          comparison <- comparison[which(comparison[, 1] != comparison[, 2]), ]
+          # check if homo or het
+          # note: i'm not checking if one of the alleles in the het the same as the one in the other genotype
+          comparison.type <- apply(comparison, MARGIN = 1, FUN = function(geno) {
+            alleles.v1 <- unlist(strsplit(geno[1], split = ""))
+            alleles.v2 <- unlist(strsplit(geno[2], split = ""))
+            if (alleles.v1[1] == alleles.v1[2]) type.v1 <- "homo"
+            if (alleles.v1[1] != alleles.v1[2]) type.v1 <- "het"
+            if (alleles.v2[1] == alleles.v2[2]) type.v2 <- "homo"
+            if (alleles.v2[1] != alleles.v2[2]) type.v2 <- "het"
+            return(c(type.v1, type.v2))
+          })
+          comparison.type <- t(comparison.type)
+          
+          if (type == "het") {
+            # calculate how much they disagree due to hets in one of the genomes
+            if (report == "percent") disagree <- sum(comparison.type[, 1] == "het" | comparison.type[, 2] == "het") / NROW(comparison.type)
+            if (report == "total") disagree <- sum(comparison.type[, 1] == "het" | comparison.type[, 2] == "het")
+          }
+          if (type == "diff_allele") {
+            # calculate how much they disagree due to hets in one of the genomes
+            if (report == "percent") disagree <- sum(comparison.type[, 1] != "het" & comparison.type[, 2] != "het") / NROW(comparison.type)
+            if (report == "total") disagree <- sum(comparison.type[, 1] != "het" & comparison.type[, 2] != "het")
+          }
+        }
+        
+      } else {
+        # if there's no disagreement...
+        disagree <- 0
+      }
+      
+      # add results to correct place at matrix
+      name.row <- colnames(PHG35.versions)[v1]
+      name.col <- colnames(PHG35.versions)[v2]
+      matrix.disagree[name.row, name.col] <- round(disagree, digits = 2)
+      
+    }
+  }
+  
+  return(matrix.disagree)
+  
+}
+
+# of all that disagree, how many were actually reverse strand
+disagree.rev.matrix.percent <- CalcDisagreeMatrix(PHG35.versions, report = "percent", type = "reverse")
+disagree.rev.matrix <- CalcDisagreeMatrix(PHG35.versions, report = "total", type = "reverse")
+disagree.rev.matrix[upper.tri(disagree.rev.matrix, diag = FALSE)] <- disagree.rev.matrix.percent[upper.tri(disagree.rev.matrix.percent, diag = FALSE)]
+
+fwrite(data.frame(disagree.rev.matrix), "analysis/qc/PHG35_reconstruction/disagreements_rev-comp.txt",
+       quote = FALSE, sep = "\t", row.names = TRUE)
+
+
+# of all that disagree after controlling for phasing, how many were due to hets
+disagree.het.matrix.percent <- CalcDisagreeMatrix(PHG35.versions, report = "percent", type = "het")
+disagree.het.matrix <- CalcDisagreeMatrix(PHG35.versions, report = "total", type = "het")
+disagree.het.matrix[upper.tri(disagree.het.matrix, diag = FALSE)] <- disagree.het.matrix.percent[upper.tri(disagree.het.matrix.percent, diag = FALSE)]
+
+fwrite(data.frame(disagree.het.matrix), "analysis/qc/PHG35_reconstruction/disagreements_hets.txt",
+       quote = FALSE, sep = "\t", row.names = TRUE)
+
+# of all that disagree after controlling for phasing, how many were due to hets
+disagree.diff.matrix.percent <- CalcDisagreeMatrix(PHG35.versions, report = "percent", type = "diff_allele")
+disagree.diff.matrix <- CalcDisagreeMatrix(PHG35.versions, report = "total", type = "diff_allele")
+disagree.diff.matrix[upper.tri(disagree.diff.matrix, diag = FALSE)] <- disagree.diff.matrix.percent[upper.tri(disagree.diff.matrix.percent, diag = FALSE)]
+
+fwrite(data.frame(disagree.diff.matrix), "analysis/qc/PHG35_reconstruction/disagreements_diff-allele.txt",
+       quote = FALSE, sep = "\t", row.names = TRUE)
