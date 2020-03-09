@@ -19,7 +19,7 @@ mkdir {analysis,data,scripts}
 
 
 
-## Dataset
+## SNP dataset
 
 The USDA project contains 525 RILs generated from 7 inbred parents (B73, PHJ40, PHG39, PHG47, PH207, PHG35, LH82), which are all ex-PVPs. In addition, 400 F1 hybrids were generated from a partial diallel cross of those RILs.
 
@@ -300,7 +300,38 @@ After talking to Candy, it's likely that the PHG35 souce used to be genotyped ha
 
 
 
-## Checking reference genome version of SNP chip
+## SV dataset
+
+On August 9, 2019, Patrick Monnahan sent me five `.vcf` files containing structural variation calls from the software Lumpy. Each file is a SV call of 100 lines against one of the following reference genomes: B73, Mo17, PH207, PHB47, or W22. **This results are preliminary** and there are a lot of false-positives in there. However, they will be useful for me to select the 7 lines I need, project the SVs from parents to RILs, and incorporate these SV data into my simulation scripts.
+
+The files are located at `data/SV_calls`, and I will use only the SVs called against the B73 reference genome for now.
+
+```bash
+# decompress vcf file of SV calls to B73
+gunzip data/SV_calls/B73v4_2019-08-09.ls.RT.vcf.gz
+```
+
+### Hapmap format
+
+I wrote the python script `scripts/vcf2hapmap.py` which extract information about structural variants and transform into a hapmap format file sorted by chromosome and positions. Since the `.vcf` file that Patrick sent me contains 100 inbred lines, I have to select only the 7 inbred parents used in the USDA project. Running this script will generate the file `data/usda_SVs_7parents.sorted.hmp.txt`:
+
+```bash
+# for help on how to use this script
+python scripts/vcf2hapmap.py --help
+# run the script
+python scripts/vcf2hapmap.py data/SV_calls/B73v4_2019-08-09.ls.RT.vcf \
+                             data/usda_SVs_7parents.sorted.hmp.txt \
+                             B73,LH82,PH207,PHG35,PHG39,PHG47,PHJ40
+```
+
+The type of SV will be displayed in the marker ID (`del.[ID]` for deletions, `dup.[ID]` for duplications, etc.). Each line will have either a value of `AA` if SV is `A`bsent, or `TT` if SV is `T`here. I had to do that because I will use Tassel to project genotypes from parents to RILs, and it doesn't accept anything other than nucleotides (thus, I couldn't use numbers to indicate presence/absence of SV, as originally thought). Missing data will be coded as `NN`. Also, since SVs spam hundreds (or thousands) of bp and the exact breakpoints are hard to call, the position indicated in the hapmap file wil be the middle point of the SV.
+
+> After projection of parental genotypes into RILs, the hapmap will be transformed into the numeric format for genomic prediction simulations. Thus, for SVs, `AA` will be transformed into `0` and `TT` to `2`.
+
+
+
+
+## Check reference genome version of SNP chip
 
 One important thing that Candy remind me is to check whether the version of the reference genome used to make the probes in the SNP chip is the same as the one used in the SV calls (i.e., refgen v4). Since I will merge the two datasets, it's important that the coordinates are aligned.
 
@@ -387,7 +418,7 @@ At this point, we are pretty confident that the probes designed for the SNP chip
 
 
 
-## Converting SNP coordinates from B73v2 to B73v4
+## Convert SNP coordinates from B73v2 to B73v4
 
 Now, I need to convert the SNP chip coordinates from refgen v2 to v4 before merging this SNP data with the SV data. The first thing I have to do is download the refgen v2 assembly and extract 100bp sequences around SNPchip probe positions.
 
@@ -507,7 +538,7 @@ run_pipeline.pl -Xmx10g -importGuess data/usda_22kSNPs_325rils.sorted.diploid.v4
 
 
 
-## Reconstructing PHG35 based on RIL genotypes
+## Reconstruct PHG35 based on RIL genotypes
 
 Based on previous QC, the PHG35 parent has much more heterozygotes than expected for a fully inbred line. This might very likely be due to polen contamination in the seeds used to do the genotyping. Now that we have SNP chip data in the refgen v4 assembly, I can use the marker genotypes in the RIL data from all PHG35 progeny and figure out the PHG35 haplotype based on the genotype of the other parent used to develop that progeny. To do that, I wrote `scripts/reconstruct_PHG35_from_RIL_data.R`.
 
