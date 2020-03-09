@@ -298,7 +298,9 @@ Looking at the karyotypes, the distribution of both missing and het markers seem
 After talking to Candy, it's likely that the PHG35 souce used to be genotyped had issues (either some backcross or cross-contamination). Thus, in order to correctly project the SVs from this parent to its RILs, we need to make sure the genotype from PHG35 agrees with the RILs. To do that, we will reconstruct the PHG35 genome based on the markers available from the RILs.
 
 
-### Reference genome version of SNP chip
+
+
+## Checking reference genome version of SNP chip
 
 One important thing that Candy remind me is to check whether the version of the reference genome used to make the probes in the SNP chip is the same as the one used in the SV calls (i.e., refgen v4). Since I will merge the two datasets, it's important that the coordinates are aligned.
 
@@ -383,7 +385,9 @@ Rscript scripts/check_refgen_SNPchip_strands.R data/check_refgen_SNPchip/ref-mar
 At this point, we are pretty confident that the probes designed for the SNP chip were based on the **reference genome assembly v2**.
 
 
-### Converting SNP coordinates from B73v2 to B73v4
+
+
+## Converting SNP coordinates from B73v2 to B73v4
 
 Now, I need to convert the SNP chip coordinates from refgen v2 to v4 before merging this SNP data with the SV data. The first thing I have to do is download the refgen v2 assembly and extract 100bp sequences around SNPchip probe positions.
 
@@ -498,4 +502,27 @@ run_pipeline.pl -Xmx10g -importGuess data/usda_22kSNPs_7parents.sorted.diploid.v
 run_pipeline.pl -Xmx10g -importGuess data/usda_22kSNPs_325rils.sorted.diploid.v4.hmp.txt \
                         -export data/usda_22kSNPs_325rils.sorted.diploid.v4.hmp.txt \
                         -exportType HapmapDiploid
+```
+
+
+
+
+## Reconstructing PHG35 based on RIL genotypes
+
+Based on previous QC, the PHG35 parent has much more heterozygotes than expected for a fully inbred line. This might very likely be due to polen contamination in the seeds used to do the genotyping. Now that we have SNP chip data in the refgen v4 assembly, I can use the marker genotypes in the RIL data from all PHG35 progeny and figure out the PHG35 haplotype based on the genotype of the other parent used to develop that progeny. To do that, I wrote `scripts/reconstruct_PHG35_from_RIL_data.R`.
+
+```bash
+Rscript scripts/reconstruct_PHG35_from_RIL_data.R data/usda_biparental-crosses.txt \
+                                                  data/usda_22kSNPs_7parents.sorted.diploid.v4.hmp.txt \
+                                                  data/usda_22kSNPs_325rils.sorted.diploid.v4.hmp.txt
+```
+
+To make sure the reconstruction worked, I ran again `scripts/markers_summary.R`. Plots at `analysis/qc` folder show that, despite higher mising data relatively to other parents, the number of heterozygotes is now zero.
+
+```bash
+Rscript scripts/markers_summary.R data/usda_22kSNPs_7parents.sorted.diploid.v4.PHG35-reconstructed.hmp.txt \
+                                  analysis/qc/summary_markers_7parents_PHG35-reconstructed.txt \
+                                  data/usda_22kSNPs_325rils.sorted.diploid.v4.hmp.txt \
+                                  analysis/qc/summary_markers_325rils_v4.txt \
+                                  data/usda_biparental-crosses.txt
 ```
