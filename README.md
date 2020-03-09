@@ -296,3 +296,88 @@ Rscript scripts/plot_parents_karyotypes.R data/B73_RefGen_V4_chrm_info.txt \
 Looking at the karyotypes, the distribution of both missing and het markers seem to occur more further away from the centromeres but in a bit random way. Except for PHG35, I don't see any big clusters of missing and/or het markers. Since PHG35 had much more missing and het data than other parents, it's easier to see some clusters of such markers.
 
 After talking to Candy, it's likely that the PHG35 souce used to be genotyped had issues (either some backcross or cross-contamination). Thus, in order to correctly project the SVs from this parent to its RILs, we need to make sure the genotype from PHG35 agrees with the RILs. To do that, we will reconstruct the PHG35 genome based on the markers available from the RILs.
+
+
+### Reference genome version of SNP chip
+
+One important thing that Candy remind me is to check whether the version of the reference genome used to make the probes in the SNP chip is the same as the one used in the SV calls (i.e., refgen v4). Since I will merge the two datasets, it's important that the coordinates are aligned.
+
+To do that, I first downloaded the `.fasta` files of the chromosome 1 for the 4 refgen versions:
+
+```bash
+# create directory to save files
+mkdir data/check_refgen_SNPchip
+# go to that directory
+cd data/check_refgen_SNPchip
+
+# download chr1 from v1 to v4
+wget http://ftp.maizesequence.org/release-4a.53/assembly/ZmB73_AGPv1_chr1.fasta.gz
+wget ftp://ftp.ensemblgenomes.org/pub/plants/release-7/fasta/zea_mays/dna/Zea_mays.AGPv2.dna.chromosome.1.fa
+wget ftp://ftp.ensemblgenomes.org/pub/plants/release-22/fasta/zea_mays/dna/Zea_mays.AGPv3.22.dna.chromosome.1.fa.gz
+wget ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/plant/Zea_mays/latest_assembly_versions/GCA_000005005.6_B73_RefGen_v4/GCA_000005005.6_B73_RefGen_v4_assembly_structure/Primary_Assembly/assembled_chromosomes/FASTA/chr1.fna.gz
+
+# de-compress files
+gunzip *.gz
+
+# change names for easier identification
+mv ZmB73_AGPv1_chr1.fasta v1_chr1.fasta
+mv Zea_mays.AGPv2.dna.chromosome.1.fa v2_chr1.fasta
+mv Zea_mays.AGPv3.22.dna.chromosome.1.fa v3_chr1.fasta
+mv chr1.fna v4_chr1.fasta
+
+# return to project's home directory
+cd ~/projects/genomic_prediction/simulation
+```
+
+> Links above were obtained by searching the [MaizeGDB website](https://www.maizegdb.org/genome)
+
+Then, I extracted the genotypic data of B73 (chromosome 1) from the SNP chip dataset using UNIX commands, to generate the file `data/check_refgen_SNPchip/markers_b73_chr1.txt`:
+
+```bash
+# create a temporary file with the hapmap header
+head -n 1 data/usda_22kSNPs_7parents.sorted.diploid.hmp.txt > data/check_refgen_SNPchip/tmp.hmp.txt
+# keep only markers in the first chromosome
+awk '$3 == 1' data/usda_22kSNPs_7parents.sorted.diploid.hmp.txt >> data/check_refgen_SNPchip/tmp.hmp.txt
+# select only position and B73 columns and create a new file
+cut -f 4,12 data/check_refgen_SNPchip/tmp.hmp.txt > data/check_refgen_SNPchip/markers_b73_chr1.txt
+# remove tmp file
+rm data/check_refgen_SNPchip/tmp.hmp.txt
+```
+
+To find out which reference genome the SNP chip dataset was derived from, I wrote the `scripts/check_refgen_SNPchip.py`. This script extracts the positions from `data/check_refgen_SNPchip/markers_b73_chr1.txt` file and writes the respective positions for each refgen version. Additionally, it counts how many matches there are between each refgen and the SNP chip.
+
+```bash
+python scripts/check_refgen_SNPchip.py data/check_refgen_SNPchip/markers_b73_chr1.txt data/check_refgen_SNPchip
+```
+
+| refgen     | matches          |
+| ---------- | ---------------- |
+| B73_v1     | 774 (24.2%)      |
+| **B73_v2** | **2605 (81.3%)** |
+| B73_v3     | 786 (24.5%)      |
+| B73_v4     | 788 (24.6%)      |
+
+
+The results suggest that refgen version 2 was used to design the SNP chip, since there is ~80% match. The rest ~20% may be due to the probes used in the chip be tagging the opposite strand of the DNA. To test that, I wrote a short script called `scripts/check_refgen_SNPchip_strands.R` and noticed that **all markers that didn't match v2 ref gen was actually the complementary nucleotide** (while for other reference genome versions it was only ~30% of markers matching with complementary base):
+
+```bash
+Rscript scripts/check_refgen_SNPchip_strands.R data/check_refgen_SNPchip/ref-markers_chr1.txt
+
+# Same alleles between marker and v1 is 0.2416485
+# Missing alleles removed: 35
+# Reverse complement alleles between marker and v1 is 0.3187135
+
+# Same alleles between marker and v2 is 0.8133
+# Missing alleles removed: 35
+# Reverse complement alleles between marker and v2 is 1
+
+# Same alleles between marker and v3 is 0.2453949
+# Missing alleles removed: 35
+# Reverse complement alleles between marker and v3 is 0.3375315
+
+# Same alleles between marker and v4 is 0.2460194
+# Missing alleles removed: 34
+# Reverse complement alleles between marker and v4 is 0.3175136
+```
+
+At this point, we are pretty confident that the probes designed for the SNP chip were based on the **reference genome assembly v2**. Therefore, I'm gonna need the context probe sequence (50bp probe used to hybridize with the DNA) for each position, so we can properly map them to the refgen v4, and get the right coordinates before merging this SNP data with SVs.
