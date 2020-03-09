@@ -358,7 +358,7 @@ python scripts/check_refgen_SNPchip.py data/check_refgen_SNPchip/markers_b73_chr
 | B73_v4     | 788 (24.6%)      |
 
 
-The results suggest that refgen version 2 was used to design the SNP chip, since there is ~80% match. The rest ~20% may be due to the probes used in the chip be tagging the opposite strand of the DNA. To test that, I wrote a short script called `scripts/check_refgen_SNPchip_strands.R` and noticed that **all markers that didn't match v2 ref gen was actually the complementary nucleotide** (while for other reference genome versions it was only ~30% of markers matching with complementary base):
+The results suggest that refgen version 2 was used to design the SNP chip, since there is ~80% match. The rest ~20% may be due to the probes used in the chip be tagging the opposite strand of the DNA. To test that, I wrote a short script called `scripts/check_refgen_SNPchip_strands.R` and noticed that **all markers** that didn't match v2 ref gen was actually the complementary nucleotide (while for other reference genome versions it was only ~30% of markers matching with complementary base):
 
 ```bash
 Rscript scripts/check_refgen_SNPchip_strands.R data/check_refgen_SNPchip/ref-markers_chr1.txt
@@ -380,4 +380,122 @@ Rscript scripts/check_refgen_SNPchip_strands.R data/check_refgen_SNPchip/ref-mar
 # Reverse complement alleles between marker and v4 is 0.3175136
 ```
 
-At this point, we are pretty confident that the probes designed for the SNP chip were based on the **reference genome assembly v2**. Therefore, I'm gonna need the context probe sequence (50bp probe used to hybridize with the DNA) for each position, so we can properly map them to the refgen v4, and get the right coordinates before merging this SNP data with SVs.
+At this point, we are pretty confident that the probes designed for the SNP chip were based on the **reference genome assembly v2**.
+
+
+### Converting SNP coordinates from B73v2 to B73v4
+
+Now, I need to convert the SNP chip coordinates from refgen v2 to v4 before merging this SNP data with the SV data. The first thing I have to do is download the refgen v2 assembly and extract 100bp sequences around SNPchip probe positions.
+
+```bash
+# make directory to store refgen sequence, and go to that directory
+mkdir -p data/refgen/B73v2
+cd data/refgen/B73v2
+
+# download v2 sequences for all chromosomes
+for chr in {1..10}; do
+  wget ftp://ftp.ensemblgenomes.org/pub/plants/release-7/fasta/zea_mays/dna/Zea_mays.AGPv2.dna.chromosome.$chr.fa
+done
+# download README
+wget ftp://ftp.ensemblgenomes.org/pub/plants/release-7/fasta/zea_mays/dna/README
+
+# return to project's home directory
+cd ~/projects/genomic_prediction/simulation
+# extract probes sequences
+python scripts/extract_probe_seqs.py data/usda_22kSNPs_7parents.sorted.diploid.hmp.txt data/refgen/B73v2/ 100 data/probes-100bp_22kSNPchip_B73v2.fa
+```
+
+Once I have a fasta file with all probe sequences, I can align them to the refgen v4 assembly using `bowtie`. But first, I need to download the v4 assembly and build an index (by running `scripts/bowtie_index_refgenv4.sh`).
+
+```bash
+# make directory to store refgen sequence, and go to that directory
+mkdir -p data/refgen/B73v4
+cd data/refgen/B73v4
+
+# download sequences for all chromosomes
+for chr in {1..10}; do
+  wget ftp://ftp.ncbi.nlm.nih.gov/genomes/genbank/plant/Zea_mays/latest_assembly_versions/GCA_000005005.6_B73_RefGen_v4/GCA_000005005.6_B73_RefGen_v4_assembly_structure/Primary_Assembly/assembled_chromosomes/FASTA/chr$chr.fna.gz
+done
+# decompress them
+gunzip *.gz
+# change extension name .fna to .fa for bowtie compatibility
+for file in *.fna; do
+    mv -- "$file" "${file%.fna}.fa"
+done
+
+# return to project's home directory
+cd ~/projects/genomic_prediction/simulation
+
+# build index for refgen v4
+qsub scripts/bowtie_index_refgenv4.sh
+```
+
+Once the index is built, mapping reads with bowtie is pretty straightforward:
+
+```bash
+# load bowtie
+module load bowtie/1.1.2
+
+# map probes to refgen v4
+# bowtie [options] [index_basename] [unpaired_reads] [output_file]
+bowtie -f -v 0 -m 1 --un data/probes-100bp_22kSNPchip_not-aligned-to-B73v4.fa -S \
+       data/refgen/B73v4/index \
+       data/probes-100bp_22kSNPchip_B73v2.fa \
+       data/probes-100bp_22kSNPchip_aligned-to-B73v4.sam 2> data/probes-100bp_22kSNPchip_aligned-to-B73v4.stats.txt
+```
+
+> Bowtie options:
+> * `-f`: input is a fasta file
+> * `-v 0`: map end-to-end with 0 mismatches allowed
+> * `-m 1`: don't report alignments if read map in more than 1 place
+> * `--un data/probes-100bp_22kSNPchip_not-aligned-to-B73v4.fa`: unmapped reads are written to this file
+> * `-S`: output is SAM
+> * `data/refgen/B73v4/index`: basename of the ref gen v4 index
+> * `data/probes-100bp_22kSNPchip_B73v2.fa`: reads to map
+> * `data/probes-100bp_22kSNPchip_aligned-to-B73v4.sam`: output name
+> * `2> data/probes-100bp_22kSNPchip_aligned-to-B73v4.stats.txt`: this will print alignment statistics from std err to this file
+
+Here are the stats of the alignment:
+
+| Reads                   | Stats  |
+| ----------------------- | ------ |
+| Processed               | 20,139 |
+| Uniquely mapped         | 19,850 |
+| Multimapped (supressed) | 72     |
+| Unmapped                | 217    |
+
+Now, I need to correct the positions of the SNPs in the hapmap files `data/usda_22kSNPs_7parents.sorted.diploid.hmp.txt` and `data/usda_22kSNPs_325rils.sorted.diploid.hmp.txt` based on new coordinates from SAM file. I wrote a python script called `scripts/convert_hmp_v2-to-v4.py` to do that and create the files `data/usda_22kSNPs_7parents.sorted.diploid.v4.hmp.txt` and `data/usda_22kSNPs_325rils.sorted.diploid.v4.hmp.txt`, and another file with SNP coordinates in both v2 and v4. This script also removes reads that uniquely mapped with no mismatch to a different chromosome in v4, since it's very unlikely that there would be such major differences between v2 and v4 assemblies (i.e., these are probably mismapped).
+
+```bash
+python scripts/convert_hmp_v2-to-v4.py data/probes-100bp_22kSNPchip_aligned-to-B73v4.sam \
+                                       data/SNP_positions_v2-to-v4_probes-100bp.txt \
+                                       data/usda_22kSNPs_7parents.sorted.diploid.hmp.txt,data/usda_22kSNPs_325rils.sorted.diploid.hmp.txt
+# 23 reads discarded due to mapping into different chromosome in v4
+```
+
+I performed a quick QC (using only chromosome 1 data) to see if SNPs from v4 were actually the same as in v2 by running `scripts/check_refgen_SNPchip_v2tov4_probes.R`. The results showed that some markers that didn't match between v2 and v4, and that these mismatches were due to mapping to complementary strand:
+
+```bash
+Rscript scripts/check_refgen_SNPchip_v2tov4_probes.R data/check_refgen_SNPchip/ref-markers_chr1.txt data/SNP_positions_v2-to-v4_probes-100bp.txt
+# 217 marker alleles differ between v2 and v4
+# Converting alleles that differ to complementary base...
+# 0 marker alleles differ between v2 and v4
+```
+
+Thus, I corrected the strand of those markers in the hapmap files `data/usda_22kSNPs_7parents.sorted.diploid.v4.hmp.txt` and `data/usda_22kSNPs_325rils.sorted.diploid.v4.hmp.txt` by running `scripts/correct_SNP_strands.R`. Finally, I corrected the alleles' column of these hapmap files using Tassel.
+
+```bash
+# correct markers not phased
+Rscript scripts/correct_SNP_strands.R data/SNP_positions_v2-to-v4_probes-100bp.txt \
+                                      data/usda_22kSNPs_7parents.sorted.diploid.v4.hmp.txt \
+                                      data/usda_22kSNPs_325rils.sorted.diploid.v4.hmp.txt
+
+# correct alleles column
+run_pipeline.pl -Xmx10g -importGuess data/usda_22kSNPs_7parents.sorted.diploid.v4.hmp.txt \
+                        -export data/usda_22kSNPs_7parents.sorted.diploid.v4.hmp.txt \
+                        -exportType HapmapDiploid
+
+run_pipeline.pl -Xmx10g -importGuess data/usda_22kSNPs_325rils.sorted.diploid.v4.hmp.txt \
+                        -export data/usda_22kSNPs_325rils.sorted.diploid.v4.hmp.txt \
+                        -exportType HapmapDiploid
+```
