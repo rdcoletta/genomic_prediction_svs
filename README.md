@@ -557,3 +557,39 @@ Rscript scripts/markers_summary.R data/usda_22kSNPs_7parents.sorted.diploid.v4.P
                                   analysis/qc/summary_markers_325rils_v4.txt \
                                   data/usda_biparental-crosses.txt
 ```
+
+
+
+
+## Remove SNPs inside deletions and merge SNP and SV data
+
+For projections, I need to create parental and RIL files with all SNPs and SVs. However, before that, I need to address a particular issue when using these two types of variation: SNPs that are found inside deletions. Such SNPs are problematic because they will have segregation issues when you compare multiple lines that have or does not have that SV.
+
+The `scripts/merge_SNPs_SVs_hapmaps.R` will remove SNPs that are within 100kb of a deletion first and then it will combine marker data for parents and RILs separately. I set up 100 kb threshold because ~99% of the deletions are smaller than this and the very large deletions (>1 Mb) would make me lose a lot of SNPs. Importantly, each family will be filtered separately.
+
+```bash
+Rscript scripts/merge_SNPs_SVs_hapmaps.R data/usda_22kSNPs_7parents.sorted.diploid.v4.PHG35-reconstructed.hmp.txt \
+                                         data/usda_22kSNPs_325rils.sorted.diploid.v4.hmp.txt \
+                                         data/usda_SVs_7parents.sorted.hmp.txt \
+                                         data/usda_SNPs-SVs_7parents.not-in-PAVs.hmp.txt \
+                                         data/usda_SNPs-SVs_325rils.not-in-SVs.hmp.txt \
+                                         data/usda_biparental-crosses.txt \
+                                         data/merged_hapmaps_by_cross
+```
+
+As shown in the table below, only very few SNPs were inside the boundaries of a deletion and thus removed:
+
+| chr | total SNPs | SNPs removed |
+| --- | ---------- | ------------ |
+| 1   | 3153       | 6            |
+| 2   | 2401       | 2            |
+| 3   | 2560       | 2            |
+| 4   | 2079       | 0            |
+| 5   | 2134       | 2            |
+| 6   | 1764       | 0            |
+| 7   | 1602       | 0            |
+| 8   | 1299       | 2            |
+| 9   | 1524       | 2            |
+| 10  | 1311       | 0            |
+
+The output from this script is a merged set of SNPs and SVs not in deletions for all parents (`data/usda_SNPs-SVs_7parents.not-in-PAVs.hmp.txt`) and all RILs (`data/usda_SNPs-SVs_325rils.not-in-SVs.hmp.txt`), and also merged sets for each RIL family (files in `data/merged_hapmaps_by_cross`). The later sets will be the ones used for projection.
