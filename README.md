@@ -592,4 +592,89 @@ As shown in the table below, only very few SNPs were inside the boundaries of a 
 | 9   | 1524       | 2            |
 | 10  | 1311       | 0            |
 
-The output from this script is a merged set of SNPs and SVs not in deletions for all parents (`data/usda_SNPs-SVs_7parents.not-in-PAVs.hmp.txt`) and all RILs (`data/usda_SNPs-SVs_325rils.not-in-SVs.hmp.txt`), and also merged sets for each RIL family (files in `data/merged_hapmaps_by_cross`). The later sets will be the ones used for projection.
+The output from this script is a merged set of SNPs and SVs not in deletions for all parents (`data/usda_SNPs-SVs_7parents.not-in-PAVs.hmp.txt`) and all RILs (`data/usda_SNPs-SVs_325rils.not-in-SVs.hmp.txt`), and also merged sets for each RIL family (files in `data/merged_hapmaps_by_cross`). The later sets will be the ones used for projection. It's worth noting that genotypic information of SVs is only available on parental dataset. The RIL dataset have the SV names but not the genotypes (they are all `NN`).
+
+
+
+
+## Project SVs from parents to RILs
+
+Projection of SVs need to be done on a family basis. The merged SNP and SV data from parents will serve as donors for projections by [FILLIN](https://bitbucket.org/tasseladmin/tassel-5-source/wiki/UserManual/FILLIN/FILLIN). The haplotype blocks generated for each parent will then be used to determine the haplotypes from the RIL dataset.
+
+After preliminary analysis, using the options `-hapSize 2000` (haplotype block size), `-minTaxa 1` (create haplotype for each parent), and `-hybNN false` (avoid combining haplotypes) yielded the best projection results.
+
+
+```bash
+# create directory to store results of imputation
+mkdir -p analysis/projection
+
+# change directory
+cd data/
+
+# save current field delimiter
+curr_IFS=$IFS
+{
+  # skip header of "usda_biparental-crosses.txt" file
+  read
+  # set delimeter to tab
+  IFS="\t"
+  # read file line by line
+  while read -r line; do
+    # split line and assign each column to a variable
+    # also change "*" by "x" in the cross name to match the file names
+    cross=$(echo $line | cut -f1 | tr "*" "x")
+    # create haplotypes from parents
+    run_pipeline.pl -FILLINFindHaplotypesPlugin \
+                    -hmp merged_hapmaps_by_cross/usda_SNPs-SVs_$cross\_parents.sorted.hmp.txt \
+                    -o ../analysis/projection/donors_$cross \
+                    -hapSize 2000 -minTaxa 1
+    # impute ril genotypes based on
+    run_pipeline.pl -FILLINImputationPlugin \
+                    -hmp merged_hapmaps_by_cross/usda_SNPs-SVs_$cross\_RILs.sorted.hmp.txt \
+                    -d ../analysis/projection/donors_$cross \
+                    -o ../analysis/projection/usda_SNPs-SVs_$cross\_RILs.projected.hmp.txt \
+                    -hapSize 2000 -hybNN false -accuracy
+  done
+} < "usda_biparental-crosses.txt" > "../analysis/projection/FILLIN_log.txt"
+# set delimiter back to what it was
+IFS=$curr_IFS
+
+# remove empty folders (RILs without genotypic data)
+# note that although i'm using *, the folder won't be deleted if it's not empty
+rmdir ../analysis/projection/*
+
+
+# transform to diploid hapmap
+cd ../analysis/projection
+for file in *"projected.hmp.txt"; do
+  run_pipeline.pl -Xmx10g -importGuess $file -export $file -exportType HapmapDiploid
+done
+```
+
+To summarize the results of projections for each family, I wrote `scripts/count_projected_SVs.R`. The average **SV projection was 93.31%** with average accuracy of 92.84%. Details about projections for each family were written into `analysis/projection/projection_summary.txt`, but can also be visualized in different plots saved into `analysis/projection`.
+
+```bash
+Rscript scripts/count_projected_SVs.R data/usda_SVs_7parents.sorted.hmp.txt \
+                                      data/usda_biparental-crosses.txt \
+                                      analysis/projection
+```
+
+Another QC is to plot the karyotypes from RILs and compare with their parents to check whether the haplotype blocks agree. After running `scripts/plot_ril_karyotype_SVs.R`, I don't see any major disagreement between parental and RIL data, meaning that projections seem to be very accurate indeed.
+
+```bash
+Rscript scripts/plot_ril_karyotypes_SVs.R data/B73_RefGen_V4_chrm_info.txt \
+                                          data/centromeres_Schneider-2016-pnas_v4.bed \
+                                          data/usda_biparental-crosses.txt \
+                                          analysis/projection \
+                                          data/merged_hapmaps_by_cross \
+                                          analysis/qc/karyotypes \
+                                          --rils=random
+```
+
+In order to use these projections in genomic prediction simulations, I have to merge each projected hapmap into one file. For this purpose, I wrote `scripts/merge_projected_crosses.R` to merge projected files into the file `data/usda_SNPs-SVs_325rils.not-in-SVs.projected.hmp.txt`.
+
+```bash
+Rscript scripts/merge_projected_crosses.R data/usda_SNPs-SVs_325rils.not-in-SVs.hmp.txt \
+                                          analysis/projection \
+                                          data/usda_biparental-crosses.txt
+```
