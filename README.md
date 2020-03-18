@@ -649,6 +649,10 @@ cd ../analysis/projection
 for file in *"projected.hmp.txt"; do
   run_pipeline.pl -Xmx10g -importGuess $file -export $file -exportType HapmapDiploid
 done
+
+# return to project's home directory
+cd ~/projects/genomic_prediction/simulation
+
 ```
 
 To summarize the results of projections for each family, I wrote `scripts/count_projected_SVs.R`. The average **SV projection was 93.31%** with average accuracy of 92.84%. Details about projections for each family were written into `analysis/projection/projection_summary.txt`, but can also be visualized in different plots saved into `analysis/projection`.
@@ -677,4 +681,57 @@ In order to use these projections in genomic prediction simulations, I have to m
 Rscript scripts/merge_projected_crosses.R data/usda_SNPs-SVs_325rils.not-in-SVs.hmp.txt \
                                           analysis/projection \
                                           data/usda_biparental-crosses.txt
+```
+
+
+
+
+## Resequencing SNPs
+
+After some preliminary work on genomic prediction models with simulated data, we noticed that we end up with far more SVs (~10k) than SNPs in LD to an SV (~3k). This very likely happened because the SNP chip doesn't have the SNP density required to fully capture every SNP in LD to an SV. Fortunately, there is resequencing data available for all parents of the USDA population, and this type of data can provide the resolution needed. However, since there is no resequencing data for the RILs, I have to project these resequencing SNPs from USDA parents to respective RILs.
+
+All parents for this population were resequenced by [Mazaheri et al (BMC Plant Biology, 2019)](https://bmcplantbiol.biomedcentral.com/articles/10.1186/s12870-019-1653-x), and the data can be retrieved in [this Dryad repository](https://datadryad.org/stash/landing/show?big=showme&id=doi%3A10.5061%2Fdryad.n0m260p).
+
+> Note that the real link for for downloading this data will be sent by email.
+
+The main file to use for this project is called `62biomAP_v_B73_SNPMatrix.txt`, which is a matrix containing all SNP calls for 56 maize inbred lines. Thus, after downloading the data, I have to select only the parents of the USDA population, transform the data to the hapmap format and then proceed to the rest of the analysis.
+
+Unzip `62biomAP_v_B73_SNPMatrix.txt.txt.tar.gz` and it's has all the SNPs from 56 inbreds. I will just select the SNPs from the 7 parents of my population (B73, LH82, PH207, PHG35, PHG39, PHG47, and PHJ40). The dataset to be used is called `data/reseq_snps/biomAP_v_B73_SNPMatrix_7parents.txt`.
+
+```bash
+mkdir -p data/reseq_snps
+cd data/reseq_snps
+
+# note that if I download this data again, the name of the file will be different
+wget http://merritt.cdlib.org/cloudcontainer/mrtstore2/21061229.tar.gz
+tar -xvf 21061229.tar.gz
+gunzip 62biomAP_v_B73_SNPMatrix.txt.gz
+
+# the only thing I care is the SNP matrix, so I'm gonna delete the other files
+rm *widiv_942g_899784SNPs*
+
+# get column number of the inbreds
+head -n 1 62biomAP_v_B73_SNPMatrix.txt | tr '\t' '\n' | cat -n | grep "B73\|LH82\|PH207\|PHG35\|PHG39\|PHG47\|PHJ40"
+# 2	B73v4_Ref
+# 5	B73
+# 21	LH82
+# 32	PH207
+# 36	PHG35
+# 37	PHG39
+# 38	PHG47
+# 43	PHJ40
+
+# get first column (position) and the ones above
+cut -f 1,2,5,21,32,36,37,38,43 62biomAP_v_B73_SNPMatrix.txt > biomAP_v_B73_SNPMatrix_7parents.txt
+
+# return to project's home directory
+cd ~/projects/genomic_prediction/simulation
+
+# transform to hapmap format:
+python scripts/snp_matrix2hapmap.py data/reseq_snps/biomAP_v_B73_SNPMatrix_7parents.txt data/reseq_snps/biomAP_v_B73_SNPMatrix_7parents.hmp.txt
+
+# transform to hapmap diploid format:
+run_pipeline.pl -Xmx50g -importGuess data/reseq_snps/biomAP_v_B73_SNPMatrix_7parents.hmp.txt \
+                        -export data/reseq_snps/biomAP_v_B73_SNPMatrix_7parents.hmp.txt \
+                        -exportType HapmapDiploid
 ```
