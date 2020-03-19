@@ -755,7 +755,6 @@ Rscript scripts/merge_reseq_SNPs_with_SNPchip.R data/reseq_snps/biomAP_v_B73_SNP
 
 As shown in the table below, about 1% of SNPs were within deletions up to 100 kb:
 
-
 | chr | total SNPs | SNPs removed |
 | --- | ---------- | ------------ |
 | 1   | 3368111    | 33283        |
@@ -768,3 +767,11 @@ As shown in the table below, about 1% of SNPs were within deletions up to 100 kb
 | 8   | 1917030    | 21385        |
 | 9   | 1850524    | 13513        |
 | 10  | 1597057    | 13131        |
+
+After doing the above analysis, I talked to Candy and she told me to use only SNPs (not SNPs and SVs) as anchors for projection. So I need to remove the SVs for each of the files created above.
+
+```bash
+for file in data/reseq_snps/*/biomAP_*_SNPs-reseq_SNP-chip_SVs-proj.*.hmp.txt; do
+  grep -v -P "^del|^dup|^ins|^inv|^tra" $file > ${file/SNPs-reseq_SNP-chip_SVs-proj/SNPs-reseq_SNP-chip}
+done
+```
