@@ -775,3 +775,67 @@ for file in data/reseq_snps/*/biomAP_*_SNPs-reseq_SNP-chip_SVs-proj.*.hmp.txt; d
   grep -v -P "^del|^dup|^ins|^inv|^tra" $file > ${file/SNPs-reseq_SNP-chip_SVs-proj/SNPs-reseq_SNP-chip}
 done
 ```
+
+
+### Project SNPs from parents to RILs
+
+Projection of resequencing SNPs will also be done on a family basis using only polymorphic SNPs. The merged SNP chip and resequencing SNP data from parents will serve as donors for projections by [FILLIN](https://bitbucket.org/tasseladmin/tassel-5-source/wiki/UserManual/FILLIN/FILLIN). The haplotype blocks generated for each parent will then be used to determine the haplotypes from the RIL dataset.
+
+After preliminary analysis, using the options `-hapSize 200000` (haplotype block size), `-minTaxa 1` (create haplotype for each parent), and `-hybNN false` (avoid combining haplotypes) yielded the best projection results, as they ended up with similar number of haplotype blocks from SV projection.
+
+
+```bash
+# create directory to store results of imputation
+mkdir -p analysis/projection_reseq-snps
+
+# change directory to get cross names
+cd data/reseq_snps
+
+for cross in $(ls -d [BLP]*); do
+  qsub -v CROSS=$cross,HAPSIZE=200000 ~/projects/genomic_prediction/simulation/scripts/project_reseq-snps.sh
+done
+
+# transform to diploid hapmap:
+cd ~/projects/genomic_prediction/simulation/analysis/projection_reseq-snps
+
+for file in *"projected.hmp.txt"; do
+  run_pipeline.pl -Xmx10g -importGuess $file -export $file -exportType HapmapDiploid
+done
+
+# go back to project's home folder
+cd ~/projects/genomic_prediction/simulation
+```
+
+To summarize the results of projections for each family, I wrote `scripts/count_projected_reseq-snps.R`. The average **SV projection was 94.2%** with average accuracy of 91.85%. Details about projections for each family were written into `analysis/projection_reseq-snps/projection_summary.txt`, but can also be visualized in different plots saved into `analysis/projection_reseq-snps`.
+
+```bash
+Rscript scripts/count_projected_reseq-snps.R data/reseq_snps/biomAP_v_B73_SNPMatrix_7parents.not-in-PAVs.hmp.txt \
+                                             data/usda_biparental-crosses.txt \
+                                             analysis/projection_reseq-snps
+```
+
+> Just for comparison, I tested `-hapSize`s of 1M and 2.5M, and the results average SNPs projected were 76.93% (92.48% accuracy) and 94.39% (91.87% accuracy) respectively.
+
+
+I also ploted the karyotypes from RILs before and after SNP projection with `scripts/plot_ril_karyotypes_reseq-SNPs.R`. After running it, I don't see any major disagreements between parental and RIL data, meaning that projections seem to be very accurate indeed.
+
+```bash
+# change directory to get cross names
+cd data/reseq_snps
+
+for cross in $(ls -d [BLP]*); do
+  # ugly way to get the names of rils used to plot karyotypes
+  rils=$(ls ../../analysis/qc/karyotypes/$cross*before* | xargs -n 1 basename | cut -d "_" -f 2,3 | cut -d "." -f 1 | sed "s/_before-proj//" | paste -s -d ",")
+  # plot karyotypes for those rils
+  Rscript ../../scripts/plot_ril_karyotypes_reseq-SNPs.R ../../data/B73_RefGen_V4_chrm_info.txt \
+                                                         ../../data/centromeres_Schneider-2016-pnas_v4.bed \
+                                                         $cross \
+                                                         ../../analysis/projection_reseq-snps \
+                                                         ../../data/reseq_snps \
+                                                         ../../analysis/qc/karyotypes \
+                                                         --rils=$rils
+done
+
+# go back to project's home folder
+cd ~/projects/genomic_prediction/simulation
+```
