@@ -735,3 +735,36 @@ run_pipeline.pl -Xmx50g -importGuess data/reseq_snps/biomAP_v_B73_SNPMatrix_7par
                         -export data/reseq_snps/biomAP_v_B73_SNPMatrix_7parents.hmp.txt \
                         -exportType HapmapDiploid
 ```
+
+
+### Remove SNPs inside deletions and merge resequencing with SNP chip data
+
+Since the SNP resequencing data will be used together with SV data, I also need to make sure that such SNPs are not present within the boundaries of an SV. The `scripts/merge_reseq_SNPs_with_SNPchip.R` will first remove resequencing SNPs that are within 100kb of a deletion, and then it will merge these SNPs with the SNPs from chip data. Since resequencing data has more than 20 million SNPs, this script will also subset resequencing SNPs by population to keep only the polymorphic ones. Using polymorphic SNPs only will speed up projections by reducing the total number of SNPs to look at.
+
+The markers from the SNP chip will be used as anchors for projection of resequencing SNPs into RILs. The hapmap files from parents and RILs will be saved at a cross specific folder in `data/reseq_snps/`.
+
+```bash
+Rscript scripts/merge_reseq_SNPs_with_SNPchip.R data/reseq_snps/biomAP_v_B73_SNPMatrix_7parents.hmp.txt \
+                                                data/usda_SVs_7parents.sorted.hmp.txt \
+                                                data/usda_biparental-crosses.txt \
+                                                analysis/projection \
+                                                data/merged_hapmaps_by_cross \
+                                                data/reseq_snps/biomAP_parents_SNPs-reseq_SNP-chip_SVs-proj.hmp.txt \
+                                                data/reseq_snps/biomAP_rils_SNPs-reseq_SNP-chip_SVs-proj.hmp.txt
+```
+
+As shown in the table below, about 1% of SNPs were within deletions up to 100 kb:
+
+
+| chr | total SNPs | SNPs removed |
+| --- | ---------- | ------------ |
+| 1   | 3368111    | 33283        |
+| 2   | 2936145    | 32428        |
+| 3   | 2660241    | 24650        |
+| 4   | 2778443    | 20590        |
+| 5   | 2349338    | 24793        |
+| 6   | 1795656    | 16873        |
+| 7   | 2002440    | 17866        |
+| 8   | 1917030    | 21385        |
+| 9   | 1850524    | 13513        |
+| 10  | 1597057    | 13131        |
