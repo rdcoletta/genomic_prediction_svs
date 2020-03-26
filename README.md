@@ -597,6 +597,24 @@ The output from this script is a merged set of SNPs and SVs not in deletions for
 
 
 
+## Correct SNP chip miscalls with sliding window approach
+
+Before doing projections, it's also important to minimize the number of miscalls in the SNP chip data for RILs, otherwise the number of wrong projections will be high and this can have a big impact in the downstream predictions.
+
+```bash
+for cross in $(ls data/merged_hapmaps_by_cross/* | xargs -n 1 basename |  cut -d '_' -f 3 | uniq); do
+  Rscript scripts/sliding_window_approach.R $cross \
+                                            data/merged_hapmaps_by_cross/usda_SNPs-SVs_$cross\_RILs.sorted.hmp.txt \
+                                            data/merged_hapmaps_by_cross/usda_SNPs-SVs_$cross\_parents.sorted.hmp.txt \
+                                            --window_size=15 --window_step=1 --min_snps_per_window=5
+done
+```
+
+> Note: In preliminary tests, it looked like that as I increased `--window_size`, the number of hets increased as well, especially around recombination breakpoints. Increasing `--window_step` kind of controlled that a bit (at least visually), but this end up increasing the chance of having wrong recombination points.
+
+
+
+
 ## Project SVs from parents to RILs
 
 Projection of SVs need to be done on a family basis. The merged SNP and SV data from parents will serve as donors for projections by [FILLIN](https://bitbucket.org/tasseladmin/tassel-5-source/wiki/UserManual/FILLIN/FILLIN). The haplotype blocks generated for each parent will then be used to determine the haplotypes from the RIL dataset.
