@@ -251,13 +251,13 @@ for (RIL in selected.RILs) {
                  aes(x = 0, xend = 0, y = start_pos, yend = end_pos),
                  lineend = "round", color = "DimGray", size = 5) +
     geom_segment(data = geno.data.all.SVs.proj.p1,
-                 aes(x = 0, xend = 0, y = pos, yend = pos + 1e6),  # increased size to be able to see the marker
-                 lineend = "butt", color = "#008837", size = 5, alpha = 0.3) +
+                 aes(x = 0, xend = 0, y = pos, yend = pos + 1e5),  # increased size to be able to see the marker
+                 lineend = "butt", color = "#008837", size = 5, alpha = 0.1) +
     geom_segment(data = geno.data.all.SVs.proj.p2,
-                 aes(x = 0, xend = 0, y = pos, yend = pos + 1e6),  # increased size to be able to see the marker
-                 lineend = "butt", color = "#7b3294", size = 5, alpha = 0.3) +
+                 aes(x = 0, xend = 0, y = pos, yend = pos + 1e5),  # increased size to be able to see the marker
+                 lineend = "butt", color = "#7b3294", size = 5, alpha = 0.1) +
     geom_segment(data = geno.data.all.SVs.proj.het,
-                 aes(x = 0, xend = 0, y = pos, yend = pos + 1e6),  # increased size to be able to see the marker
+                 aes(x = 0, xend = 0, y = pos, yend = pos + 1e5),  # increased size to be able to see the marker
                  lineend = "butt", color = "#fec44f", size = 5, alpha = 0.5) +
     scale_y_reverse(breaks = seq(0, 3.5e8, 0.50e8), labels = c(1, seq(50, 350, 50))) +
     scale_x_discrete(position = "top") +
