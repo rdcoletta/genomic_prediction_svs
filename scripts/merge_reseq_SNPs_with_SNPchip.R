@@ -157,11 +157,11 @@ MergeHapmaps <- function(snp_file, reseq_file, merge_RILs = FALSE) {
 
 cat("Removing SNPs within 100kb deletions\n")
 
-# snp.hmp.parents <- RemoveSNPsInPAVs(snp_file = file.snps.parents, parental_sv_file = file.svs.parents)
+snp.hmp.parents <- RemoveSNPsInPAVs(snp_file = file.snps.parents, parental_sv_file = file.svs.parents)
 
 outfile.parents.not.in.dels <- unlist(strsplit(file.snps.parents, split = ".", fixed = TRUE))[1]
 outfile.parents.not.in.dels <- paste0(outfile.parents.not.in.dels, ".not-in-PAVs.hmp.txt")
-# fwrite(snp.hmp.parents, outfile.parents.not.in.dels, sep = "\t", quote = FALSE, na = NA)
+fwrite(snp.hmp.parents, outfile.parents.not.in.dels, sep = "\t", quote = FALSE, na = NA)
 
 
 
@@ -171,8 +171,8 @@ outfile.parents.not.in.dels <- paste0(outfile.parents.not.in.dels, ".not-in-PAVs
 # - Parents: best markers + projected SVs + SNPs in reseq
 # - RILs: best markers + projected SVs + SNPs in reseq (but all converted to NN)
 
-snp.hmp.parents <- fread("data/reseq_snps/biomAP_v_B73_SNPMatrix_7parents.not-in-PAVs.hmp.txt",
-                          header = TRUE, data.table = FALSE)
+# snp.hmp.parents <- fread("data/reseq_snps/biomAP_v_B73_SNPMatrix_7parents.not-in-PAVs.hmp.txt",
+#                           header = TRUE, data.table = FALSE)
 
 
 # load table with cross information
@@ -221,15 +221,15 @@ for (row in 1:NROW(df.crosses)) {
 
   # remove SNPs that are missing in at least one parent
   subset.parents <- subset.parents[which(subset.parents[, p1.col] != "NN" & subset.parents[, p2.col] != "NN"), ]
-  
+
   # create folder to store results for that cross
   cross.folder <- unlist(strsplit(file.snps.parents, split = "/"))
   cross.folder <- paste0(cross.folder[-length(cross.folder)], collapse = "/")
   cross.folder <- paste0(cross.folder, "/", cross)
-  
+
   if (!dir.exists(cross.folder)) dir.create(cross.folder)
-  
-  
+
+
   #### keep only polymorphic SNPs ----
 
   cat("  Removing monomorphic SNPs\n")
@@ -342,19 +342,19 @@ for (row in 1:NROW(df.crosses)) {
   #### write results ----
 
   cat("  Writing files\n")
-  
+
   parents.merged.outfile <- unlist(strsplit(outfile.parents, split = ".", fixed = TRUE))[1]
   parents.merged.outfile <- paste0(parents.merged.outfile, ".", cross, ".poly.hmp.txt")
   parents.merged.outfile <- rev(unlist(strsplit(parents.merged.outfile, split = "/")))[1]
   parents.merged.outfile <- paste0(cross.folder, "/", parents.merged.outfile)
-  
+
   fwrite(parents.merged.filtered, parents.merged.outfile, quote = FALSE, sep = "\t", na = NA, row.names = FALSE)
 
   rils.merged.outfile <- unlist(strsplit(outfile.rils, split = ".", fixed = TRUE))[1]
   rils.merged.outfile <- paste0(rils.merged.outfile, ".", cross, ".poly.hmp.txt")
   rils.merged.outfile <- rev(unlist(strsplit(rils.merged.outfile, split = "/")))[1]
   rils.merged.outfile <- paste0(cross.folder, "/", rils.merged.outfile)
-  
+
   fwrite(rils.merged.filtered, rils.merged.outfile, quote = FALSE, sep = "\t", na = NA, row.names = FALSE)
 
   cat("  Done!\n")
