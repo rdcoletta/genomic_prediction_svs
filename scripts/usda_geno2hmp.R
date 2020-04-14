@@ -15,7 +15,7 @@ Usage: Rscript usda_geno2hmp.R parents_file rils_file1 rils_file2 output_folder"
 # make sure the correct number of arguments are used
 if (length(args) != 4) {
   stop("incorrect number of arguments provided.
-  
+
 Usage: Rscript usda_geno2hmp.R parents_file rils_file1 rils_file2 output_folder
        ")
 }
@@ -43,11 +43,11 @@ if(!require("data.table")) install.packages("data.table")
 
 #### functions ----
 
-geno2hmp <- function(geno.file, output.folder, names = TRUE) {
-  
+geno2hmp <- function(geno.file, output.folder) {
+
   # read in table
   geno.data <- fread(geno.file, header = FALSE, data.table = FALSE)
-  
+
   # create hapmap structrue
   hmp.data <- data.frame("rs" = geno.data[-(1:2),1],
                          "alleles" = NA,
@@ -60,24 +60,17 @@ geno2hmp <- function(geno.file, output.folder, names = TRUE) {
                          "assayLSID" = NA,
                          "panel" = NA,
                          "QCcode" = NA)
-  
+
   # add genotypes
   hmp.data <- cbind(hmp.data, geno.data[-(1:2),4:NCOL(geno.data)])
-  
-  if (names == TRUE) {
-    # include genotype names as column names
-    colnames(hmp.data)[12:NCOL(hmp.data)] <- as.character(geno.data[1,4:NCOL(geno.data)])
-  }
-  if (names == FALSE) {
-    # include genotype IDs as column names
-    colnames(hmp.data)[12:NCOL(hmp.data)] <- as.character(geno.data[2,4:NCOL(geno.data)])
-  }
-  
-  # convert missing data "-" to "N"
-  hmp.data[, 12:NCOL(hmp.data)] <- apply(X = hmp.data[, 12:NCOL(hmp.data)],
-                                         MARGIN = c(1,2),
-                                         FUN = function(x) gsub(pattern = "-", replacement = "N", x))
-  
+
+  # include genotype names as column names
+  colnames(hmp.data)[12:NCOL(hmp.data)] <- as.character(geno.data[1,4:NCOL(geno.data)])
+
+  # convert missing data "--" to "NN"
+  hmp.data[, 12:NCOL(hmp.data)] <- apply(X = hmp.data[, 12:NCOL(hmp.data)], MARGIN = 2,
+                                         FUN = function(x) gsub(pattern = "--", replacement = "NN", x))
+
   # create output name
   outname <- rev(unlist(strsplit(geno.file, split = "/")))[1]
   outname <- gsub(".csv", ".hmp.txt", outname, fixed = TRUE)
@@ -87,13 +80,13 @@ geno2hmp <- function(geno.file, output.folder, names = TRUE) {
   # id table
   id.table.outfile.path <- gsub(".hmp.txt", ".txt", outname, fixed = TRUE)
   id.table.outfile.path <- paste0(output.folder, "/id_table_", id.table.outfile.path)
-  
+
   # print hapmap converted genotypic data
   fwrite(hmp.data, file = outfile.path, sep = "\t", na = NA, quote = FALSE)
-  
+
   # also print a table relating parent name and its ID when genotyping
   id.table <- data.frame("genotype_name" = as.character(geno.data[1,4:NCOL(geno.data)]),
-                         "genotype_id" = as.character(geno.data[2,4:NCOL(geno.data)]))
+                         "source_id" = as.character(geno.data[2,4:NCOL(geno.data)]))
   fwrite(id.table, file = id.table.outfile.path, sep = "\t")
 }
 
@@ -102,7 +95,7 @@ geno2hmp <- function(geno.file, output.folder, names = TRUE) {
 #### parental data ----
 
 cat("Converting parental data\n")
-geno2hmp(geno.file = parents.file, output.folder = output.folder, names = TRUE)
+geno2hmp(geno.file = parents.file, output.folder = output.folder)
 
 
 
@@ -113,7 +106,7 @@ geno2hmp(geno.file = parents.file, output.folder = output.folder, names = TRUE)
 
 cat("Converting ril data\n")
 cat("  file 1\n")
-geno2hmp(geno.file = rils1.file, output.folder = output.folder, names = FALSE)
+geno2hmp(geno.file = rils1.file, output.folder = output.folder)
 
 cat("  file 2\n")
 # read ril data again
@@ -126,15 +119,15 @@ ril.data1 <- fread(ril1.hmp, header = TRUE, data.table = FALSE)
 ril.data2 <- fread(rils2.file, header = FALSE, data.table = FALSE)
 
 # filter part 2 so it has only the genotypic information
-ril.data2.filter <- ril.data2[-(1:2),4:NCOL(ril.data2)]
-colnames(ril.data2.filter) <- ril.data2[2,4:NCOL(ril.data2)]
+ril.data2.filter <- ril.data2[-(1:2), 4:NCOL(ril.data2)]
+colnames(ril.data2.filter) <- ril.data2[1, 4:NCOL(ril.data2)]
 
-# convert missing data "-" to "N" from part 2
-ril.data2.filter <- data.frame(apply(X = ril.data2.filter, MARGIN = c(1,2),
-                                     FUN = function(x) gsub(pattern = "-", replacement = "N", x)),
+# convert missing data "--" to "NN" from part 2
+ril.data2.filter <- data.frame(apply(X = ril.data2.filter, MARGIN = 2,
+                                     FUN = function(x) gsub(pattern = "--", replacement = "NN", x)),
                                check.names = FALSE)
 
-# append genotypic info of part 2 to 
+# append genotypic info of part 2 to part 1
 ril.data.combined <- cbind(ril.data1, ril.data2.filter)
 # View(ril.data.combined)
 
@@ -152,7 +145,7 @@ id.table.file <- gsub("/", "/id_table_", id.table.file)
 id.table.rils <- fread(id.table.file, header = TRUE, data.table = F)
 
 id.table.ril.part2 <- data.frame("genotype_name" = as.character(ril.data2[1,4:NCOL(ril.data2)]),
-                                 "genotype_id" = as.character(ril.data2[2,4:NCOL(ril.data2)]))
+                                 "source_id" = as.character(ril.data2[2,4:NCOL(ril.data2)]))
 
 id.table.rils.combined <- rbind(id.table.rils, id.table.ril.part2)
 
