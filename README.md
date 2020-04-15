@@ -64,19 +64,27 @@ This script generated these files on `data/` folder:
   id_table_Final_22kSNPs_DAS_UIUC_RILsGenotypeData_122318.txt
   ```
 
-> RILs have their genotype ID instead of name because some RILs had multiple IDs. That's why I generated a list relating names to IDs. Also, I converted `-` to `N` to represent missing data for compatibility with TASSEL 5 software.
+> RILs have their genotype ID instead of name because some RILs had multiple IDs. That's why I generated a list relating names to IDs. Also, I converted `--` to `NN` to represent missing data for compatibility with TASSEL 5 software.
 
-Since there are genotypic data for more parents and RILs than used in the USDA project, I need to keep only the genotypes described in the USDA project that will have phenotypic data collected. To do this, Candy sent the file `data/2018_field_planning.xlsx` that contains all the RILs crossesd to generate the 400 hybrids. They can be found under **USDA crosses** on `X10_Nursery_Book` and `X9_Nursery_Book` sheets. I manually copied all this information and saved on file `data/usda_RILs_2018.txt`.
+After converting the data to the hapmap format, I realized that 19 RILs were genotyped more than once. Thus, I decided to collapse the genotypic information for these duplicated RILs. In other words, I compared the SNP calls for all duplicates of a RIL: if the alleles were the same, I kept the information; if there was any disagreement between the alleles, I set the marker information to missing (`NN`). To do that, I wrote `scripts/collapse_geno-info_dup-RILs.R`.
 
-> Taking a quick look at this file, I noticed that there are only 328 unique RILs and one hybrid (LH82*PHG47). I'm not sure why there is a F1 cross there, so I need to ask Candy. Also, I was expecting more RILs to generate the hybrids (328 vs 525 RILs). It will be good to talk to Candy about that.
+```bash
+Rscript scripts/collapse_geno-info_dup-RILs.R data/Final_22kSNPs_DAS_UIUC_RILsGenotypeData_122318.hmp.txt
+```
+
+> It's worth noting that RILs `LH82*PH207-B-B-4-1-1-B-B`, `LH82*PH207-B-B-12-1-1-B-B`, and `LH82*PHG35-B-B-27-1-1-B-B` have \~7,000 missing SNPs after collapsing (\~30% of SNPs), which is very high. I will talk with Candy to see if I keep the collapsed genotypes our choose one of the duplicates (perhaps the source ID can give an idea of which one was actually used to generate the hybrids, for example).
+
+Since there are genotypic data for more parents and RILs than used in the USDA project, I need to keep only the genotypes described in the USDA project that will have phenotypic data collected. To do this, Candy sent the file `data/2018_field_planning.xlsx` that contains all the RILs crossesd to generate the 400 hybrids. They can be found under **USDA crosses** on `X10_Nursery_Book` and `X9_Nursery_Book` sheets. I manually copied all this information, removed duplicates (in Excel) and saved as file `data/usda_RILs_2018.txt`.
+
+> Before creating this file, I noticed that there were 328 unique RILs and one hybrid (`LH82*PHG47`). I think that is a mistake, and the name of the RILs were switched to the the "source" column, but I will double check that with Candy. Anyway, changed the name of the  of this hybrid to `LH82*PHG47-B-B-4-1-1-B-B`, `LH82*PHG47-B-B-5-1-1-B-B`, `LH82*PHG47-B-B-6-1-1-B-B`, `LH82*PHG47-B-B-7-1-1-B-B`, and `LH82*PHG47-B-B-8-1-1-B-B`. Therefore, the total number of RILs are 333.
 
 The `scripts/remove_extra_geno-data.R` script removes extra genotypic data that will not be used in the USDA project from hapmap files:
 
 ```bash
 Rscript scripts/remove_extra_geno-data.R data/Final_22kSNPs_DAS_UIUC_ParentalGenotypeData_122318.hmp.txt \
-                                         data/usda_22kSNPs_7parents.hmp.txt \
+                                         data/usda_22kSNPs_parents.hmp.txt \
                                          data/Final_22kSNPs_DAS_UIUC_RILsGenotypeData_122318.hmp.txt \
-                                         data/usda_22kSNPs_325rils.hmp.txt \
+                                         data/usda_22kSNPs_rils.hmp.txt \
                                          data/usda_RILs_2018.txt
 ```
 
@@ -84,9 +92,9 @@ This file generated the following files on `data/` folder, and will be used in f
 
 ```bash
 # parental data
-usda_22kSNPs_7parents.hmp.txt
-# RIL data (325 out of 328 RILs were genotyped)
-usda_22kSNPs_325rils.hmp.txt
+usda_22kSNPs_parents.hmp.txt
+# RIL data (315 out of 333 RILs were genotyped)
+usda_22kSNPs_rils.hmp.txt
 ```
 
 
@@ -105,25 +113,25 @@ python scripts/create_list_biparental-crosses.py data/id_table_Final_22kSNPs_DAS
 
 I will use the software [Tassel 5](https://www.maizegenetics.net/tassel) for some basic QC, because this software can generate summaries (including allele frequency) pretty quickly.
 
-Tassel requires that the genotypic data is sorted by position and chromosome number. The genotypic data `data/usda_22kSNPs_325rils.hmp.txt`has SNPs from chromosome 10 comes after chromosome 1, so it's not sorted correctly. Thus, I used `SortGenotypeFilePlugin` from Tassel to quickly sort the genotypic data and create another hapmap file called `data/usda_22kSNPs_325rils.sorted.hmp.txt`. Then I ran Tassel again to transform the sorted data into diploid hapmap format. This file will be used for the rest of QC analysis. I also did the same procedure with the parental data.
+Tassel requires that the genotypic data is sorted by position and chromosome number. The genotypic data `data/usda_22kSNPs_rils.hmp.txt`has SNPs from chromosome 10 comes after chromosome 1, so it's not sorted correctly. Thus, I used `SortGenotypeFilePlugin` from Tassel to quickly sort the genotypic data and create another hapmap file called `data/usda_22kSNPs_rils.sorted.hmp.txt`. Then I ran Tassel again to transform the sorted data into diploid hapmap format. This file will be used for the rest of QC analysis. I also did the same procedure with the parental data.
 
 ```bash
 # sort ril data
 run_pipeline.pl -Xmx2g -SortGenotypeFilePlugin \
-                       -inputFile data/usda_22kSNPs_325rils.hmp.txt \
-                       -outputFile data/usda_22kSNPs_325rils.sorted.hmp.txt \
+                       -inputFile data/usda_22kSNPs_rils.hmp.txt \
+                       -outputFile data/usda_22kSNPs_rils.sorted.hmp.txt \
                        -fileType Hapmap
-run_pipeline.pl -Xmx2g -importGuess data/usda_22kSNPs_325rils.sorted.hmp.txt \
-                       -export data/usda_22kSNPs_325rils.sorted.diploid.hmp.txt \
+run_pipeline.pl -Xmx2g -importGuess data/usda_22kSNPs_rils.sorted.hmp.txt \
+                       -export data/usda_22kSNPs_rils.sorted.diploid.hmp.txt \
                        -exportType HapmapDiploid
 
 # sort parents
 run_pipeline.pl -Xmx2g -SortGenotypeFilePlugin \
-                       -inputFile data/usda_22kSNPs_7parents.hmp.txt \
-                       -outputFile data/usda_22kSNPs_7parents.sorted.hmp.txt \
+                       -inputFile data/usda_22kSNPs_parents.hmp.txt \
+                       -outputFile data/usda_22kSNPs_parents.sorted.hmp.txt \
                        -fileType Hapmap
-run_pipeline.pl -Xmx2g -importGuess data/usda_22kSNPs_7parents.sorted.hmp.txt \
-                       -export data/usda_22kSNPs_7parents.sorted.diploid.hmp.txt \
+run_pipeline.pl -Xmx2g -importGuess data/usda_22kSNPs_parents.sorted.hmp.txt \
+                       -export data/usda_22kSNPs_parents.sorted.diploid.hmp.txt \
                        -exportType HapmapDiploid
 ```
 
@@ -147,7 +155,7 @@ mkdir -p analysis/qc
     # check if directory exists; if it doesn't, create one to store results
     [[ -d analysis/qc/$cross ]] || mkdir -p analysis/qc/$cross
     # run tassel (added "\" at the end of the line just to improve readability)
-    run_pipeline.pl -Xmx6g -importGuess data/usda_22kSNPs_325rils.sorted.hmp.txt \
+    run_pipeline.pl -Xmx6g -importGuess data/usda_22kSNPs_rils.sorted.hmp.txt \
                     -FilterTaxaBuilderPlugin -taxaList $ril_list -endPlugin \
                     -GenotypeSummaryPlugin -endPlugin \
                     -export analysis/qc/$cross/$cross\_OverallSummary,analysis/qc/$cross/$cross\_AlleleSummary,analysis/qc/$cross/$cross\_SiteSummary,analysis/qc/$cross/$cross\_TaxaSummary
@@ -164,7 +172,7 @@ rmdir analysis/qc/*
 
 **Recombination frequency**
 
-I will use the sorted diploid hapmap files from parents (`data/usda_22kSNPs_7parents.sorted.diploid.hmp.txt`) and RILs (`data/usda_22kSNPs_325rils.sorted.diploid.hmp.txt`) to estimate recombination frequency for each biparental population. For this purpose, I wrote the `scripts/recomb-freq_biparental-crosses.R` script. Specifically, it does three things:
+I will use the sorted diploid hapmap files from parents (`data/usda_22kSNPs_parents.sorted.diploid.hmp.txt`) and RILs (`data/usda_22kSNPs_rils.sorted.diploid.hmp.txt`) to estimate recombination frequency for each biparental population. For this purpose, I wrote the `scripts/recomb-freq_biparental-crosses.R` script. Specifically, it does three things:
 
 1. Filter the sorted diploid hapmap files to have genotypic information only from parents and RILs that make up a specific biparental cross. It takes information from the file `data/usda_biparental-crosses.txt` to do that, and output files on `data/biparental-crosses` (two files per cross: one hapmap for the parents, and another for RILs).
 
@@ -199,8 +207,8 @@ I will use the sorted diploid hapmap files from parents (`data/usda_22kSNPs_7par
     > All ouput goes to the the respective **cross folder** in `analysis/qc/`. It also generates a log file called `rqtl_log.txt`.
 
 ```bash
-Rscript scripts/recomb-freq_biparental-crosses.R data/usda_22kSNPs_7parents.sorted.diploid.hmp.txt \
-                                                 data/usda_22kSNPs_325rils.sorted.diploid.hmp.txt \
+Rscript scripts/recomb-freq_biparental-crosses.R data/usda_22kSNPs_parents.sorted.diploid.hmp.txt \
+                                                 data/usda_22kSNPs_rils.sorted.diploid.hmp.txt \
                                                  data/usda_biparental-crosses.txt \
                                                  analysis/qc \
                                                  data/biparental-crosses
@@ -256,12 +264,12 @@ Rscript scripts/plot_ril_karyotypes.R data/B73_RefGen_V4_chrm_info.txt \
 
 **Percent heterozygosity per RIL population**
 
-I wrote `scripts/markers_summary.R` to check number of missing, homozygous, and heterozygous genotypes in RILs (and parents). This script takes information from `data/usda_22kSNPs_325rils.sorted.diploid.hmp.txt` and `data/usda_biparental-crosses.txt` to calculate these summaries. The files generated were the table `summary_markers_325rils.txt` and the boxplots `summary_markers_325rils_missing-per-cross.png` and `summary_markers_325rils_hets-per-cross.png` at the `analysis/qc` folder.
+I wrote `scripts/markers_summary.R` to check number of missing, homozygous, and heterozygous genotypes in RILs (and parents). This script takes information from `data/usda_22kSNPs_rils.sorted.diploid.hmp.txt` and `data/usda_biparental-crosses.txt` to calculate these summaries. The files generated were the table `summary_markers_325rils.txt` and the boxplots `summary_markers_325rils_missing-per-cross.png` and `summary_markers_325rils_hets-per-cross.png` at the `analysis/qc` folder.
 
 ```bash
-Rscript scripts/markers_summary.R data/usda_22kSNPs_7parents.sorted.diploid.hmp.txt \
+Rscript scripts/markers_summary.R data/usda_22kSNPs_parents.sorted.diploid.hmp.txt \
                                   analysis/qc/summary_markers_7parents.txt \
-                                  data/usda_22kSNPs_325rils.sorted.diploid.hmp.txt \
+                                  data/usda_22kSNPs_rils.sorted.diploid.hmp.txt \
                                   analysis/qc/summary_markers_325rils.txt \
                                   data/usda_biparental-crosses.txt
 ```
@@ -282,14 +290,14 @@ The script `scripts/markers_summary.R` also checks the number of missing, homozy
 
 ### Parental data QC
 
-It's also important to make sure the parental lines also have good quality data, especially because parental genotypic data will be used for projection of SVs into RILs. The `scripts/markers_summary.R` also summarizes the number of missing, homozygous and heterozygous markers for the parents. It uses information from `data/usda_22kSNPs_7parents.sorted.diploid.hmp.txt`. The files generated were the table `summary_markers_7parents.txt` and the boxplots `summary_markers_7parents_missing.png` and `summary_markers_7parents_het.png` at the `analysis/qc` folder. By looking at the bar plots, it's very clear that **PHG35 has higher missing and het markers than other parents** (~4% compared to ~0.3% of other parents).
+It's also important to make sure the parental lines also have good quality data, especially because parental genotypic data will be used for projection of SVs into RILs. The `scripts/markers_summary.R` also summarizes the number of missing, homozygous and heterozygous markers for the parents. It uses information from `data/usda_22kSNPs_parents.sorted.diploid.hmp.txt`. The files generated were the table `summary_markers_7parents.txt` and the boxplots `summary_markers_7parents_missing.png` and `summary_markers_7parents_het.png` at the `analysis/qc` folder. By looking at the bar plots, it's very clear that **PHG35 has higher missing and het markers than other parents** (~4% compared to ~0.3% of other parents).
 
 Another way to inspect parents is by plotting the karyotypes with homo, het, and missing markers to see if there are some regions of the genome with higher proportion of hets and missing data. To do that, I wrote `scripts/plot_parents_karyotypes.R` based on my previous script to plot karyotypes for RILs. The karyotypes were saved in `analysis/qc/parents`.
 
 ```bash
 Rscript scripts/plot_parents_karyotypes.R data/B73_RefGen_V4_chrm_info.txt \
                                           data/centromeres_Schneider-2016-pnas_v4.bed \
-                                          data/usda_22kSNPs_7parents.sorted.diploid.hmp.txt \
+                                          data/usda_22kSNPs_parents.sorted.diploid.hmp.txt \
                                           analysis/qc/parents
 ```
 
@@ -368,9 +376,9 @@ Then, I extracted the genotypic data of B73 (chromosome 1) from the SNP chip dat
 
 ```bash
 # create a temporary file with the hapmap header
-head -n 1 data/usda_22kSNPs_7parents.sorted.diploid.hmp.txt > data/check_refgen_SNPchip/tmp.hmp.txt
+head -n 1 data/usda_22kSNPs_parents.sorted.diploid.hmp.txt > data/check_refgen_SNPchip/tmp.hmp.txt
 # keep only markers in the first chromosome
-awk '$3 == 1' data/usda_22kSNPs_7parents.sorted.diploid.hmp.txt >> data/check_refgen_SNPchip/tmp.hmp.txt
+awk '$3 == 1' data/usda_22kSNPs_parents.sorted.diploid.hmp.txt >> data/check_refgen_SNPchip/tmp.hmp.txt
 # select only position and B73 columns and create a new file
 cut -f 4,12 data/check_refgen_SNPchip/tmp.hmp.txt > data/check_refgen_SNPchip/markers_b73_chr1.txt
 # remove tmp file
@@ -437,7 +445,7 @@ wget ftp://ftp.ensemblgenomes.org/pub/plants/release-7/fasta/zea_mays/dna/README
 # return to project's home directory
 cd ~/projects/genomic_prediction/simulation
 # extract probes sequences
-python scripts/extract_probe_seqs.py data/usda_22kSNPs_7parents.sorted.diploid.hmp.txt data/refgen/B73v2/ 100 data/probes-100bp_22kSNPchip_B73v2.fa
+python scripts/extract_probe_seqs.py data/usda_22kSNPs_parents.sorted.diploid.hmp.txt data/refgen/B73v2/ 100 data/probes-100bp_22kSNPchip_B73v2.fa
 ```
 
 Once I have a fasta file with all probe sequences, I can align them to the refgen v4 assembly using `bowtie`. But first, I need to download the v4 assembly and build an index (by running `scripts/bowtie_index_refgenv4.sh`).
@@ -499,12 +507,12 @@ Here are the stats of the alignment:
 | Multimapped (supressed) | 72     |
 | Unmapped                | 217    |
 
-Now, I need to correct the positions of the SNPs in the hapmap files `data/usda_22kSNPs_7parents.sorted.diploid.hmp.txt` and `data/usda_22kSNPs_325rils.sorted.diploid.hmp.txt` based on new coordinates from SAM file. I wrote a python script called `scripts/convert_hmp_v2-to-v4.py` to do that and create the files `data/usda_22kSNPs_7parents.sorted.diploid.v4.hmp.txt` and `data/usda_22kSNPs_325rils.sorted.diploid.v4.hmp.txt`, and another file with SNP coordinates in both v2 and v4. This script also removes reads that uniquely mapped with no mismatch to a different chromosome in v4, since it's very unlikely that there would be such major differences between v2 and v4 assemblies (i.e., these are probably mismapped).
+Now, I need to correct the positions of the SNPs in the hapmap files `data/usda_22kSNPs_parents.sorted.diploid.hmp.txt` and `data/usda_22kSNPs_rils.sorted.diploid.hmp.txt` based on new coordinates from SAM file. I wrote a python script called `scripts/convert_hmp_v2-to-v4.py` to do that and create the files `data/usda_22kSNPs_parents.sorted.diploid.v4.hmp.txt` and `data/usda_22kSNPs_rils.sorted.diploid.v4.hmp.txt`, and another file with SNP coordinates in both v2 and v4. This script also removes reads that uniquely mapped with no mismatch to a different chromosome in v4, since it's very unlikely that there would be such major differences between v2 and v4 assemblies (i.e., these are probably mismapped).
 
 ```bash
 python scripts/convert_hmp_v2-to-v4.py data/probes-100bp_22kSNPchip_aligned-to-B73v4.sam \
                                        data/SNP_positions_v2-to-v4_probes-100bp.txt \
-                                       data/usda_22kSNPs_7parents.sorted.diploid.hmp.txt,data/usda_22kSNPs_325rils.sorted.diploid.hmp.txt
+                                       data/usda_22kSNPs_parents.sorted.diploid.hmp.txt,data/usda_22kSNPs_rils.sorted.diploid.hmp.txt
 # 23 reads discarded due to mapping into different chromosome in v4
 ```
 
@@ -517,21 +525,21 @@ Rscript scripts/check_refgen_SNPchip_v2tov4_probes.R data/check_refgen_SNPchip/r
 # 0 marker alleles differ between v2 and v4
 ```
 
-Thus, I corrected the strand of those markers in the hapmap files `data/usda_22kSNPs_7parents.sorted.diploid.v4.hmp.txt` and `data/usda_22kSNPs_325rils.sorted.diploid.v4.hmp.txt` by running `scripts/correct_SNP_strands.R`. Finally, I corrected the alleles' column of these hapmap files using Tassel.
+Thus, I corrected the strand of those markers in the hapmap files `data/usda_22kSNPs_parents.sorted.diploid.v4.hmp.txt` and `data/usda_22kSNPs_rils.sorted.diploid.v4.hmp.txt` by running `scripts/correct_SNP_strands.R`. Finally, I corrected the alleles' column of these hapmap files using Tassel.
 
 ```bash
 # correct markers not phased
 Rscript scripts/correct_SNP_strands.R data/SNP_positions_v2-to-v4_probes-100bp.txt \
-                                      data/usda_22kSNPs_7parents.sorted.diploid.v4.hmp.txt \
-                                      data/usda_22kSNPs_325rils.sorted.diploid.v4.hmp.txt
+                                      data/usda_22kSNPs_parents.sorted.diploid.v4.hmp.txt \
+                                      data/usda_22kSNPs_rils.sorted.diploid.v4.hmp.txt
 
 # correct alleles column
-run_pipeline.pl -Xmx10g -importGuess data/usda_22kSNPs_7parents.sorted.diploid.v4.hmp.txt \
-                        -export data/usda_22kSNPs_7parents.sorted.diploid.v4.hmp.txt \
+run_pipeline.pl -Xmx10g -importGuess data/usda_22kSNPs_parents.sorted.diploid.v4.hmp.txt \
+                        -export data/usda_22kSNPs_parents.sorted.diploid.v4.hmp.txt \
                         -exportType HapmapDiploid
 
-run_pipeline.pl -Xmx10g -importGuess data/usda_22kSNPs_325rils.sorted.diploid.v4.hmp.txt \
-                        -export data/usda_22kSNPs_325rils.sorted.diploid.v4.hmp.txt \
+run_pipeline.pl -Xmx10g -importGuess data/usda_22kSNPs_rils.sorted.diploid.v4.hmp.txt \
+                        -export data/usda_22kSNPs_rils.sorted.diploid.v4.hmp.txt \
                         -exportType HapmapDiploid
 ```
 
@@ -544,16 +552,16 @@ Based on previous QC, the PHG35 parent has much more heterozygotes than expected
 
 ```bash
 Rscript scripts/reconstruct_PHG35_from_RIL_data.R data/usda_biparental-crosses.txt \
-                                                  data/usda_22kSNPs_7parents.sorted.diploid.v4.hmp.txt \
-                                                  data/usda_22kSNPs_325rils.sorted.diploid.v4.hmp.txt
+                                                  data/usda_22kSNPs_parents.sorted.diploid.v4.hmp.txt \
+                                                  data/usda_22kSNPs_rils.sorted.diploid.v4.hmp.txt
 ```
 
 To make sure the reconstruction worked, I ran again `scripts/markers_summary.R`. Plots at `analysis/qc` folder show that, despite higher mising data relatively to other parents, the number of heterozygotes is now zero.
 
 ```bash
-Rscript scripts/markers_summary.R data/usda_22kSNPs_7parents.sorted.diploid.v4.PHG35-reconstructed.hmp.txt \
+Rscript scripts/markers_summary.R data/usda_22kSNPs_parents.sorted.diploid.v4.PHG35-reconstructed.hmp.txt \
                                   analysis/qc/summary_markers_7parents_PHG35-reconstructed.txt \
-                                  data/usda_22kSNPs_325rils.sorted.diploid.v4.hmp.txt \
+                                  data/usda_22kSNPs_rils.sorted.diploid.v4.hmp.txt \
                                   analysis/qc/summary_markers_325rils_v4.txt \
                                   data/usda_biparental-crosses.txt
 ```
@@ -568,8 +576,8 @@ For projections, I need to create parental and RIL files with all SNPs and SVs. 
 The `scripts/merge_SNPs_SVs_hapmaps.R` will remove SNPs that are within 100kb of a deletion first and then it will combine marker data for parents and RILs separately. I set up 100 kb threshold because ~99% of the deletions are smaller than this and the very large deletions (>1 Mb) would make me lose a lot of SNPs. Importantly, each family will be filtered separately.
 
 ```bash
-Rscript scripts/merge_SNPs_SVs_hapmaps.R data/usda_22kSNPs_7parents.sorted.diploid.v4.PHG35-reconstructed.hmp.txt \
-                                         data/usda_22kSNPs_325rils.sorted.diploid.v4.hmp.txt \
+Rscript scripts/merge_SNPs_SVs_hapmaps.R data/usda_22kSNPs_parents.sorted.diploid.v4.PHG35-reconstructed.hmp.txt \
+                                         data/usda_22kSNPs_rils.sorted.diploid.v4.hmp.txt \
                                          data/usda_SVs_7parents.sorted.hmp.txt \
                                          data/usda_SNPs-SVs_7parents.not-in-PAVs.hmp.txt \
                                          data/usda_SNPs-SVs_325rils.not-in-SVs.hmp.txt \
@@ -648,7 +656,7 @@ curr_IFS=$IFS
                     -hapSize 2000 -minTaxa 1
     # impute ril genotypes based on
     run_pipeline.pl -FILLINImputationPlugin \
-                    -hmp merged_hapmaps_by_cross/usda_SNPs-SVs_$cross\_RILs.sorted.hmp.txt \
+                    -hmp merged_hapmaps_by_cross/usda_SNPs-SVs_$cross\_RILs.sorted.sliding-window.hmp.txt \
                     -d ../analysis/projection/donors_$cross \
                     -o ../analysis/projection/usda_SNPs-SVs_$cross\_RILs.projected.hmp.txt \
                     -hapSize 2000 -hybNN false -accuracy
@@ -670,10 +678,9 @@ done
 
 # return to project's home directory
 cd ~/projects/genomic_prediction/simulation
-
 ```
 
-To summarize the results of projections for each family, I wrote `scripts/count_projected_SVs.R`. The average **SV projection was 93.31%** with average accuracy of 92.84%. Details about projections for each family were written into `analysis/projection/projection_summary.txt`, but can also be visualized in different plots saved into `analysis/projection`.
+To summarize the results of projections for each family, I wrote `scripts/count_projected_SVs.R`. The average **SV projection was 93.51%%** with average accuracy of 92.8%. Details about projections for each family were written into `analysis/projection/projection_summary.txt`, but can also be visualized in different plots saved into `analysis/projection`.
 
 ```bash
 Rscript scripts/count_projected_SVs.R data/usda_SVs_7parents.sorted.hmp.txt \
@@ -824,7 +831,7 @@ done
 cd ~/projects/genomic_prediction/simulation
 ```
 
-To summarize the results of projections for each family, I wrote `scripts/count_projected_reseq-snps.R`. The average **SV projection was 94.2%** with average accuracy of 91.85%. Details about projections for each family were written into `analysis/projection_reseq-snps/projection_summary.txt`, but can also be visualized in different plots saved into `analysis/projection_reseq-snps`.
+To summarize the results of projections for each family, I wrote `scripts/count_projected_reseq-snps.R`. The average **SV projection was 94.64%** with average accuracy of 95.45%. Details about projections for each family were written into `analysis/projection_reseq-snps/projection_summary.txt`, but can also be visualized in different plots saved into `analysis/projection_reseq-snps`.
 
 ```bash
 Rscript scripts/count_projected_reseq-snps.R data/reseq_snps/biomAP_v_B73_SNPMatrix_7parents.not-in-PAVs.hmp.txt \
