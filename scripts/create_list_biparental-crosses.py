@@ -11,12 +11,12 @@ import argparse as ap
 parser = ap.ArgumentParser(formatter_class=ap.RawDescriptionHelpFormatter,
                            description='''
 description: this script reads in a table with two columns containing the
-             genotype names and IDs of RILs genotyped for the USDA project,
-             and outputs a new table containing the IDs of lines that make up
-             a biparental cross.''')
+             genotype names and source IDs of RILs genotyped for the USDA
+             project, and outputs a new table containing the names of lines
+             that make up a biparental cross.''')
 # add positional arguments
 parser.add_argument("id_table", type=str,
-                    help="table with genotype names and IDs")
+                    help="table with genotype names and source IDs")
 parser.add_argument("output_name", type=str,
                     help="name of the output table")
 # pass arguments into variables
@@ -39,13 +39,13 @@ for line in infile:
     line = line.strip()
     line = line.split("\t")
     cross = line[0].split("-")[0]
-    ril_ID = line[1]
+    ril_name = line[0]
     if cross not in biparental_crosses:
         # introduce new key-value pair
-        biparental_crosses[cross] = ril_ID
+        biparental_crosses[cross] = ril_name
     else:
         # update the correspondent value by adding 1 to what's there
-        biparental_crosses[cross] += ","+ril_ID
+        biparental_crosses[cross] += ","+ril_name
 
 # open output file
 outfile = open(output_name, "w")
