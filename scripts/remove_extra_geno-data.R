@@ -28,9 +28,9 @@ rils.to.keep <- args[5]
 
 
 # infile.parents <- "data/Final_22kSNPs_DAS_UIUC_ParentalGenotypeData_122318.hmp.txt"
-# outfile.parents <- "data/usda_22kSNPs_7parents.hmp.txt"
+# outfile.parents <- "data/usda_22kSNPs_parents.hmp.txt"
 # infile.rils <- "data/Final_22kSNPs_DAS_UIUC_RILsGenotypeData_122318.hmp.txt"
-# outfile.rils <- "data/usda_22kSNPs_325rils.hmp.txt"
+# outfile.rils <- "data/usda_22kSNPs_rils.hmp.txt"
 # rils.to.keep <- "data/usda_RILs_2018.txt"
 
 
@@ -63,21 +63,16 @@ fwrite(hmp_parents_filtered, file = outfile.parents, sep = "\t", na = NA, quote 
 # read in hmp file
 hmp_rils <- fread(infile.rils, header = TRUE, data.table = FALSE)
 
-# read id table with RIL names and IDs
-name2id_table <- list.files(path = "data", pattern = "id_table", full.names = TRUE, recursive = TRUE)
-name2id_table <- name2id_table[grep("RIL", name2id_table)]
-name2id_table <- fread(name2id_table, header = TRUE, data.table = FALSE)
-
 # read in ril names to keep
 keep_rils <- fread(rils.to.keep, header = FALSE, data.table = FALSE)
 keep_rils_name <- unique(keep_rils$V1)
 
-# select ril IDs to keep based on ril names
-keep_rils_id <- as.character(name2id_table[which(name2id_table[,"genotype_name"] %in% keep_rils_name), "genotype_id"])
+# check which ril names are in the hmp file
+keep_rils_name <- keep_rils_name[keep_rils_name %in% colnames(hmp_rils)]
 
 # remove extra rils
 hmp_rils_filtered <- hmp_rils[,1:11]
-hmp_rils_filtered <- cbind(hmp_rils_filtered, hmp_rils[,keep_rils_id])
+hmp_rils_filtered <- cbind(hmp_rils_filtered, hmp_rils[, keep_rils_name])
 
 # write filtered version
 fwrite(hmp_rils_filtered, file = outfile.rils, sep = "\t", na = NA, quote = FALSE)
