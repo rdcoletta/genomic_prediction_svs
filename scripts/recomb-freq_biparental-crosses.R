@@ -164,6 +164,8 @@ EstimateRecombinationFreq <- function(cross, dir.csv, dir.qc, plot = FALSE) {
   n.genotyped.markers <- ntyped(rqtl, "mar")
   to.drop <- names(n.genotyped.markers[n.genotyped.markers < length(ntyped(rqtl)) / 2])
   rqtl <- drop.markers(rqtl, to.drop)
+  to.drop.filename <- paste0(dir.qc, "/", cross, "/markers-missing_", cross, ".txt")
+  write.table(data.frame(to.drop), file = to.drop.filename, quote = FALSE, row.names = FALSE, col.names = FALSE)
   cat(paste("\nMarkers missing in many individuals removed:", length(to.drop)))
 
   # identify duplicate individuals
@@ -194,6 +196,8 @@ EstimateRecombinationFreq <- function(cross, dir.csv, dir.qc, plot = FALSE) {
   geno.table.chi.sq[, "p.val.adj"] <- p.adjust(geno.table.chi.sq$P.value, method = "fdr")
   to.drop <- rownames(geno.table.chi.sq[geno.table.chi.sq$p.val.adj < 0.05, ])
   rqtl <- drop.markers(rqtl, to.drop)
+  to.drop.filename <- paste0(dir.qc, "/", cross, "/markers-seg-distortion_", cross, ".txt")
+  write.table(data.frame(to.drop), file = to.drop.filename, quote = FALSE, row.names = FALSE, col.names = FALSE)
   cat(paste("\nMarkers with segregation distortion removed:", length(to.drop)))
 
   # plot genotype frequencies by individual
