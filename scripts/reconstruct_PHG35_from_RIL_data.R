@@ -26,8 +26,8 @@ parents.filename <- args[2]
 rils.filename <- args[3]
 
 # crosses.file <- "data/usda_biparental-crosses.txt"
-# parents.filename <- "data/usda_22kSNPs_7parents.sorted.diploid.v4.hmp.txt"
-# rils.filename <- "data/usda_22kSNPs_325rils.sorted.diploid.v4.hmp.txt"
+# parents.filename <- "data/usda_22kSNPs_7parents.sorted.diploid.hmp.txt"
+# rils.filename <- "data/usda_22kSNPs_325rils.sorted.diploid.hmp.txt"
 
 
 
@@ -164,7 +164,7 @@ reconstructed.PHG35.final <- apply(reconstructed.PHG35.df[, ], MARGIN = 1, funct
 parents.hmp[, "PHG35"] <- reconstructed.PHG35.final
 
 # write fixed hmp file
-fixed.outfile <- gsub(pattern = "v4.hmp.txt",
-                      replacement = "v4.PHG35-reconstructed.hmp.txt",
+fixed.outfile <- gsub(pattern = "hmp.txt",
+                      replacement = "PHG35-reconstructed.hmp.txt",
                       parents.filename, fixed = TRUE)
 fwrite(parents.hmp, file = fixed.outfile, quote = FALSE, sep = "\t", na = "NA", row.names = FALSE)
