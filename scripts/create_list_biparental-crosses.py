@@ -41,11 +41,15 @@ for line in infile:
     cross = line[0].split("-")[0]
     ril_name = line[0]
     if cross not in biparental_crosses:
-        # introduce new key-value pair
-        biparental_crosses[cross] = ril_name
+        # introduce new key-value pair (where value is an element from a list)
+        biparental_crosses[cross] = [ril_name]
     else:
-        # update the correspondent value by adding 1 to what's there
-        biparental_crosses[cross] += ","+ril_name
+        # update the correspondent list by adding more values
+        biparental_crosses[cross].append(ril_name)
+
+# remove duplicated ril names
+for cross in biparental_crosses.keys():
+    biparental_crosses[cross] = set(biparental_crosses[cross])
 
 # open output file
 outfile = open(output_name, "w")
@@ -55,7 +59,7 @@ print("cross", "RILs", sep="\t", file=outfile)
 
 # write table
 for key, val in biparental_crosses.items():
-    print(key, val, sep="\t", file=outfile)
+    print(key, ",".join(val), sep="\t", file=outfile)
 
 
 # close files
