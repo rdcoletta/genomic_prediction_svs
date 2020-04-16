@@ -8,8 +8,8 @@ if (all(length(args) == 1 & args == "-h" | args == "--help")) {
       Description: plot karyotypes for RILs of a biparental cross.
       Credits: code for plot was modified from Carles Hernandez-Ferrer's blog at
                https://carleshf.github.io/chromosome_karyotype_plot_with_ggplot2/
-      
-      
+
+
       Usage: Rscript plot_ril_karyotypes.R [chr_info] [centromere_info] [qc_folder]")
   quit()
 }
@@ -17,7 +17,7 @@ if (all(length(args) == 1 & args == "-h" | args == "--help")) {
 # make sure the correct number of arguments are used
 if (length(args) != 3) {
   stop("incorrect number of arguments provided.
-       
+
        Usage: Rscript plot_ril_karyotypes.R [chr_info] [centromere_info] [qc_folder]
        ")
 }
@@ -62,28 +62,28 @@ for (RIL.pop in RIL.pop.list) {
   # load data with marker positions
   markers.filename <- paste0(qc.folder, "/", RIL.pop, "/recomb-freq_", RIL.pop, "_rils.txt")
   markers.infile <- fread(markers.filename, header = TRUE, data.table = FALSE)
-  
+
   # load genotypic data for all RILs in the RIL population
   geno.data.filename <- paste0(qc.folder, "/", RIL.pop, "/geno-data_", RIL.pop, "_after_filtering.txt")
   geno.data.infile <- fread(geno.data.filename, header = TRUE, data.table = FALSE)
-  
+
   # randomly select 5 RILs per population to plot karyotype
   set.seed(184)
   selected.RILs <- sample(colnames(geno.data.infile[-1]), size = 5, replace = FALSE)
-  
+
   for (RIL in selected.RILs) {
     # merge information of RIL of interest with respective marker positions
     geno.data <- cbind(markers.infile[, c("marker", "chr", "pos")], geno.data.infile[, RIL])
     colnames(geno.data)[4] <- "geno"
-    
+
     # select only AA genotype
     geno.data.AA <- subset(geno.data, geno == "AA")
     geno.data.BB <- subset(geno.data, geno == "BB")
-    
+
     # get genotype frequency to add in the plot
     geno.freq.AA <- NROW(geno.data.AA) / (NROW(geno.data.AA) + NROW(geno.data.BB))
     geno.freq.BB <- NROW(geno.data.BB) / (NROW(geno.data.AA) + NROW(geno.data.BB))
-    
+
     karyo.plot <- ggplot() +
       geom_segment(data = chrms,
                    aes(x = 0, xend = 0, y = start_pos, yend = end_pos),
@@ -113,8 +113,8 @@ for (RIL.pop in RIL.pop.list) {
                             "AA freq (blue): ", round(geno.freq.AA, digits = 2), "\n",
                             "BB freq (red): ", round(geno.freq.BB, digits = 2)),
            x = "Chromosomes", y = "Genomic positions (Mb)")
-    
-    karyo.name <- paste0(qc.folder, "/", RIL.pop, "/karyotype_", RIL.pop, "_", gsub("RIL_", "ril-", RIL),".png")
-    ggsave(filename = karyo.name, plot = karyo.plot, device = "png")
+
+    karyo.name <- paste0(qc.folder, "/", RIL.pop, "/karyotype_", RIL.pop, "_", gsub("RIL_", "ril-", RIL),".pdf")
+    ggsave(filename = karyo.name, plot = karyo.plot, device = "pdf")
   }
 }

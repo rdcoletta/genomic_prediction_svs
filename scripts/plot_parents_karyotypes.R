@@ -8,8 +8,8 @@ if (all(length(args) == 1 & args == "-h" | args == "--help")) {
       Description: plot karyotypes of parents.
       Credits: code for plot was modified from Carles Hernandez-Ferrer's blog at
                https://carleshf.github.io/chromosome_karyotype_plot_with_ggplot2/
-      
-      
+
+
       Usage: Rscript plot_parents_karyotypes.R [chr_info] [centromere_info] [parents_hapmap] [output_folder]")
   quit()
 }
@@ -17,7 +17,7 @@ if (all(length(args) == 1 & args == "-h" | args == "--help")) {
 # make sure the correct number of arguments are used
 if (length(args) != 4) {
   stop("incorrect number of arguments provided.
-       
+
        Usage: Rscript plot_parents_karyotypes.R [chr_info] [centromere_info] [parents_hapmap] [output_folder]
        ")
 }
@@ -66,11 +66,11 @@ if (!dir.exists(out.folder)) dir.create(out.folder)
 
 
 for (parent in name.parents) {
-  
+
   # keep only necessary information for parent
   parent.info <- geno.parents[, c("rs#", "chrom", "pos", parent)]
-  
-  
+
+
   # transform genotypes in either homo, het, or missing
   parent.info[, parent] <- sapply(X = parent.info[, parent],
                                   USE.NAMES = FALSE,
@@ -92,16 +92,16 @@ for (parent in name.parents) {
   # rename columns for compatibility (chromosome column should be "chr" because
   # "centros" and "chrms" data have "chr" as a column as well)
   colnames(parent.info) <- c("markers", "chr", "pos", "marker_type")
-  
+
   # subset df by marker type
   parent.info.homo <- subset(parent.info, marker_type == "homo")
   parent.info.het <- subset(parent.info, marker_type == "het")
   parent.info.missing <- subset(parent.info, marker_type == "missing")
-  
+
   # count hets and missing (to add into plot)
   het.count <- NROW(parent.info.het)
   missing.count <- NROW(parent.info.missing)
-  
+
   # plot karyotype
   karyo.plot <- ggplot() +
     geom_segment(data = chrms,
@@ -135,8 +135,8 @@ for (parent in name.parents) {
                           "Het markers (blue): ", het.count, "\n",
                           "Missing markers (red): ", missing.count),
          x = "Chromosomes", y = "Genomic positions (Mb)")
-  
-  karyo.name <- paste0(out.folder, "/karyotype_", parent, ".png")
-  ggsave(filename = karyo.name, plot = karyo.plot, device = "png")
+
+  karyo.name <- paste0(out.folder, "/karyotype_", parent, ".pdf")
+  ggsave(filename = karyo.name, plot = karyo.plot, device = "pdf")
 
 }

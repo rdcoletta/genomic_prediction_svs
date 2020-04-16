@@ -26,10 +26,10 @@ infile.rils <- args[3]
 outfile.rils <- args[4]
 cross.info <- args[5]
 
-# infile.parents <- "data/usda_22kSNPs_7parents.sorted.diploid.hmp.txt"
-# outfile.parents <- "analysis/qc/summary_markers_7parents.txt"
-# infile.rils <- "data/usda_22kSNPs_325rils.sorted.diploid.hmp.txt"
-# outfile.rils <- "analysis/qc/summary_markers_325rils.txt"
+# infile.parents <- "data/usda_22kSNPs_parents.sorted.diploid.hmp.txt"
+# outfile.parents <- "analysis/qc/summary_markers_parents.txt"
+# infile.rils <- "data/usda_22kSNPs_rils.sorted.diploid.hmp.txt"
+# outfile.rils <- "analysis/qc/summary_markers_rils.txt"
 # cross.info <- "data/usda_biparental-crosses.txt"
 
 # infile.parents <- "data/usda_22kSNPs_7parents.sorted.diploid.v4.PHG35-reconstructed.hmp.txt"
@@ -140,7 +140,7 @@ plot.parents.missing <- ggplot(parent.summary, aes(x = line, y = percent_missing
        y = "% missing markers") +
   scale_y_continuous(labels = function(x) x*100, limits = c(0, 0.1))
 
-ggsave(plot = plot.parents.missing, filename = gsub(".txt", "_missing.png", outfile.parents), device = "png")
+ggsave(plot = plot.parents.missing, filename = gsub(".txt", "_missing.pdf", outfile.parents), device = "pdf")
 
 
 plot.parents.hets <- ggplot(parent.summary, aes(x = line, y = percent_het)) +
@@ -149,7 +149,7 @@ plot.parents.hets <- ggplot(parent.summary, aes(x = line, y = percent_het)) +
        y = "% het markers") +
   scale_y_continuous(labels = function(x) x*100, limits = c(0, 0.1))
 
-ggsave(plot = plot.parents.hets, filename = gsub(".txt", "_hets.png", outfile.parents), device = "png")
+ggsave(plot = plot.parents.hets, filename = gsub(".txt", "_hets.pdf", outfile.parents), device = "pdf")
 
 
 
@@ -204,7 +204,7 @@ plot.rils.missing <- ggplot(RILs.summary, aes(x = cross, y = percent_missing)) +
   scale_y_continuous(labels = function(x) x*100, limits = c(0, 0.1)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-ggsave(plot = plot.rils.missing, filename = gsub(".txt", "_missing-per-cross.png", outfile.rils), device = "png")
+ggsave(plot = plot.rils.missing, filename = gsub(".txt", "_missing-per-cross.pdf", outfile.rils), device = "pdf")
 
 plot.rils.hets <- ggplot(RILs.summary, aes(x = cross, y = percent_het)) +
   geom_boxplot() +
@@ -213,7 +213,7 @@ plot.rils.hets <- ggplot(RILs.summary, aes(x = cross, y = percent_het)) +
   scale_y_continuous(labels = function(x) x*100, limits = c(0, 0.3)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-ggsave(plot = plot.rils.hets, filename = gsub(".txt", "_hets-per-cross.png", outfile.rils), device = "png")
+ggsave(plot = plot.rils.hets, filename = gsub(".txt", "_hets-per-cross.pdf", outfile.rils), device = "pdf")
 
 
 
@@ -284,7 +284,7 @@ plot.rils.missing.per.parent <- ggplot(RILs.summary.per.parent, aes(x = parent, 
        y = "% missing markers") +
   scale_y_continuous(labels = function(x) x*100, limits = c(0, 0.1))
 
-ggsave(plot = plot.rils.missing.per.parent, filename = gsub(".txt", "_missing-per-parent.png", outfile.rils), device = "png")
+ggsave(plot = plot.rils.missing.per.parent, filename = gsub(".txt", "_missing-per-parent.pdf", outfile.rils), device = "pdf")
 
 plot.rils.hets.per.parent <- ggplot(RILs.summary.per.parent, aes(x = parent, y = percent_het)) +
   geom_boxplot() +
@@ -292,7 +292,7 @@ plot.rils.hets.per.parent <- ggplot(RILs.summary.per.parent, aes(x = parent, y =
        y = "% het markers") +
   scale_y_continuous(labels = function(x) x*100, limits = c(0, 0.3))
 
-ggsave(plot = plot.rils.hets.per.parent, filename = gsub(".txt", "_hets-per-parent.png", outfile.rils), device = "png")
+ggsave(plot = plot.rils.hets.per.parent, filename = gsub(".txt", "_hets-per-parent.pdf", outfile.rils), device = "pdf")
 
 
 
