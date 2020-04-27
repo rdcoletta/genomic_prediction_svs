@@ -43,6 +43,7 @@ if(!require("ggplot2")) install.packages("ggplot2")
 
 # add folder names (i.e. cross names) into a vector
 cross.list <- list.dirs(qc.folder, full.names = FALSE, recursive = FALSE)
+cross.list <- cross.list[grep("x", cross.list)]
 
 # create a list to store all markers for all populations
 all.markers.list <- list()
