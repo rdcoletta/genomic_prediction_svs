@@ -4,7 +4,9 @@ data/*
 .Rproj.user
 *.Rhistory
 tests/*
+tests/scripts/*
 plink*
 GAPIT*
 *.pdf
 *.png
+notes/*
