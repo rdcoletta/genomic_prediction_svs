@@ -110,7 +110,19 @@ The files are located at `tests/data/`, and I will use only the SVs called again
 
 
 
+# Simulations with SVs included
+
+`tests/scripts/trait-sim_manuscript_SVs.R`
 
 
 <mark>TO DO:</mark>
 * Test different leveles of QTN effects. Look at Sam's code and find out what really is going on with the code: only large effect go for geometric series? Or does the geometric series start from the smallest effect QTLs.
+
+* Find out what happens with missing data when doing numericalization! --> TRANSFORM TO MAJOR ALLELE BASED ON WHICH ALLELES FLANK IT!
+
+
+
+
+
+<mark>TO DO!!!!
+* CORRECT PLINK LD CALCULATION IN SIMULATION SCRIPT!!!

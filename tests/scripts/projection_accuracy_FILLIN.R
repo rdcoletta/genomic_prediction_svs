@@ -401,9 +401,9 @@ ProjectionAccuracy <- function(parents_data, ril_data, crosses_info, output_dir,
 for (percent_mask in c(0.01, 0.1, 0.5)) {
   for (homo_only in c(TRUE, FALSE)) {
     if (homo_only == TRUE) {
-      output.dir <- paste0("tests/analysis/imputation/accuracy/only-homo_", percent_mask*100, "-percent-masked")
+      output.dir <- paste0("tests/analysis/imputation_reseq-parents_15k/accuracy/only-homo_", percent_mask*100, "-percent-masked")
     } else {
-      output.dir <- paste0("tests/analysis/imputation/accuracy/all-markers_", percent_mask*100, "-percent-masked")
+      output.dir <- paste0("tests/analysis/imputation_reseq-parents_15k/accuracy/all-markers_", percent_mask*100, "-percent-masked")
     }
     
     # create directory
@@ -412,8 +412,8 @@ for (percent_mask in c(0.01, 0.1, 0.5)) {
     # write log of this program
     sink(paste0(output.dir, "/accuracy_projection_log.txt"))
     
-    ProjectionAccuracy(parents_data = "data/usda_22kSNPs_7parents.sorted.diploid.hmp.txt",
-                       ril_data = "data/usda_22kSNPs_325rils.sorted.diploid.hmp.txt",
+    ProjectionAccuracy(parents_data = "data/usda_15kSNPs_7parents.sorted.diploid.v4.all-parents-corrected.hmp.txt",
+                       ril_data = "data/usda_15kSNPs_325rils.sorted.diploid.v4.all-parents-corrected.hmp.txt",
                        crosses_info = "tests/data/usda_biparental-crosses.txt",
                        markers_to_mask = percent_mask,
                        output_dir = output.dir,
@@ -433,7 +433,7 @@ closeAllConnections()
 library(ggplot2)
 library(dplyr)
 
-results.dir <- "tests/analysis/imputation/accuracy"
+results.dir <- "tests/analysis/imputation_reseq-parents_15k/accuracy"
 results.files <- list.files(path = results.dir,
                            pattern = "accuracy_projection_all_crosses.txt",
                            recursive = TRUE)

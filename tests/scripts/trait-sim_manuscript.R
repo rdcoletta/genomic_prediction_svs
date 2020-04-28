@@ -54,8 +54,8 @@ library(dplyr)
 library(tibble)
 library(ggplot2)
 
-source("scripts/simulation_auxiliar-functions.R")
-source("scripts/GAPIT_Code_from_Internet_20120411_Allelic_Effect.R")
+source("tests/scripts/simulation_auxiliar-functions.R")
+source("tests/scripts/GAPIT_Code_from_Internet_20120411_Allelic_Effect.R")
 
 
 
@@ -798,12 +798,12 @@ kfold_validation_on_sim_traits <- function(snp_data = NULL, sv_data = NULL, snp_
 
 {
   # write a text file just saying to ignore this folder
-  dir.create("analysis/test_toy/test_function/", recursive = TRUE)
+  dir.create("tests/analysis/test_toy/test_function/", recursive = TRUE)
   cat("Please ignore this entire folder. If you are reading this, you can delete it.",
-      file = "analysis/test_toy/test_function/README")
+      file = "tests/analysis/test_toy/test_function/README")
   
   # test run
-  geno_SVs <- fread("data/Structural_Variation_demo.txt", header = TRUE, data.table = F)
+  geno_SVs <- fread("tests/data/Structural_Variation_demo.txt", header = TRUE, data.table = F)
   SVs <- geno_SVs[,1]
   QTN_number <- c(3,15,30)
   origin_trait_variance <- c("SVs", "SNPs", "both")
@@ -837,7 +837,7 @@ kfold_validation_on_sim_traits <- function(snp_data = NULL, sv_data = NULL, snp_
       }
       
       # check if directory already exists, create a new one if it doesn't
-      folder_name <- paste0("analysis/test_toy/test_function/", Additive.QTN.number, "-QTNs_from_",
+      folder_name <- paste0("tests/analysis/test_toy/test_function/", Additive.QTN.number, "-QTNs_from_",
                             origin_trait_variation, "/")
       if (dir.exists(folder_name) == FALSE) {
         dir.create(folder_name, recursive = TRUE)
@@ -862,14 +862,14 @@ kfold_validation_on_sim_traits <- function(snp_data = NULL, sv_data = NULL, snp_
 # now that the code above was ran, the simulation using my function simulate_trait() will work.
 
 # get the SV IDs list
-geno_SVs <- fread("data/Structural_Variation_demo.txt", header = TRUE, data.table = F)
+geno_SVs <- fread("tests/data/Structural_Variation_demo.txt", header = TRUE, data.table = F)
 SVs <- geno_SVs[,1]
 
 # simulate data for toy dataset
 for (source_var in c("SNPs", "SVs", "both")) {
   simulate_trait(snp_data = NULL,
                  sv_data = NULL,
-                 snp_with_sv_data = "data/SNP55K_maize282_AGPv2_20100513_SNP-SV-merged_test.txt",
+                 snp_with_sv_data = "tests/data/SNP55K_maize282_AGPv2_20100513_SNP-SV-merged_test.txt",
                  list_of_SV_IDs = SVs,
                  source_trait_variation = source_var,
                  QTN_number = c(3,25,75),
@@ -877,12 +877,12 @@ for (source_var in c("SNPs", "SVs", "both")) {
                  small_QTN_effect = 0.3,
                  heritability = c(0.2, 0.5, 0.9),
                  replicates = 50,
-                 output_folder_name = "analysis/test_toy",
+                 output_folder_name = "tests/analysis/test_toy",
                  seed_number = 2019)
 }
 
 # simulate data for USDA dataset (only SNPs, since I don't have SV info yet)
-simulate_trait(snp_data = "data/usda_22kSNPs_7parents.sorted.diploid.hmp.txt",
+simulate_trait(snp_data = "tests/data/usda_22kSNPs_7parents.sorted.diploid.hmp.txt",
                sv_data = NULL,
                snp_with_sv_data = NULL,
                list_of_SV_IDs = NULL,

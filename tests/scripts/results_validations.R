@@ -148,19 +148,19 @@ PlotPredictionAccuracies <- function(subset.snps = c("all", "1000", "50"),
 
 #### plots toy dataset ----
 
-PlotPredictionAccuracies(subset.snps = c("all", "1000", "50"),
-                         qtn.number = c("3", "25", "75"),
-                         heritability = c("0.2", "0.5" ,"0.9"),
-                         dir.with.results = "analysis/test_toy/")
+# PlotPredictionAccuracies(subset.snps = c("all", "1000", "50"),
+#                          qtn.number = c("3", "25", "75"),
+#                          heritability = c("0.2", "0.5" ,"0.9"),
+#                          dir.with.results = "tests/analysis/test_toy/")
 
 
 
 #### plots usda dataset (no SV info yet! only GS with SNPs) ----
 
-# PlotPredictionAccuracies(subset.snps = c("all", "1000", "50"),
-#                          qtn.number = c("3", "25", "75"),
-#                          heritability = c("0.2", "0.5" ,"0.9"),
-#                          dir.with.results = "analysis/test_usda-rils/")
+PlotPredictionAccuracies(subset.snps = c("all", "1000", "50"),
+                         qtn.number = c("3", "25", "75"),
+                         heritability = c("0.2", "0.5" ,"0.9"),
+                         dir.with.results = "analysis/snps-svs_rils")
 
 # this is just for the preliminary data
 # once I have all SV data, I will run the PlotPredictionAccuracies() function above
@@ -170,7 +170,7 @@ PlotPredictionAccuracies(subset.snps = c("all", "1000", "50"),
 # save path to home directory
 home.dir <- getwd()
 # change to directory with all predictions
-setwd("analysis/test_usda-rils/")
+setwd("analysis/snps-svs_rils")
 
 for (subset.snps in c("all", "1000", "50")) {
   
