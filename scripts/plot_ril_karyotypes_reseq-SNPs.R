@@ -113,7 +113,7 @@ if (random.rils == TRUE) {
 for (RIL in selected.RILs) {
   
   # get ril column number
-  ril.col <- grep(RIL, colnames(geno.data.cross))
+  ril.col <- grep(RIL, colnames(geno.data.cross), fixed = TRUE)
   
   cat("  RIL", RIL, "\n")
   
