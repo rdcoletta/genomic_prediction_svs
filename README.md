@@ -750,14 +750,14 @@ All parents for this population were resequenced by [Mazaheri et al (BMC Plant B
 
 The main file to use for this project is called `62biomAP_v_B73_SNPMatrix.txt`, which is a matrix containing all SNP calls for 56 maize inbred lines. Thus, after downloading the data, I have to select only the parents of the USDA population, transform the data to the hapmap format and then proceed to the rest of the analysis.
 
-Unzip `62biomAP_v_B73_SNPMatrix.txt.txt.tar.gz` and it's has all the SNPs from 56 inbreds. I will just select the SNPs from the 7 parents of my population (B73, LH82, PH207, PHG35, PHG39, PHG47, and PHJ40). The dataset to be used is called `data/reseq_snps/biomAP_v_B73_SNPMatrix_7parents.txt`.
+Unzip `62biomAP_v_B73_SNPMatrix.txt.txt.tar.gz` and it's has all the SNPs from 56 inbreds. I will just select the SNPs from the 7 parents of my population (B73, LH82, PH207, PHG35, PHG39, PHG47, and PHJ40). The dataset to be used is called `data/reseq_snps/biomAP_v_B73_SNPMatrix_parents.txt`.
 
 ```bash
 mkdir -p data/reseq_snps
 cd data/reseq_snps
 
 # note that if I download this data again, the name of the file will be different
-wget http://merritt.cdlib.org/cloudcontainer/mrtstore2/21061229.tar.gz
+wget http://merritt.cdlib.org/cloudcontainer/mrtstore2/21061229.tar.gzs
 tar -xvf 21061229.tar.gz
 gunzip 62biomAP_v_B73_SNPMatrix.txt.gz
 
@@ -776,17 +776,17 @@ head -n 1 62biomAP_v_B73_SNPMatrix.txt | tr '\t' '\n' | cat -n | grep "B73\|LH82
 # 43	PHJ40
 
 # get first column (position) and the ones above
-cut -f 1,2,5,21,32,36,37,38,43 62biomAP_v_B73_SNPMatrix.txt > biomAP_v_B73_SNPMatrix_7parents.txt
+cut -f 1,2,5,21,32,36,37,38,43 62biomAP_v_B73_SNPMatrix.txt > biomAP_v_B73_SNPMatrix_parents.txt
 
 # return to project's home directory
 cd ~/projects/genomic_prediction/simulation
 
 # transform to hapmap format:
-python scripts/snp_matrix2hapmap.py data/reseq_snps/biomAP_v_B73_SNPMatrix_7parents.txt data/reseq_snps/biomAP_v_B73_SNPMatrix_7parents.hmp.txt
+python scripts/snp_matrix2hapmap.py data/reseq_snps/biomAP_v_B73_SNPMatrix_parents.txt data/reseq_snps/biomAP_v_B73_SNPMatrix_parents.hmp.txt
 
 # transform to hapmap diploid format:
-run_pipeline.pl -Xmx50g -importGuess data/reseq_snps/biomAP_v_B73_SNPMatrix_7parents.hmp.txt \
-                        -export data/reseq_snps/biomAP_v_B73_SNPMatrix_7parents.hmp.txt \
+run_pipeline.pl -Xmx50g -importGuess data/reseq_snps/biomAP_v_B73_SNPMatrix_parents.hmp.txt \
+                        -export data/reseq_snps/biomAP_v_B73_SNPMatrix_parents.hmp.txt \
                         -exportType HapmapDiploid
 ```
 
@@ -798,7 +798,7 @@ Since the SNP resequencing data will be used together with SV data, I also need 
 The markers from the SNP chip will be used as anchors for projection of resequencing SNPs into RILs. The hapmap files from parents and RILs will be saved at a cross specific folder in `data/reseq_snps/`.
 
 ```bash
-Rscript scripts/merge_reseq_SNPs_with_SNPchip.R data/reseq_snps/biomAP_v_B73_SNPMatrix_7parents.hmp.txt \
+Rscript scripts/merge_reseq_SNPs_with_SNPchip.R data/reseq_snps/biomAP_v_B73_SNPMatrix_parents.hmp.txt \
                                                 data/usda_SVs_parents.sorted.hmp.txt \
                                                 data/usda_biparental-crosses.txt \
                                                 analysis/projection \
@@ -860,10 +860,10 @@ done
 cd ~/projects/genomic_prediction/simulation
 ```
 
-To summarize the results of projections for each family, I wrote `scripts/count_projected_reseq-snps.R`. The average **SV projection was 94.64%** with average accuracy of 95.45%. Details about projections for each family were written into `analysis/projection_reseq-snps/projection_summary.txt`, but can also be visualized in different plots saved into `analysis/projection_reseq-snps`.
+To summarize the results of projections for each family, I wrote `scripts/count_projected_reseq-snps.R`. The average **SNP projection was 94.03%** with average accuracy of 95.71%. Details about projections for each family were written into `analysis/projection_reseq-snps/projection_summary.txt`, but can also be visualized in different plots saved into `analysis/projection_reseq-snps`.
 
 ```bash
-Rscript scripts/count_projected_reseq-snps.R data/reseq_snps/biomAP_v_B73_SNPMatrix_7parents.not-in-PAVs.hmp.txt \
+Rscript scripts/count_projected_reseq-snps.R data/reseq_snps/biomAP_v_B73_SNPMatrix_parents.not-in-PAVs.hmp.txt \
                                              data/usda_biparental-crosses.txt \
                                              analysis/projection_reseq-snps
 ```
