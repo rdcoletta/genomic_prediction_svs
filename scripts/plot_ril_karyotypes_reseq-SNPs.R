@@ -15,7 +15,7 @@ if (all(length(args) == 1 & args == "-h" | args == "--help")) {
 }
 
 # make sure the correct number of arguments are used
-if (length(args) != 7) {
+if (length(args) < 7 | length(args) > 9) {
   stop("incorrect number of arguments provided.
        
        Usage: Rscript plot_ril_karyotypes_reseq-SNPs.R [...]
@@ -40,6 +40,12 @@ if (args[7] == "--rils=random") {
   stop("Invalid list of rils. Make sure it's comma-separated")
 }
 
+if (args[8] == "--sliding-window") {
+  sliding.window <- TRUE
+} else {
+  sliding.window <- FALSE
+}
+
 
 # chr.info <- "data/B73_RefGen_V4_chrm_info.txt"
 # cent.info <- "data/centromeres_Schneider-2016-pnas_v4.bed"
@@ -48,8 +54,8 @@ if (args[7] == "--rils=random") {
 # parents.folder <- "data/reseq_snps"
 # out.folder <- "analysis/qc/karyotypes"
 # random.rils <- FALSE
-# rils.list <- c("2011MOB_151")
-
+# rils.list <- c("B73*LH82-B-B-12-1-1-B-B")
+# sliding.window <- TRUE
 
 
 #### libraries ----
@@ -81,7 +87,12 @@ cat("Plotting ", cross, "...\n", sep = "")
 data.filename <- list.files(path = proj.folder,
                             pattern = paste0(cross, ".poly.projected.hmp.txt"),
                             full.names = TRUE)
-geno.data.cross <- fread(data.filename, header = TRUE, data.table = FALSE)
+if (sliding.window) {
+  geno.data.cross <- fread(gsub("hmp.txt", "sliding-window.hmp.txt", data.filename), header = TRUE, data.table = FALSE)
+  
+} else {
+  geno.data.cross <- fread(data.filename, header = TRUE, data.table = FALSE)
+}
 
 # load parental data
 parents.filename <- list.files(path = paste0(parents.folder, "/", cross),
@@ -282,7 +293,11 @@ for (RIL in selected.RILs) {
   
   # save plots
   karyo.name.before <- paste0(out.folder, "/", cross, "_", RIL,"_before-proj_reseq-snps.png")
-  karyo.name.after <- paste0(out.folder, "/", cross, "_", RIL,"_after-proj_reseq-snps.png")
+  if (sliding.window) {
+    karyo.name.after <- paste0(out.folder, "/", cross, "_", RIL,"_after-proj_reseq-snps_sliding-window.png")
+  } else {
+    karyo.name.after <- paste0(out.folder, "/", cross, "_", RIL,"_after-proj_reseq-snps.png")
+  }
   ggsave(filename = karyo.name.before, plot = karyo.plot.before, device = "png")
   ggsave(filename = karyo.name.after, plot = karyo.plot.after, device = "png")
   

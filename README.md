@@ -893,3 +893,39 @@ done
 # go back to project's home folder
 cd ~/projects/genomic_prediction/simulation
 ```
+
+
+
+### Sliding window approach
+
+Given the high amount of SNPs projected, I will run the sliding window approach to reduce the possible wrong projections using a bigger `--window-size`, and then plot the karyotypes after this approach to see if it was helpful or not.
+
+```bash
+# sliding window
+for cross in $(ls -d data/reseq_snps/[BLP]* | xargs -n 1 basename); do
+  qsub -v CROSS=$cross scripts/sliding_window_reseq-snps.sh
+done
+
+# make sure the number of SNPs match before and after sliding window
+for cross in $(ls -d data/reseq_snps/[BLP]* | xargs -n 1 basename); do
+  echo $cross
+  wc -l analysis/projection_reseq-snps/*$cross*projected.hmp.txt
+  wc -l analysis/projection_reseq-snps/*$cross*sliding-window.hmp.txt
+  echo ""
+done
+
+# plot karyotypes
+for cross in $(ls -d data/reseq_snps/[BLP]* | xargs -n 1 basename); do
+  # ugly way to get the names of rils used to plot karyotypes
+  rils=$(ls analysis/qc/karyotypes/$cross*before* | xargs -n 1 basename | cut -d "_" -f 2,3 | cut -d "." -f 1 | sed "s/_before-proj//" | sort | uniq | paste -s -d ",")
+  # plot karyotypes for those rils
+  Rscript scripts/plot_ril_karyotypes_reseq-SNPs.R data/B73_RefGen_V4_chrm_info.txt \
+                                                   data/centromeres_Schneider-2016-pnas_v4.bed \
+                                                   $cross \
+                                                   analysis/projection_reseq-snps \
+                                                   data/reseq_snps \
+                                                   analysis/qc/karyotypes \
+                                                   --rils=$rils --sliding-window
+done
+# error with LH82xPH207 - bad RIL selected
+```
