@@ -929,3 +929,81 @@ for cross in $(ls -d data/reseq_snps/[BLP]* | xargs -n 1 basename); do
 done
 # error with LH82xPH207 - bad RIL selected
 ```
+
+
+
+### Merge projected resequencing SNPs to projected SVs
+
+
+All the projections were done only with polymorphic SNPs from each family to make it faster. Now, I have to add back the monomorphic SNPs for each family, and also those SNPs that were present in some families but not in others as `NN`. The result will be hapmap files with the same amount of SNPs in each family.
+
+```bash
+# add monomorphic snps back
+for cross in $(ls -d data/reseq_snps/[BLP]* | xargs -n 1 basename); do
+  echo $cross
+  Rscript scripts/add_mono_reseq-snps.R $cross \
+                                        analysis/projection_reseq-snps/biomAP_rils_SNPs-reseq_SNP-chip.$cross.poly.projected.sliding-window.hmp.txt \
+                                        data/reseq_snps/biomAP_v_B73_SNPMatrix_parents.not-in-PAVs.hmp.txt
+done
+
+
+
+
+# add snps not in cross
+qsub scripts/add_snps_not_in_cross.sh
+```
+
+Finally, I will merge the resequencing SNPs from all crosses in a single file, and then merge this file with the projected SV data. The file `data/usda_SNPs-SVs_rils.not-in-SVs.projected.reseq-SNPs.hmp.txt` will be the final file to be used in the genomic prediction simulations.
+
+```bash
+cd analysis/projection_reseq-snps
+
+# exclude first columns for all crosses
+for cross in $(ls -d ~/projects/genomic_prediction/simulation/data/reseq_snps/[BLP]* | xargs -n 1 basename); do
+  echo $cross
+  cut -f 1-11 --complement biomAP_rils_SNPs-reseq_SNP-chip.$cross.projected.snps-all-crosses.hmp.txt > tmp_hmp.$cross.txt
+done
+# join all rils in one file (keep entire hmp file for cross B73xLH82 though)
+paste biomAP_rils_SNPs-reseq_SNP-chip.B73xLH82.projected.snps-all-crosses.hmp.txt \
+      tmp_hmp.B73xPH207.txt \
+      tmp_hmp.B73xPHG35.txt \
+      tmp_hmp.B73xPHG39.txt \
+      tmp_hmp.B73xPHG47.txt \
+      tmp_hmp.LH82xPH207.txt \
+      tmp_hmp.LH82xPHG35.txt \
+      tmp_hmp.LH82xPHG39.txt \
+      tmp_hmp.LH82xPHG47.txt \
+      tmp_hmp.PH207xPHG47.txt \
+      tmp_hmp.PHG35xPHG39.txt \
+      tmp_hmp.PHG35xPHG47.txt \
+      tmp_hmp.PHG39xPHG47.txt > ~/projects/genomic_prediction/simulation/data/reseq_snps/biomAP_rils_SNPs-reseq.projected.hmp.txt
+# remove tmp files
+rm tmp_hmp.*.txt
+
+# go back to project's home folder
+cd ~/projects/genomic_prediction/simulation
+
+# break reseq SNPs ril data into chromosomes
+for chr in {1..10}; do
+  head -n 1 data/reseq_snps/biomAP_rils_SNPs-reseq.projected.hmp.txt > data/reseq_snps/biomAP_rils_SNPs-reseq.projected.chr$chr.hmp.txt
+  awk -v chr="$chr" '$3 == chr' data/reseq_snps/biomAP_rils_SNPs-reseq.projected.hmp.txt >> data/reseq_snps/biomAP_rils_SNPs-reseq.projected.chr$chr.hmp.txt
+done
+
+# break SNP chip ril data into chromosomes
+for chr in {1..10}; do
+  head -n 1 data/usda_SNPs-SVs_rils.not-in-SVs.projected.hmp.txt > data/usda_SNPs-SVs_rils.not-in-SVs.projected.chr$chr.hmp.txt
+  awk -v chr="$chr" '$3 == chr' data/usda_SNPs-SVs_rils.not-in-SVs.projected.hmp.txt >> data/usda_SNPs-SVs_rils.not-in-SVs.projected.chr$chr.hmp.txt
+done
+
+# merge files in R because the order of the RILs in reseq and chip files are different
+for chr in {1..10}; do
+  qsub -v CHR=$chr scripts/merge_reseq-chip_projected_crosses.sh
+done
+
+# merge all chromosomes
+cp data/usda_SNPs-SVs_rils.not-in-SVs.projected.chr1.reseq-SNPs.hmp.txt data/usda_SNPs-SVs_rils.not-in-SVs.projected.reseq-SNPs.hmp.txt
+for chr in {2..10}; do
+  echo $chr
+  sed 1d data/usda_SNPs-SVs_rils.not-in-SVs.projected.chr$chr.reseq-SNPs.hmp.txt >> data/usda_SNPs-SVs_rils.not-in-SVs.projected.reseq-SNPs.hmp.txt
+done
+```
