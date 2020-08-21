@@ -735,6 +735,16 @@ In order to use these projections in genomic prediction simulations, I have to m
 Rscript scripts/merge_projected_crosses.R data/usda_SNPs-SVs_rils.not-in-SVs.hmp.txt \
                                           analysis/projection \
                                           data/usda_biparental-crosses.txt
+# qc SV missing data across all families
+head -n 1 data/usda_SNPs-SVs_rils.not-in-SVs.projected.hmp.txt > data/usda_SVs-only_rils.projected.hmp.txt
+grep -P "^del|^dup|^tra|^inv|^ins" data/usda_SNPs-SVs_rils.not-in-SVs.projected.hmp.txt >> data/usda_SVs-only_rils.projected.hmp.txt
+run_pipeline.pl -Xmx40g -importGuess data/usda_SVs-only_rils.projected.hmp.txt \
+                -GenotypeSummaryPlugin -endPlugin \
+                -export analysis/projection/tassel_summary_usda_rils_projected_svs
+
+# plot distribution
+Rscript scripts/qc_tassel_summary.R analysis/projection/tassel_summary_usda_rils_projected_svs3.txt \
+                                    analysis/projection/SV_missing_data_RILs_after_projection.png
 ```
 
 
@@ -953,7 +963,7 @@ done
 qsub scripts/add_snps_not_in_cross.sh
 ```
 
-Finally, I will merge the resequencing SNPs from all crosses in a single file, and then merge this file with the projected SV data. The file `data/usda_SNPs-SVs_rils.not-in-SVs.projected.reseq-SNPs.hmp.txt` will be the final file to be used in the genomic prediction simulations.
+Finally, I will merge the resequencing SNPs from all crosses in a single file, and then merge this file with the projected SV data.
 
 ```bash
 cd analysis/projection_reseq-snps
@@ -1005,5 +1015,33 @@ cp data/usda_SNPs-SVs_rils.not-in-SVs.projected.chr1.reseq-SNPs.hmp.txt data/usd
 for chr in {2..10}; do
   echo $chr
   sed 1d data/usda_SNPs-SVs_rils.not-in-SVs.projected.chr$chr.reseq-SNPs.hmp.txt >> data/usda_SNPs-SVs_rils.not-in-SVs.projected.reseq-SNPs.hmp.txt
+done
+```
+
+The file `data/usda_SNPs-SVs_rils.not-in-SVs.projected.reseq-SNPs.hmp.txt` will be the final file to be used in the genomic prediction simulations.
+
+
+
+## LD structure between SNPs and SVs
+
+An important thing to do is to calculate the LD between SNPs and SVs, because if SNPs are in high LD with SVs, then genomic prediction with SVs will add little information to the models. Given the high amount of resequencing SNPs, I'm calculating LD in a 100kb or 1Mb window only (LD decay in maize is somewhere around 5kb, so it should be enough), and I'm filtering out variants with more than 0.25 or 0.75 missing data.
+
+```bash
+# create directory to store results
+mkdir -p /scratch.global/della028/hirsch_lab/genomic_prediction/ld
+mkdir -p analysis/ld
+
+# convert hapmap to plink format
+for chr in {1..10}; do
+  qsub -v CHR=$chr scripts/hmp2plk.sh
+done
+
+# calculate LD (100kb and 1000kb window)
+for chr in {1..10}; do
+  for filter in 0.25 0.75; do
+    for window in 100 1000; do
+      qsub -v CHR=$chr,WINDOW=$window,FILTER=$filter scripts/plink_ld_calculation.sh
+    done
+  done
 done
 ```

@@ -5,7 +5,6 @@ data/*
 *.Rhistory
 tests/*
 tests/scripts/*
-plink*
 GAPIT*
 *.pdf
 *.png
