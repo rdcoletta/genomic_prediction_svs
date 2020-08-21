@@ -1045,3 +1045,122 @@ for chr in {1..10}; do
   done
 done
 ```
+
+Besides that, it's important to QC the dataset in different ways to get a broader picture of how the LD structure in my population can affect genomic predition. First, I will plot the distribution of r2 values from LD between SV and its SNP with highest LD to see if all SVs are perfectly tagged by an SNP or not. Additionally, some summary statistics of LD between SNPs and SVs are also calculated.
+
+```bash
+# get only SNP-SV LD
+for chr in {1..10}; do
+  for filter in 0.25 0.75; do
+    for window in 100 1000; do
+      qsub -v CHR=$chr,WINDOW=$window,FILTER=$filter scripts/select_only_sv-snp_ld.sh
+    done
+  done
+done
+
+# filter plink ld files and plot distribution (only need the first chr file -- it will find the other chr)
+for filter in 0.25 0.75; do
+  for window in 100 1000; do
+    echo "filter $filter - $window kb window"
+    Rscript scripts/distribution_ld_snps-svs.R analysis/ld/ld_usda_rils_snp-sv_only.chr1.window-$window\kb.filter-$filter.ld data/usda_SVs_parents.sorted.hmp.txt analysis/ld/window-$window\kb_filter-$filter
+  done
+done
+```
+
+Second, I will plot the distribution of each marker type (SNP or SV) along the chromosome to see if there's enrichment of a particular marker for certain parts of the chromosomes:
+
+```bash
+# create a 3 column file (id, chr, pos) to be the input for R script
+for chr in {1..10}; do
+  for filter in 0.25 0.75; do
+    for window in 100 1000; do
+      # highest ld
+      sed 1d analysis/ld/window-$window\kb_filter-$filter/ld_usda_rils_snp-sv_only.chr$chr.window-$window\kb.filter-$filter.highest-ld.ld  | awk '{ print $3 "\t" $1 "\t" $2 "\n" $6 "\t" $4 "\t" $5}' | sort -n -k 3 | uniq >> analysis/ld/window-$window\kb_filter-$filter/marker_info_highest-ld.txt
+      # not in ld
+      sed 1d analysis/ld/window-$window\kb_filter-$filter/ld_usda_rils_snp-sv_only.chr$chr.window-$window\kb.filter-$filter.not-in-ld.ld  | awk '{ print $3 "\t" $1 "\t" $2 "\n" $6 "\t" $4 "\t" $5}' | sort -n -k 3 | uniq >> analysis/ld/window-$window\kb_filter-$filter/marker_info_not-in-ld.txt
+    done
+  done
+done
+
+# plot distribution along chromosome
+for filter in 0.25 0.75; do
+  for window in 100 1000; do
+    Rscript scripts/distribution_snps-svs_chrom.R analysis/ld/window-$window\kb_filter-$filter/marker_info_highest-ld.txt analysis/ld/window-$window\kb_filter-$filter/distribution_snps-svs_chrom.png
+  done
+done
+```
+
+Third, plot LD decay of SNP-SV for markers up to 2Mb up or downstream a SV, and LD decay of SNPs surrounding 10 randomly selected SVs:
+
+```bash
+module load R
+for filter in 0.25 0.75; do
+  for window in 100 1000; do
+    echo "filter $filter - $window kb window"
+    Rscript scripts/plot_ld_decay.R analysis/ld/ld_usda_rils_snp-sv_only.chr1.window-$window\kb.filter-$filter.ld \
+                                    analysis/ld/window-$window\kb_filter-$filter/LD-decay_SNPs-SVs.window-$window\kb.filter-$filter.png
+  done
+done
+```
+> The plots look very weird: almost no LD decay curve in 2Mb windows, which would indicate that there's still some SNPs in high LD to a SV (very unlikely in my opinion). Also, LD decay plots of the 10 randomly selected SVs don't show any pattern as well. We need to think in better ways of displaying this.
+
+The median distance of a SV and it's SNP in highest LD seem a bit too high (e.g. for 100kb window and <0.25 missing data, it ranged from ~2kb to ~14kb). Thus, we decided to also plot the LD distribution based on the physically closest SNP to a SV.
+
+```bash
+# get closest snps
+for filter in 0.25 0.75; do
+  for chr in {1..10}; do
+    for type in all del ins inv dup; do
+      qsub -v CHR=$chr,TYPE=$type,FILTER=$filter scripts/keep_closest_SNP_to_SV.sh
+    done
+  done
+done
+
+# merge chromosomes
+cd ~/projects/genomic_prediction/simulation/analysis/ld/
+for filter in 0.25 0.75; do
+  for type in all del ins inv dup; do
+    cp usda_SNPs-SVs_rils.not-in-SVs.projected.chr1.reseq-SNPs.closest-snps-to-svs.filter-$filter.$type.hmp.txt usda_SNPs-SVs_rils.not-in-SVs.projected.reseq-SNPs.closest-snps-to-svs.filter-$filter.$type.hmp.txt
+    for chr in {2..10}; do
+      sed 1d usda_SNPs-SVs_rils.not-in-SVs.projected.chr$chr.reseq-SNPs.closest-snps-to-svs.filter-$filter.$type.hmp.txt >> usda_SNPs-SVs_rils.not-in-SVs.projected.reseq-SNPs.closest-snps-to-svs.filter-$filter.$type.hmp.txt
+    done
+  done
+done
+
+
+# LD distribution for closest snps (all SVs)
+cd ~/projects/genomic_prediction/simulation/
+for filter in 0.25 0.75; do
+  for window in 100 1000; do
+    echo "filter $filter - $window kb window"
+    Rscript scripts/distribution_ld_snps-svs_closest-snps.R analysis/ld/ld_usda_rils_snp-sv_only.chr1.window-$window\kb.filter-$filter.ld data/usda_SVs_parents.sorted.hmp.txt analysis/ld/usda_SNPs-SVs_rils.not-in-SVs.projected.reseq-SNPs.closest-snps-to-svs.filter-$filter.all.hmp.txt analysis/ld/window-$window\kb_filter-$filter\_closest-snps all
+  done
+done
+```
+
+Another helpful QC is to look at PCA plots and see if SVs can also distinguish maize groups as well as SNPs.
+
+```bash
+# filter hmp files and run pca
+# ...only with SVs
+head -n 1 data/usda_SNPs-SVs_rils.not-in-SVs.projected.hmp.txt > data/usda_SNPs-SVs_rils.not-in-SVs.projected.SVs-only.hmp.txt
+grep -P "^del|^dup|^ins|^inv|^tra" data/usda_SNPs-SVs_rils.not-in-SVs.projected.hmp.txt >> data/usda_SNPs-SVs_rils.not-in-SVs.projected.SVs-only.hmp.txt
+
+qsub scripts/pca_plots_plink_svs.sh
+
+# ...only with SNPs
+grep -v -P "^del|^dup|^ins|^inv|^tra" data/usda_SNPs-SVs_rils.not-in-SVs.projected.reseq-SNPs.hmp.txt > data/usda_SNPs-SVs_rils.not-in-SVs.projected.SNPs-only.hmp.txt
+
+qsub scripts/pca_plots_plink_snps.sh
+
+# ...only with SNPs in high ld (100kb and <0.25 missing data)
+head -n 1 data/usda_SNPs-SVs_rils.not-in-SVs.projected.reseq-SNPs.hmp.txt > analysis/ld/window-100kb_filter-0.25/usda_SNPs-SVs_rils.not-in-SVs.projected.SNPs-only.highest-ld.hmp.txt
+grep -f <(grep -v -P "^del|^dup|^ins|^inv|^tra" analysis/ld/window-100kb_filter-0.25/marker_info_highest-ld.txt | cut -f 1) data/usda_SNPs-SVs_rils.not-in-SVs.projected.reseq-SNPs.hmp.txt >> analysis/ld/window-100kb_filter-0.25/usda_SNPs-SVs_rils.not-in-SVs.projected.SNPs-only.highest-ld.hmp.txt
+
+qsub scripts/pca_plots_plink_snps-highest-ld.sh
+
+# closest snps
+for type in all del ins inv dup; do
+  qsub -v TYPE=$type scripts/pca_plots_plink_closest-snps_by_type.sh
+done
+```
