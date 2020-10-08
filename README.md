@@ -19,7 +19,7 @@ mkdir {analysis,data,scripts}
 
 
 
-## SNP dataset
+## SNP chip dataset
 
 The USDA project contains 525 RILs generated from 7 inbred parents (B73, PHJ40, PHG39, PHG47, PH207, PHG35, LH82), which are all ex-PVPs. In addition, 400 F1 hybrids were generated from a partial diallel cross of those RILs.
 
@@ -357,38 +357,7 @@ run_pipeline.pl -Xmx10g -importGuess data/usda_22kSNPs_rils.sorted.diploid.hmp.t
 
 
 
-## SV dataset
-
-On August 9, 2019, Patrick Monnahan sent me five `.vcf` files containing structural variation calls from the software Lumpy. Each file is a SV call of 100 lines against one of the following reference genomes: B73, Mo17, PH207, PHB47, or W22. **This results are preliminary** and there are a lot of false-positives in there. However, they will be useful for me to select the 7 lines I need, project the SVs from parents to RILs, and incorporate these SV data into my simulation scripts.
-
-The files are located at `data/SV_calls`, and I will use only the SVs called against the B73 reference genome for now.
-
-```bash
-# decompress vcf file of SV calls to B73
-gunzip data/SV_calls/B73v4_2019-08-09.ls.RT.vcf.gz
-```
-
-### Hapmap format
-
-I wrote the python script `scripts/vcf2hapmap.py` which extract information about structural variants and transform into a hapmap format file sorted by chromosome and positions. Since the `.vcf` file that Patrick sent me contains 100 inbred lines, I have to select only the 7 inbred parents used in the USDA project. Running this script will generate the file `data/usda_SVs_parents.sorted.hmp.txt`:
-
-```bash
-# for help on how to use this script
-python scripts/vcf2hapmap.py --help
-# run the script
-python scripts/vcf2hapmap.py data/SV_calls/B73v4_2019-08-09.ls.RT.vcf \
-                             data/usda_SVs_parents.sorted.hmp.txt \
-                             B73,LH82,PH207,PHG35,PHG39,PHG47,PHJ40
-```
-
-The type of SV will be displayed in the marker ID (`del.[ID]` for deletions, `dup.[ID]` for duplications, etc.). Each line will have either a value of `AA` if SV is `A`bsent, or `TT` if SV is `T`here. I had to do that because I will use Tassel to project genotypes from parents to RILs, and it doesn't accept anything other than nucleotides (thus, I couldn't use numbers to indicate presence/absence of SV, as originally thought). Missing data will be coded as `NN`. Also, since SVs spam hundreds (or thousands) of bp and the exact breakpoints are hard to call, the position indicated in the hapmap file wil be the middle point of the SV.
-
-> After projection of parental genotypes into RILs, the hapmap will be transformed into the numeric format for genomic prediction simulations. Thus, for SVs, `AA` will be transformed into `0` and `TT` to `2`.
-
-
-
-
-## Check reference genome version of SNP chip
+### Check reference genome version of SNP chip
 
 One important thing that Candy remind me is to check whether the version of the reference genome used to make the probes in the SNP chip is the same as the one used in the SV calls (i.e., refgen v4). Since I will merge the two datasets, it's important that the coordinates are aligned.
 
@@ -475,7 +444,7 @@ At this point, we are pretty confident that the probes designed for the SNP chip
 
 
 
-## Convert SNP coordinates from B73v2 to B73v4
+### Convert SNP coordinates from B73v2 to B73v4
 
 Now, I need to convert the SNP chip coordinates from refgen v2 to v4 before merging this SNP data with the SV data. The first thing I have to do is download the refgen v2 assembly and extract 100bp sequences around SNPchip probe positions.
 
@@ -597,156 +566,127 @@ run_pipeline.pl -Xmx10g -importGuess data/usda_22kSNPs_rils.sorted.diploid.filte
 
 
 
+### Divide dataset by cross
 
-## Remove SNPs inside deletions and merge SNP and SV data
-
-For projections, I need to create parental and RIL files with all SNPs and SVs. However, before that, I need to address a particular issue when using these two types of variation: SNPs that are found inside deletions. Such SNPs are problematic because they will have segregation issues when you compare multiple lines that have or does not have that SV.
-
-The `scripts/merge_SNPs_SVs_hapmaps.R` will remove SNPs that are within 100kb of a deletion first and then it will combine marker data for parents and RILs separately. I set up 100 kb threshold because ~99% of the deletions are smaller than this and the very large deletions (>1 Mb) would make me lose a lot of SNPs. Importantly, each family will be filtered separately.
+Both SV and SNP projections will be done for each family separately. Thus, I have to create parental and RIL SNP chip files (the anchors for projections) for each specific cross with `scripts/divide_hmp_by_cross.R`.
 
 ```bash
-Rscript scripts/merge_SNPs_SVs_hapmaps.R data/usda_22kSNPs_parents.sorted.diploid.PHG35-reconstructed.filtered.v4.hmp.txt \
-                                         data/usda_22kSNPs_rils.sorted.diploid.filtered.v4.hmp.txt \
-                                         data/usda_SVs_parents.sorted.hmp.txt \
-                                         data/usda_SNPs-SVs_parents.not-in-PAVs.hmp.txt \
-                                         data/usda_SNPs-SVs_rils.not-in-SVs.hmp.txt \
-                                         data/usda_biparental-crosses.txt \
-                                         data/merged_hapmaps_by_cross
+# parents
+Rscript scripts/divide_hmp_by_cross.R data/usda_22kSNPs_parents.sorted.diploid.PHG35-reconstructed.filtered.v4.hmp.txt \
+                                      data/usda_biparental-crosses.txt \
+                                      data/hapmap_by_cross \
+                                      --parents
+# rils
+Rscript scripts/divide_hmp_by_cross.R data/usda_22kSNPs_rils.sorted.diploid.filtered.v4.hmp.txt \
+                                      data/usda_biparental-crosses.txt \
+                                      data/hapmap_by_cross \
+                                      --rils
 ```
 
-As shown in the table below, only very few SNPs were inside the boundaries of a deletion and thus removed:
 
-| chr | total SNPs | SNPs removed |
-| --- | ---------- | ------------ |
-| 1   | 2,936       | 6            |
-| 2   | 2,238       | 2            |
-| 3   | 2,458       | 2            |
-| 4   | 1,886       | 0            |
-| 5   | 2,028       | 2            |
-| 6   | 1,710       | 0            |
-| 7   | 1,539       | 0            |
-| 8   | 1,177       | 2            |
-| 9   | 1,424       | 2            |
-| 10  | 1,265       | 0            |
 
-The output from this script is a merged set of SNPs and SVs not in deletions for all parents (`data/usda_SNPs-SVs_parents.not-in-PAVs.hmp.txt`) and all RILs (`data/usda_SNPs-SVs_rils.not-in-SVs.hmp.txt`), and also merged sets for each RIL family (files in `data/merged_hapmaps_by_cross`). The later sets will be the ones used for projection. It's worth noting that genotypic information of SVs is only available on parental dataset. The RIL dataset have the SV names but not the genotypes (they are all `NN`).
+## SV dataset
+
+On August 9, 2019, Patrick Monnahan sent me five `.vcf` files containing structural variation calls from the software Lumpy. Each file is a SV call of 100 lines against one of the following reference genomes: B73, Mo17, PH207, PHB47, or W22. **This results are preliminary** and there are a lot of false-positives in there. However, they will be useful for me to select the 7 lines I need, project the SVs from parents to RILs, and incorporate these SV data into my simulation scripts.
+
+The files are located at `data/SV_calls`, and I will use only the SVs called against the B73 reference genome for now.
+
+```bash
+# decompress vcf file of SV calls to B73
+gunzip data/SV_calls/B73v4_2019-08-09.ls.RT.vcf.gz
+```
+
+
+
+### Hapmap format
+
+I wrote the python script `scripts/vcf2hapmap.py` which extract information about structural variants and transform into a hapmap format file sorted by chromosome and positions. Since the `.vcf` file that Patrick sent me contains 100 inbred lines, I have to select only the 7 inbred parents used in the USDA project. Running this script will generate the file `data/usda_SVs_parents.sorted.hmp.txt`:
+
+```bash
+# for help on how to use this script
+python scripts/vcf2hapmap.py --help
+# run the script
+python scripts/vcf2hapmap.py data/SV_calls/B73v4_2019-08-09.ls.RT.vcf \
+                             data/usda_SVs_parents.sorted.hmp.txt \
+                             B73,LH82,PH207,PHG35,PHG39,PHG47,PHJ40
+```
+
+The type of SV will be displayed in the marker ID (`del.[ID]` for deletions, `dup.[ID]` for duplications, etc.). Each line will have either a value of `AA` if SV is `A`bsent, or `TT` if SV is `T`here. I had to do that because I will use Tassel to project genotypes from parents to RILs, and it doesn't accept anything other than nucleotides (thus, I couldn't use numbers to indicate presence/absence of SV, as originally thought). Missing data will be coded as `NN`. Also, since SVs spam hundreds (or thousands) of bp and the exact breakpoints are hard to call, the position indicated in the hapmap file wil be the middle point of the SV.
+
+> After projection of parental genotypes into RILs, the hapmap will be transformed into the numeric format for genomic prediction simulations. Thus, for SVs, `AA` will be transformed into `0` and `TT` to `2`.
+
+
+
+### Divide dataset by cross
+
+Similarly to the anchors datasets (SNP chip), I have to create parental files with SV information separately for each cross with `scripts/divide_hmp_by_cross.R`.
+
+```bash
+# parents
+Rscript scripts/divide_hmp_by_cross.R data/usda_SVs_parents.sorted.hmp.txt \
+                                      data/usda_biparental-crosses.txt \
+                                      data/hapmap_by_cross \
+                                      --parents
+```
+
+
+
+## Remove chip SNPs inside deletions
+
+For projections, I need to create a parental and RIL files with all SNPs and SVs. However, before that, I need to address a particular issue when using these two types of variation: SNPs that are found inside deletions. Such SNPs are problematic because they will have segregation issues when you compare multiple lines that have or does not have that SV.
+
+The `scripts/remove_SNPs_within_dels.R` will remove SNPs that are within 100kb of a deletion first. I set up 100 kb threshold because ~99% of the deletions are smaller than this and the very large deletions (>1 Mb) would make me lose a lot of SNPs. Importantly, each family will be filtered separately and a SNP will be removed only if the deletion is actually present in one of the parents (i.e. there is `TT` call in one of the parents).
+
+```bash
+crosses=$(ls data/hapmap_by_cross/usda_22kSNPs_rils.sorted.diploid.filtered.v4.*.hmp.txt | xargs -n 1 basename |  cut -d '.' -f 6 | uniq)
+
+# remove snps
+for cross in $crosses; do
+  echo ${cross}
+  # parents
+  Rscript scripts/remove_SNPs_within_dels.R data/hapmap_by_cross/usda_22kSNPs_parents.sorted.diploid.PHG35-reconstructed.filtered.v4.${cross}.hmp.txt \
+                                            data/hapmap_by_cross/usda_SVs_parents.sorted.${cross}.hmp.txt
+  # rils
+  Rscript scripts/remove_SNPs_within_dels.R data/hapmap_by_cross/usda_22kSNPs_rils.sorted.diploid.filtered.v4.${cross}.hmp.txt \
+                                            data/hapmap_by_cross/usda_SVs_parents.sorted.${cross}.hmp.txt
+done
+
+# check parents and rils have same number of markers
+for cross in $crosses; do
+  wc -l data/hapmap_by_cross/usda_22kSNPs_parents.*.${cross}.not-in-SVs.hmp.txt
+  wc -l data/hapmap_by_cross/usda_22kSNPs_rils.*.${cross}.not-in-SVs.hmp.txt
+  echo ""
+done
+
+# check how many were removed per cross
+for cross in $crosses; do
+  before=$(wc -l data/hapmap_by_cross/usda_22kSNPs_parents.*.${cross}.hmp.txt | cut -d " " -f 1)
+  after=$(wc -l data/hapmap_by_cross/usda_22kSNPs_parents.*.${cross}.not-in-SVs.hmp.txt | cut -d " " -f 1)
+  echo "$((before-after)) SNPs removed for $cross"
+done
+```
+
+> Only very few SNPs (1-6 SNPs) were inside the boundaries of a deletion for each family and thus removed.
 
 
 
 
 ## Correct SNP chip miscalls with sliding window approach
 
-Before doing projections, it's also important to minimize the number of miscalls in the SNP chip data for RILs, otherwise the number of wrong projections will be high and this can have a big impact in the downstream predictions.
+Before doing projections, it's also important to minimize the number of miscalls in the SNP chip data for RILs, otherwise the number of wrong projections may be high, which can then affect downstream predictions.
 
 ```bash
-for cross in $(ls data/merged_hapmaps_by_cross/* | xargs -n 1 basename |  cut -d '_' -f 3 | uniq); do
+crosses=$(ls data/hapmap_by_cross/usda_22kSNPs_rils.sorted.diploid.filtered.v4.*.hmp.txt | xargs -n 1 basename |  cut -d '.' -f 6 | uniq)
+
+for cross in $crosses; do
   Rscript scripts/sliding_window_approach.R $cross \
-                                            data/merged_hapmaps_by_cross/usda_SNPs-SVs_$cross\_RILs.sorted.hmp.txt \
-                                            data/merged_hapmaps_by_cross/usda_SNPs-SVs_$cross\_parents.sorted.hmp.txt \
+                                            data/hapmap_by_cross/usda_22kSNPs_rils.sorted.diploid.filtered.v4.${cross}.not-in-SVs.hmp.txt \
+                                            data/hapmap_by_cross/usda_22kSNPs_parents.sorted.diploid.PHG35-reconstructed.filtered.v4.${cross}.not-in-SVs.hmp.txt \
                                             --window_size=15 --window_step=1 --min_snps_per_window=5
 done
 ```
 
 > Note: In preliminary tests, it looked like that as I increased `--window_size`, the number of hets increased as well, especially around recombination breakpoints. Increasing `--window_step` kind of controlled that a bit (at least visually), but this end up increasing the chance of having wrong recombination points.
-
-
-
-
-## Project SVs from parents to RILs
-
-Projection of SVs need to be done on a family basis. The merged SNP and SV data from parents will serve as donors for projections by [FILLIN](https://bitbucket.org/tasseladmin/tassel-5-source/wiki/UserManual/FILLIN/FILLIN). The haplotype blocks generated for each parent will then be used to determine the haplotypes from the RIL dataset.
-
-After preliminary analysis, using the options `-hapSize 2000` (haplotype block size), `-minTaxa 1` (create haplotype for each parent), and `-hybNN false` (avoid combining haplotypes) yielded the best projection results.
-
-
-```bash
-# create directory to store results of imputation
-mkdir -p analysis/projection
-
-# change directory
-cd data/
-
-# save current field delimiter
-curr_IFS=$IFS
-{
-  # skip header of "usda_biparental-crosses.txt" file
-  read
-  # set delimeter to tab
-  IFS="\t"
-  # read file line by line
-  while read -r line; do
-    # split line and assign each column to a variable
-    # also change "*" by "x" in the cross name to match the file names
-    cross=$(echo $line | cut -f1 | tr "*" "x")
-    # create haplotypes from parents
-    run_pipeline.pl -FILLINFindHaplotypesPlugin \
-                    -hmp merged_hapmaps_by_cross/usda_SNPs-SVs_$cross\_parents.sorted.hmp.txt \
-                    -o ../analysis/projection/donors_$cross \
-                    -hapSize 2000 -minTaxa 1
-    # impute ril genotypes based on
-    run_pipeline.pl -FILLINImputationPlugin \
-                    -hmp merged_hapmaps_by_cross/usda_SNPs-SVs_$cross\_RILs.sorted.sliding-window.hmp.txt \
-                    -d ../analysis/projection/donors_$cross \
-                    -o ../analysis/projection/usda_SNPs-SVs_$cross\_RILs.projected.hmp.txt \
-                    -hapSize 2000 -hybNN false -accuracy
-  done
-} < "usda_biparental-crosses.txt" > "../analysis/projection/FILLIN_log.txt"
-# set delimiter back to what it was
-IFS=$curr_IFS
-
-# remove empty folders (RILs without genotypic data)
-# note that although i'm using *, the folder won't be deleted if it's not empty
-rmdir ../analysis/projection/*
-
-
-# transform to diploid hapmap
-cd ../analysis/projection
-for file in *"projected.hmp.txt"; do
-  run_pipeline.pl -Xmx10g -importGuess $file -export $file -exportType HapmapDiploid
-done
-
-# return to project's home directory
-cd ~/projects/genomic_prediction/simulation
-```
-
-To summarize the results of projections for each family, I wrote `scripts/count_projected_SVs.R`. The average **SV projection was 91.23%%** with average accuracy of 93.1%. Details about projections for each family were written into `analysis/projection/projection_summary.txt`, but can also be visualized in different plots saved into `analysis/projection`.
-
-```bash
-Rscript scripts/count_projected_SVs.R data/usda_SVs_parents.sorted.hmp.txt \
-                                      data/usda_biparental-crosses.txt \
-                                      analysis/projection
-```
-
-Another QC is to plot the karyotypes from RILs and compare with their parents to check whether the haplotype blocks agree. After running `scripts/plot_ril_karyotype_SVs.R`, I don't see any major disagreement between parental and RIL data, meaning that projections seem to be very accurate indeed.
-
-```bash
-Rscript scripts/plot_ril_karyotypes_SVs.R data/B73_RefGen_V4_chrm_info.txt \
-                                          data/centromeres_Schneider-2016-pnas_v4.bed \
-                                          data/usda_biparental-crosses.txt \
-                                          analysis/projection \
-                                          data/merged_hapmaps_by_cross \
-                                          analysis/qc/karyotypes \
-                                          --rils=random
-```
-
-In order to use these projections in genomic prediction simulations, I have to merge each projected hapmap into one file. For this purpose, I wrote `scripts/merge_projected_crosses.R` to merge projected files into the file `data/usda_SNPs-SVs_rils.not-in-SVs.projected.hmp.txt`.
-
-```bash
-Rscript scripts/merge_projected_crosses.R data/usda_SNPs-SVs_rils.not-in-SVs.hmp.txt \
-                                          analysis/projection \
-                                          data/usda_biparental-crosses.txt
-# qc SV missing data across all families
-head -n 1 data/usda_SNPs-SVs_rils.not-in-SVs.projected.hmp.txt > data/usda_SVs-only_rils.projected.hmp.txt
-grep -P "^del|^dup|^tra|^inv|^ins" data/usda_SNPs-SVs_rils.not-in-SVs.projected.hmp.txt >> data/usda_SVs-only_rils.projected.hmp.txt
-run_pipeline.pl -Xmx40g -importGuess data/usda_SVs-only_rils.projected.hmp.txt \
-                -GenotypeSummaryPlugin -endPlugin \
-                -export analysis/projection/tassel_summary_usda_rils_projected_svs
-
-# plot distribution
-Rscript scripts/qc_tassel_summary.R analysis/projection/tassel_summary_usda_rils_projected_svs3.txt \
-                                    analysis/projection/SV_missing_data_RILs_after_projection.png
-```
-
 
 
 
@@ -801,103 +741,134 @@ run_pipeline.pl -Xmx50g -importGuess data/reseq_snps/biomAP_v_B73_SNPMatrix_pare
 ```
 
 
-### Remove SNPs inside deletions and merge resequencing with SNP chip data
+### Divide dataset by cross
 
-Since the SNP resequencing data will be used together with SV data, I also need to make sure that such SNPs are not present within the boundaries of an SV. The `scripts/merge_reseq_SNPs_with_SNPchip.R` will first remove resequencing SNPs that are within 100kb of a deletion, and then it will merge these SNPs with the SNPs from chip data. Since resequencing data has more than 20 million SNPs, this script will also subset resequencing SNPs by population to keep only the polymorphic ones. Using polymorphic SNPs only will speed up projections by reducing the total number of SNPs to look at.
-
-The markers from the SNP chip will be used as anchors for projection of resequencing SNPs into RILs. The hapmap files from parents and RILs will be saved at a cross specific folder in `data/reseq_snps/`.
+Similarly to the anchors datasets (SNP chip), I have to create parental files with resequencing SNPs information separately for each cross with `scripts/divide_hmp_by_cross.R`.
 
 ```bash
-Rscript scripts/merge_reseq_SNPs_with_SNPchip.R data/reseq_snps/biomAP_v_B73_SNPMatrix_parents.hmp.txt \
-                                                data/usda_SVs_parents.sorted.hmp.txt \
-                                                data/usda_biparental-crosses.txt \
-                                                analysis/projection \
-                                                data/merged_hapmaps_by_cross \
-                                                data/reseq_snps/biomAP_parents_SNPs-reseq_SNP-chip_SVs-proj.hmp.txt \
-                                                data/reseq_snps/biomAP_rils_SNPs-reseq_SNP-chip_SVs-proj.hmp.txt
+# parents
+Rscript scripts/divide_hmp_by_cross.R data/reseq_snps/biomAP_v_B73_SNPMatrix_parents.hmp.txt \
+                                      data/usda_biparental-crosses.txt \
+                                      data/reseq_snps \
+                                      --parents
 ```
 
-As shown in the table below, about 1% of SNPs were within deletions up to 100 kb:
 
-| chr | total SNPs | SNPs removed |
-| --- | ---------- | ------------ |
-| 1   | 3368111    | 33283        |
-| 2   | 2936145    | 32428        |
-| 3   | 2660241    | 24650        |
-| 4   | 2778443    | 20590        |
-| 5   | 2349338    | 24793        |
-| 6   | 1795656    | 16873        |
-| 7   | 2002440    | 17866        |
-| 8   | 1917030    | 21385        |
-| 9   | 1850524    | 13513        |
-| 10  | 1597057    | 13131        |
 
-After doing the above analysis, I talked to Candy and she told me to use only SNPs (not SNPs and SVs) as anchors for projection. So I need to remove the SVs for each of the files created above.
+
+### Remove resequecing SNPs inside deletions and keep only polymorphic SNPs
+
+Since the SNP resequencing data will be used together with SV data, I also need to make sure that such SNPs are not present within the boundaries of an SV. The `scripts/filter_reseq_snps.sh` will first remove resequencing SNPs that are within 100kb of a deletion with `scripts/remove_SNPs_within_dels.R`, and then it will keep only the polymorphic SNPs with `scripts/keep_only_poly_snps.R` to speed up projections (as it reduces a lot the total number SNPs to be projected).
 
 ```bash
-for file in data/reseq_snps/*/biomAP_*_SNPs-reseq_SNP-chip_SVs-proj.*.hmp.txt; do
-  grep -v -P "^del|^dup|^ins|^inv|^tra" $file > ${file/SNPs-reseq_SNP-chip_SVs-proj/SNPs-reseq_SNP-chip}
+crosses=$(ls data/hapmap_by_cross/usda_22kSNPs_rils.sorted.diploid.filtered.v4.*.hmp.txt | xargs -n 1 basename |  cut -d '.' -f 6 | uniq)
+
+for cross in $crosses; do
+  qsub -v CROSS=${cross} scripts/filter_reseq_snps.sh
+done
+```
+
+> Less than 1% of resequencing SNPs were within deletions up to 100 kb.
+
+
+
+
+## Merge SNP and SV data
+
+The markers from the SNP chip will be used as anchors for projection of both SVs and resequencing SNPs. Since these two types of markers will be projected at the same type, I need to merge the hapmap files of both marker types with the SNP chip files. First, I will combine SNP chip with SV data for parents and RILs separately with `scripts/merge_SNPs_SVs_hapmaps.R`. It's worth noting that genotypic information of SVs is only available on parental dataset. The RIL dataset have the SV names but not the genotypes (they are all `NN`).
+
+```bash
+crosses=$(ls data/hapmap_by_cross/usda_22kSNPs_rils.sorted.diploid.filtered.v4.*.hmp.txt | xargs -n 1 basename |  cut -d '.' -f 6 | uniq)
+
+# merge svs
+for cross in $crosses; do
+  Rscript scripts/merge_SNPs_SVs_hapmaps.R data/hapmap_by_cross/usda_SVs_parents.sorted.${cross}.hmp.txt \
+                                           data/hapmap_by_cross/usda_22kSNPs_parents.sorted.diploid.PHG35-reconstructed.filtered.v4.${cross}.not-in-SVs.hmp.txt \
+                                           data/hapmap_by_cross/usda_22kSNPs_rils.sorted.diploid.filtered.v4.${cross}.not-in-SVs.sliding-window.hmp.txt \
+                                           data/hapmap_by_cross/usda_parents_SV-SNPchip.${cross}.hmp.txt \
+                                           data/hapmap_by_cross/usda_rils_SV-SNPchip.${cross}.not-projected.hmp.txt
+done
+
+# make sure the files are sorted
+for cross in $crosses; do
+  # parents
+  run_pipeline.pl -Xmx10g -SortGenotypeFilePlugin -inputFile data/hapmap_by_cross/usda_parents_SV-SNPchip.${cross}.hmp.txt -outputFile data/hapmap_by_cross/usda_parents_SV-SNPchip.${cross}.hmp.txt -fileType Hapmap
+  run_pipeline.pl -Xmx10g -importGuess data/hapmap_by_cross/usda_parents_SV-SNPchip.${cross}.hmp.txt -export data/hapmap_by_cross/usda_parents_SV-SNPchip.${cross}.hmp.txt -exportType HapmapDiploid
+  # rils
+  run_pipeline.pl -Xmx10g -SortGenotypeFilePlugin -inputFile data/hapmap_by_cross/usda_rils_SV-SNPchip.${cross}.not-projected.hmp.txt -outputFile data/hapmap_by_cross/usda_rils_SV-SNPchip.${cross}.not-projected.hmp.txt -fileType Hapmap
+  run_pipeline.pl -Xmx10g -importGuess data/hapmap_by_cross/usda_rils_SV-SNPchip.${cross}.not-projected.hmp.txt -export data/hapmap_by_cross/usda_rils_SV-SNPchip.${cross}.not-projected.hmp.txt -exportType HapmapDiploid
+done
+
+# make sure number of rows of parental and RIL data matches in each population
+for cross in $crosses; do
+  wc -l data/hapmap_by_cross/usda_parents_SV-SNPchip.${cross}.hmp.txt
+  wc -l data/hapmap_by_cross/usda_rils_SV-SNPchip.${cross}.not-projected.hmp.txt
+  echo ""
+done
+```
+
+Then, in order to project resequencing SNPs and SVs at the same time, I will merge the poymorphic resequencing SNPs with the previous files (SNP chip + SVs) for parents and RILs separately with `scripts/merge_SNPs_SVs_hapmaps.R`. Similar to previous merging, genotypic information of reseq SNPs is only available on parental dataset. The RIL dataset have the resequencing SNP names but not the genotypes (they are all `NN`). Additionally, since the same SNP information can be represented in both SNP chip and resequencing SNP data, I wrote `scripts/remove_duplicated_anchors.R` to keep only SNPs from the chip (anchors).
+
+```bash
+crosses=$(ls data/hapmap_by_cross/usda_22kSNPs_rils.sorted.diploid.filtered.v4.*.hmp.txt | xargs -n 1 basename |  cut -d '.' -f 6 | uniq)
+
+# merge poly reseq snps with snp chip markers + svs hapmaps
+for cross in $crosses; do
+  Rscript scripts/merge_SNPs_SVs_hapmaps.R data/reseq_snps/biomAP_v_B73_SNPMatrix_parents.${cross}.poly.not-in-SVs.hmp.txt \
+                                           data/hapmap_by_cross/usda_parents_SV-SNPchip.${cross}.hmp.txt \
+                                           data/hapmap_by_cross/usda_rils_SV-SNPchip.${cross}.not-projected.hmp.txt \
+                                           data/hapmap_by_cross/usda_parents_SV-SNPchip-polySNPreseq.${cross}.hmp.txt \
+                                           data/hapmap_by_cross/usda_rils_SV-SNPchip-polySNPreseq.${cross}.not-projected.hmp.txt
+done
+
+# remove duplicated anchors (which were created when merging GBS SNPs with )
+for cross in $crosses; do
+  Rscript scripts/remove_duplicated_anchors.R data/hapmap_by_cross/usda_parents_SV-SNPchip-polySNPreseq.${cross}.hmp.txt
+  Rscript scripts/remove_duplicated_anchors.R data/hapmap_by_cross/usda_rils_SV-SNPchip-polySNPreseq.${cross}.not-projected.hmp.txt
+done
+
+# make sure the files are sorted
+for cross in $crosses; do
+  # parents
+  run_pipeline.pl -Xmx10g -SortGenotypeFilePlugin -inputFile data/hapmap_by_cross/usda_parents_SV-SNPchip-polySNPreseq.${cross}.hmp.txt -outputFile data/hapmap_by_cross/usda_parents_SV-SNPchip-polySNPreseq.${cross}.hmp.txt -fileType Hapmap
+  run_pipeline.pl -Xmx10g -importGuess data/hapmap_by_cross/usda_parents_SV-SNPchip-polySNPreseq.${cross}.hmp.txt -export data/hapmap_by_cross/usda_parents_SV-SNPchip-polySNPreseq.${cross}.hmp.txt -exportType HapmapDiploid
+  # rils
+  run_pipeline.pl -Xmx10g -SortGenotypeFilePlugin -inputFile data/hapmap_by_cross/usda_rils_SV-SNPchip-polySNPreseq.${cross}.not-projected.hmp.txt -outputFile data/hapmap_by_cross/usda_rils_SV-SNPchip-polySNPreseq.${cross}.not-projected.hmp.txt -fileType Hapmap
+  run_pipeline.pl -Xmx10g -importGuess data/hapmap_by_cross/usda_rils_SV-SNPchip-polySNPreseq.${cross}.not-projected.hmp.txt -export data/hapmap_by_cross/usda_rils_SV-SNPchip-polySNPreseq.${cross}.not-projected.hmp.txt -exportType HapmapDiploid
+done
+
+# check that parents and rils have the same number of markers
+for cross in $crosses; do
+  wc -l data/hapmap_by_cross/usda_parents_SV-SNPchip-polySNPreseq.${cross}.hmp.txt
+  wc -l data/hapmap_by_cross/usda_rils_SV-SNPchip-polySNPreseq.${cross}.not-projected.hmp.txt
+  echo ""
 done
 ```
 
 
-### Project SNPs from parents to RILs
 
-Projection of resequencing SNPs will also be done on a family basis using only polymorphic SNPs. The merged SNP chip and resequencing SNP data from parents will serve as donors for projections by [FILLIN](https://bitbucket.org/tasseladmin/tassel-5-source/wiki/UserManual/FILLIN/FILLIN). The haplotype blocks generated for each parent will then be used to determine the haplotypes from the RIL dataset.
+## Project SVs and resequencing SNPs from parents to RILs
 
-After preliminary analysis, using the options `-hapSize 200000` (haplotype block size), `-minTaxa 1` (create haplotype for each parent), and `-hybNN false` (avoid combining haplotypes) yielded the best projection results, as they ended up with similar number of haplotype blocks from SV projection.
+Projection of SVs and resequencing SNPs will be done on a family basis. The merged SNP chip, SV and resequencing SNP data from parents will serve as donors for projections by [FILLIN](https://bitbucket.org/tasseladmin/tassel-5-source/wiki/UserManual/FILLIN/FILLIN). The haplotype blocks generated for each parent will then be used to determine the haplotypes for projection into the RIL dataset.
 
+> After preliminary analysis, using the options `-hapSize 200000` (haplotype block size), `-minTaxa 1` (create haplotype for each parent), and `-hybNN false` (avoid combining haplotypes) yielded the best projection results.
 
 ```bash
 # create directory to store results of imputation
-mkdir -p analysis/projection_reseq-snps
+mkdir -p analysis/projection_svs-snps
 
-# change directory to get cross names
-cd data/reseq_snps
+# project svs and snps together
+crosses=$(ls data/hapmap_by_cross/usda_22kSNPs_rils.sorted.diploid.filtered.v4.*.hmp.txt | xargs -n 1 basename |  cut -d '.' -f 6 | uniq)
 
-for cross in $(ls -d [BLP]*); do
-  qsub -v CROSS=$cross,HAPSIZE=200000 ~/projects/genomic_prediction/simulation/scripts/project_reseq-snps.sh
+for cross in $crosses; do
+  qsub -v CROSS=$cross,HAPSIZE=200000 scripts/project_svs-snps.sh
 done
 
 # transform to diploid hapmap:
-cd ~/projects/genomic_prediction/simulation/analysis/projection_reseq-snps
+cd ~/projects/genomic_prediction/simulation/analysis/projection_svs-snps
 
 for file in *"projected.hmp.txt"; do
   run_pipeline.pl -Xmx10g -importGuess $file -export $file -exportType HapmapDiploid
-done
-
-# go back to project's home folder
-cd ~/projects/genomic_prediction/simulation
-```
-
-To summarize the results of projections for each family, I wrote `scripts/count_projected_reseq-snps.R`. The average **SNP projection was 94.03%** with average accuracy of 95.71%. Details about projections for each family were written into `analysis/projection_reseq-snps/projection_summary.txt`, but can also be visualized in different plots saved into `analysis/projection_reseq-snps`.
-
-```bash
-Rscript scripts/count_projected_reseq-snps.R data/reseq_snps/biomAP_v_B73_SNPMatrix_parents.not-in-PAVs.hmp.txt \
-                                             data/usda_biparental-crosses.txt \
-                                             analysis/projection_reseq-snps
-```
-
-> Just for comparison, I tested `-hapSize`s of 1M and 2.5M, and the results average SNPs projected were 76.93% (92.48% accuracy) and 94.39% (91.87% accuracy) respectively.
-
-
-I also ploted the karyotypes from RILs before and after SNP projection with `scripts/plot_ril_karyotypes_reseq-SNPs.R`. After running it, I don't see any major disagreements between parental and RIL data, meaning that projections seem to be very accurate indeed.
-
-```bash
-# change directory to get cross names
-cd data/reseq_snps
-
-for cross in $(ls -d [BLP]*); do
-  # ugly way to get the names of rils used to plot karyotypes
-  rils=$(ls ../../analysis/qc/karyotypes/$cross*before* | xargs -n 1 basename | cut -d "_" -f 2,3 | cut -d "." -f 1 | sed "s/_before-proj//" | paste -s -d ",")
-  # plot karyotypes for those rils
-  Rscript ../../scripts/plot_ril_karyotypes_reseq-SNPs.R ../../data/B73_RefGen_V4_chrm_info.txt \
-                                                         ../../data/centromeres_Schneider-2016-pnas_v4.bed \
-                                                         $cross \
-                                                         ../../analysis/projection_reseq-snps \
-                                                         ../../data/reseq_snps \
-                                                         ../../analysis/qc/karyotypes \
-                                                         --rils=$rils
 done
 
 # go back to project's home folder
@@ -912,69 +883,121 @@ Given the high amount of SNPs projected, I will run the sliding window approach 
 
 ```bash
 # sliding window
-for cross in $(ls -d data/reseq_snps/[BLP]* | xargs -n 1 basename); do
+crosses=$(ls data/hapmap_by_cross/usda_22kSNPs_rils.sorted.diploid.filtered.v4.*.hmp.txt | xargs -n 1 basename |  cut -d '.' -f 6 | uniq)
+
+for cross in $crosses; do
   qsub -v CROSS=$cross scripts/sliding_window_reseq-snps.sh
 done
 
 # make sure the number of SNPs match before and after sliding window
-for cross in $(ls -d data/reseq_snps/[BLP]* | xargs -n 1 basename); do
+for cross in $crosses; do
   echo $cross
   wc -l analysis/projection_reseq-snps/*$cross*projected.hmp.txt
   wc -l analysis/projection_reseq-snps/*$cross*sliding-window.hmp.txt
   echo ""
 done
+```
 
-# plot karyotypes
-for cross in $(ls -d data/reseq_snps/[BLP]* | xargs -n 1 basename); do
-  # ugly way to get the names of rils used to plot karyotypes
-  rils=$(ls analysis/qc/karyotypes/$cross*before* | xargs -n 1 basename | cut -d "_" -f 2,3 | cut -d "." -f 1 | sed "s/_before-proj//" | sort | uniq | paste -s -d ",")
-  # plot karyotypes for those rils
+To summarize the results of both SV and SNP projections for each family after the sliding window approach, I wrote `scripts/count_projected_SVs.R` and `scripts/count_projected_reseq-snps.R`, respectively. The average **SV projection was 93.2%** and the average **SNP projection was 94%**, with average accuracy of 94.7%% across all families.
+
+Details about projections for each family were written into `analysis/projection_svs-snps/projection_svs_summary.txt` for SVs and `analysis/projection_svs-snps/projection_svs_summary.txt` for SNPs, but can also be visualized in different plots saved at `analysis/projection_svs-snps`.
+
+```bash
+# count svs
+Rscript scripts/count_projected_SVs.R data/hapmap_by_cross \
+                                      analysis/projection_svs-snps \
+                                      data/usda_biparental-crosses.txt
+
+# get average SV projection and accuracy -- use (NR - 1) to avoid counting header as a row
+awk -v N=5 '{ sum += $N } END { if (NR > 1) print sum / (NR - 1) }' analysis/projection_svs-snps/projection_svs_summary.txt
+awk -v N=7 '{ sum += $N } END { if (NR > 1) print sum / (NR - 1) }' analysis/projection_svs-snps/projection_svs_summary.txt
+
+# count reseq snps
+Rscript scripts/count_projected_reseq-snps.R data/reseq_snps \
+                                             analysis/projection_svs-snps \
+                                             data/usda_biparental-crosses.txt
+
+# get average SNP projection and accuracy -- use (NR - 1) to avoid counting header as a row
+awk -v N=5 '{ sum += $N } END { if (NR > 1) print sum / (NR - 1) }' analysis/projection_svs-snps/projection_reseq-snps_summary.txt
+awk -v N=7 '{ sum += $N } END { if (NR > 1) print sum / (NR - 1) }' analysis/projection_svs-snps/projection_reseq-snps_summary.txt
+```
+
+I also ploted the karyotypes from RILs before and after SNP projection with `scripts/plot_ril_karyotypes_reseq-SNPs.R`. After running it, I don't see any major disagreements between parental and RIL data, meaning that projections seem to be very accurate indeed.
+
+```bash
+crosses=$(ls data/hapmap_by_cross/usda_22kSNPs_rils.sorted.diploid.filtered.v4.*.hmp.txt | xargs -n 1 basename |  cut -d '.' -f 6 | uniq)
+
+for cross in $crosses; do
+  # svs
   Rscript scripts/plot_ril_karyotypes_reseq-SNPs.R data/B73_RefGen_V4_chrm_info.txt \
                                                    data/centromeres_Schneider-2016-pnas_v4.bed \
                                                    $cross \
-                                                   analysis/projection_reseq-snps \
-                                                   data/reseq_snps \
+                                                   analysis/projection_svs-snps \
+                                                   data/hapmap_by_cross \
                                                    analysis/qc/karyotypes \
-                                                   --rils=$rils --sliding-window
+                                                   --rils=random --marker-type=sv --sliding-window
+  # snps
+  Rscript scripts/plot_ril_karyotypes_reseq-SNPs.R data/B73_RefGen_V4_chrm_info.txt \
+                                                   data/centromeres_Schneider-2016-pnas_v4.bed \
+                                                   $cross \
+                                                   analysis/projection_svs-snps \
+                                                   data/hapmap_by_cross \
+                                                   analysis/qc/karyotypes \
+                                                   --rils=random --marker-type=snp --sliding-window
 done
-# error with LH82xPH207 - bad RIL selected
+```
+
+> TODO: fix `scripts/plot_ril_karyotypes_reseq-SNPs.R` and also make sure to change output name based on the type of marker.
+
+
+
+
+### Add monomorphic resequencing SNPs back
+
+Since the projections were performed only with polymorphic SNPs to reduce computational time, now I have to add back the monomorphic SNPs for each family.
+
+```bash
+crosses=$(ls data/hapmap_by_cross/usda_22kSNPs_rils.sorted.diploid.filtered.v4.*.hmp.txt | xargs -n 1 basename |  cut -d '.' -f 6 | uniq)
+
+for cross in $crosses; do
+  qsub -v CROSS=$cross scripts/add_mono_reseq-snps.sh
+done
 ```
 
 
 
-### Merge projected resequencing SNPs to projected SVs
+### Add back SNPs and SVs not present in a certain cross
 
-
-All the projections were done only with polymorphic SNPs from each family to make it faster. Now, I have to add back the monomorphic SNPs for each family, and also those SNPs that were present in some families but not in others as `NN`. The result will be hapmap files with the same amount of SNPs in each family.
+Given that SNPs within SVs were removed for each family separately and that SVs with missing data in both parents of a family were also removed, each family will have slightly different marker composition. Thus, I wrote `scripts/add_markers_not_in_cross.R` to make sure all the families have the same markers. Markers with no information for a given cross was set as missing data (`NN`).
 
 ```bash
-# add monomorphic snps back
-for cross in $(ls -d data/reseq_snps/[BLP]* | xargs -n 1 basename); do
-  echo $cross
-  Rscript scripts/add_mono_reseq-snps.R $cross \
-                                        analysis/projection_reseq-snps/biomAP_rils_SNPs-reseq_SNP-chip.$cross.poly.projected.sliding-window.hmp.txt \
-                                        data/reseq_snps/biomAP_v_B73_SNPMatrix_parents.not-in-PAVs.hmp.txt
+qsub scripts/add_markers_not_in_cross.sh
+
+# make sure the final file is sorted and the alleles' column is correct
+crosses=$(ls data/hapmap_by_cross/usda_22kSNPs_rils.sorted.diploid.filtered.v4.*.hmp.txt | xargs -n 1 basename |  cut -d '.' -f 6 | uniq)
+
+for cross in $crosses; do
+  qsub -v CROSS=$cross scripts/sort_merged_projected_files.sh
 done
-
-
-
-
-# add snps not in cross
-qsub scripts/add_snps_not_in_cross.sh
 ```
 
-Finally, I will merge the resequencing SNPs from all crosses in a single file, and then merge this file with the projected SV data.
+
+
+### Merge projected markers from different families
+
+Finally, I will merge marker projections from each family into a single hapmap file (`data/usda_rils_projected-SVs-SNPs.hmp.txt`), which can then be used for LD analysis and genomic predictions.
 
 ```bash
-cd analysis/projection_reseq-snps
+crosses=$(ls data/hapmap_by_cross/usda_22kSNPs_rils.sorted.diploid.filtered.v4.*.hmp.txt | xargs -n 1 basename |  cut -d '.' -f 6 | uniq)
 
 # exclude first columns for all crosses
-for cross in $(ls -d ~/projects/genomic_prediction/simulation/data/reseq_snps/[BLP]* | xargs -n 1 basename); do
+cd analysis/projection_svs-snps
+for cross in $crosses; do
   echo $cross
-  cut -f 1-11 --complement biomAP_rils_SNPs-reseq_SNP-chip.$cross.projected.snps-all-crosses.hmp.txt > tmp_hmp.$cross.txt
+  cut -f 1-11 --complement usda_rils_projected-SVs-SNPs.$cross.all-markers.hmp.txt > tmp_hmp.$cross.txt
 done
 # join all rils in one file (keep entire hmp file for cross B73xLH82 though)
-paste biomAP_rils_SNPs-reseq_SNP-chip.B73xLH82.projected.snps-all-crosses.hmp.txt \
+paste usda_rils_projected-SVs-SNPs.B73xLH82.all-markers.hmp.txt \
       tmp_hmp.B73xPH207.txt \
       tmp_hmp.B73xPHG35.txt \
       tmp_hmp.B73xPHG39.txt \
@@ -986,28 +1009,18 @@ paste biomAP_rils_SNPs-reseq_SNP-chip.B73xLH82.projected.snps-all-crosses.hmp.tx
       tmp_hmp.PH207xPHG47.txt \
       tmp_hmp.PHG35xPHG39.txt \
       tmp_hmp.PHG35xPHG47.txt \
-      tmp_hmp.PHG39xPHG47.txt > ~/projects/genomic_prediction/simulation/data/reseq_snps/biomAP_rils_SNPs-reseq.projected.hmp.txt
+      tmp_hmp.PHG39xPHG47.txt > ~/projects/genomic_prediction/simulation/data/usda_rils_projected-SVs-SNPs.hmp.txt
 # remove tmp files
 rm tmp_hmp.*.txt
 
 # go back to project's home folder
 cd ~/projects/genomic_prediction/simulation
 
-# break reseq SNPs ril data into chromosomes
+# also separate the final file into chromosomes
 for chr in {1..10}; do
-  head -n 1 data/reseq_snps/biomAP_rils_SNPs-reseq.projected.hmp.txt > data/reseq_snps/biomAP_rils_SNPs-reseq.projected.chr$chr.hmp.txt
-  awk -v chr="$chr" '$3 == chr' data/reseq_snps/biomAP_rils_SNPs-reseq.projected.hmp.txt >> data/reseq_snps/biomAP_rils_SNPs-reseq.projected.chr$chr.hmp.txt
-done
-
-# break SNP chip ril data into chromosomes
-for chr in {1..10}; do
-  head -n 1 data/usda_SNPs-SVs_rils.not-in-SVs.projected.hmp.txt > data/usda_SNPs-SVs_rils.not-in-SVs.projected.chr$chr.hmp.txt
-  awk -v chr="$chr" '$3 == chr' data/usda_SNPs-SVs_rils.not-in-SVs.projected.hmp.txt >> data/usda_SNPs-SVs_rils.not-in-SVs.projected.chr$chr.hmp.txt
-done
-
-# merge files in R because the order of the RILs in reseq and chip files are different
-for chr in {1..10}; do
-  qsub -v CHR=$chr scripts/merge_reseq-chip_projected_crosses.sh
+  echo "$chr"
+  head -n 1 data/usda_rils_projected-SVs-SNPs.hmp.txt > data/usda_rils_projected-SVs-SNPs.chr$chr.hmp.txt
+  awk -v chr="$chr" '$3 == chr' data/usda_rils_projected-SVs-SNPs.hmp.txt >> data/usda_rils_projected-SVs-SNPs.chr$chr.hmp.txt
 done
 
 # generate summary statistics for the final file
@@ -1017,13 +1030,4 @@ done
 
 # plot maf and missing data distribution (just need to call one chr -- but the others should be in same folder)
 Rscript scripts/plot_maf-missing_distribution.R analysis/qc/tassel_usda-SNPs-SVs_chr1_summary3.txt analysis/qc/maf_missing-data
-
-# merge all chromosomes
-cp data/usda_SNPs-SVs_rils.not-in-SVs.projected.chr1.reseq-SNPs.hmp.txt data/usda_SNPs-SVs_rils.not-in-SVs.projected.reseq-SNPs.hmp.txt
-for chr in {2..10}; do
-  echo $chr
-  sed 1d data/usda_SNPs-SVs_rils.not-in-SVs.projected.chr$chr.reseq-SNPs.hmp.txt >> data/usda_SNPs-SVs_rils.not-in-SVs.projected.reseq-SNPs.hmp.txt
-done
 ```
-
-The file `data/usda_SNPs-SVs_rils.not-in-SVs.projected.reseq-SNPs.hmp.txt` will be the final file to be used in the genomic prediction simulations.

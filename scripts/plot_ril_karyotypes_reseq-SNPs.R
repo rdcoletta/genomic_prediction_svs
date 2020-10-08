@@ -8,16 +8,16 @@ if (all(length(args) == 1 & args == "-h" | args == "--help")) {
       Description: plot karyotypes for RILs of a biparental cross using SVs.
       Credits: code for plot was modified from Carles Hernandez-Ferrer's blog at
       https://carleshf.github.io/chromosome_karyotype_plot_with_ggplot2/
-      
-      
+
+
       Usage: Rscript plot_ril_karyotypes_reseq-SNPs.R [...]")
   quit()
 }
 
 # make sure the correct number of arguments are used
-if (length(args) < 7 | length(args) > 9) {
+if (length(args) < 7 | length(args) > 10) {
   stop("incorrect number of arguments provided.
-       
+
        Usage: Rscript plot_ril_karyotypes_reseq-SNPs.R [...]
        ")
 }
@@ -40,7 +40,17 @@ if (args[7] == "--rils=random") {
   stop("Invalid list of rils. Make sure it's comma-separated")
 }
 
-if (args[8] == "--sliding-window") {
+if (args[8] == "--marker-type=all") {
+  marker.type <- "all"
+} else if (args[8] == "--marker-type=sv") {
+  marker.type <- "sv"
+} else if (args[8] == "--marker-type=snp") {
+  marker.type <- "snp"
+} else {
+  stop("Invalid marker type. Options: 'all', 'sv', or 'snp'")
+}
+
+if (args[9] == "--sliding-window") {
   sliding.window <- TRUE
 } else {
   sliding.window <- FALSE
@@ -50,11 +60,12 @@ if (args[8] == "--sliding-window") {
 # chr.info <- "data/B73_RefGen_V4_chrm_info.txt"
 # cent.info <- "data/centromeres_Schneider-2016-pnas_v4.bed"
 # cross <- "B73xLH82"
-# proj.folder <- "analysis/projection_reseq-snps"
-# parents.folder <- "data/reseq_snps"
+# proj.folder <- "analysis/projection_svs-snps"
+# parents.folder <- "data/hapmap_by_cross"
 # out.folder <- "analysis/qc/karyotypes"
 # random.rils <- FALSE
 # rils.list <- c("B73*LH82-B-B-12-1-1-B-B")
+# marker.type <- "sv"
 # sliding.window <- TRUE
 
 
@@ -85,24 +96,20 @@ cat("Plotting ", cross, "...\n", sep = "")
 
 # load projected cross
 data.filename <- list.files(path = proj.folder,
-                            pattern = paste0(cross, ".poly.projected.hmp.txt"),
+                            pattern = paste0(cross, ".projected.hmp.txt"),
                             full.names = TRUE)
 if (sliding.window) {
   geno.data.cross <- fread(gsub("hmp.txt", "sliding-window.hmp.txt", data.filename), header = TRUE, data.table = FALSE)
-  
+
 } else {
   geno.data.cross <- fread(data.filename, header = TRUE, data.table = FALSE)
 }
 
 # load parental data
-parents.filename <- list.files(path = paste0(parents.folder, "/", cross),
-                               pattern = paste0("biomAP_parents_SNPs-reseq_SNP-chip.", cross, ".poly.hmp.txt"),
+parents.filename <- list.files(path = parents.folder,
+                               pattern = paste0("usda_parents_SV-SNPchip-polySNPreseq.", cross, ".hmp.txt"),
                                full.names = TRUE)
 parents.data.cross <- fread(parents.filename, header = TRUE, data.table = FALSE)
-
-
-# remove SNPs within SVs in parental file
-parents.data.cross <- parents.data.cross[which(parents.data.cross[, 1] %in% geno.data.cross[, 1]), ]
 
 # get parents names
 parent1 <- unlist(strsplit(cross, "x"))[1]
@@ -122,28 +129,28 @@ if (random.rils == TRUE) {
 }
 
 for (RIL in selected.RILs) {
-  
+
   # get ril column number
   ril.col <- grep(RIL, colnames(geno.data.cross), fixed = TRUE)
-  
+
   cat("  RIL", RIL, "\n")
-  
+
   # merge information of RIL of interest with respective marker positions
   geno.data <- cbind(geno.data.cross[, c(1,3,4)], geno.data.cross[, ril.col])
   colnames(geno.data) <- c("marker", "chr", "pos", "geno")
-  
+
   # select only chip SNPs
-  parents.SNPs <- parents.data.cross[grep("^snp", parents.data.cross[, 1], perl = TRUE, invert = TRUE), ]
-  geno.data.SNPs <- geno.data[grep("^snp", geno.data$marker, perl = TRUE, invert = TRUE), ]
+  parents.SNPs <- parents.data.cross[grep("^snp|^del|^ins|^inv|^dup|^tra", parents.data.cross[, 1], perl = TRUE, invert = TRUE), ]
+  geno.data.SNPs <- geno.data[grep("^snp|^del|^ins|^inv|^dup|^tra", geno.data$marker, perl = TRUE, invert = TRUE), ]
   # add parental info
   geno.data.SNPs <- cbind(geno.data.SNPs, parents.SNPs[, c(p1.col.reseq, p2.col.reseq)])
   colnames(geno.data.SNPs) <- c("marker", "chr", "pos", "geno", "parent1", "parent2")
-  
+
   # select missing data and non-missing data
   geno.data.SNPs.not.missing <- subset(geno.data.SNPs, geno != "NN")
   # get proportion of non-missing data to add in the plot
   prop.SNPs.not.missing <- NROW(geno.data.SNPs.not.missing) / NROW(geno.data.SNPs)
-  
+
   # check from which parent an allele came
   geno.data.SNPs.not.missing.p1 <- geno.data.SNPs.not.missing[which(geno.data.SNPs.not.missing[, "geno"] == geno.data.SNPs.not.missing[, "parent1"] &
                                                                       geno.data.SNPs.not.missing[, "geno"] != geno.data.SNPs.not.missing[, "parent2"]), ]
@@ -151,7 +158,7 @@ for (RIL in selected.RILs) {
                                                                       geno.data.SNPs.not.missing[, "geno"] == geno.data.SNPs.not.missing[, "parent2"]), ]
   geno.data.SNPs.not.missing.rest <- geno.data.SNPs.not.missing[which(!geno.data.SNPs.not.missing[, "marker"] %in% geno.data.SNPs.not.missing.p1[, "marker"] &
                                                                         !geno.data.SNPs.not.missing[, "marker"] %in% geno.data.SNPs.not.missing.p2[, "marker"]), ]
-  
+
   # find hets
   geno.data.SNPs.not.missing.het <- data.frame(matrix(nrow = 0, ncol = NCOL(geno.data.SNPs.not.missing.rest)))
   colnames(geno.data.SNPs.not.missing.het) <- colnames(geno.data.SNPs.not.missing.rest)
@@ -167,8 +174,8 @@ for (RIL in selected.RILs) {
       }
     }
   }
-  
-  
+
+
   # plot karyotypes before SV projection (i.e. only parental SNPs)
   karyo.plot.before <- ggplot() +
     geom_segment(data = chrms,
@@ -201,19 +208,28 @@ for (RIL in selected.RILs) {
     labs(caption = paste0(cross, " - ", gsub("RIL_", "RIL ", RIL), "\n\n",
                           "Not missing: ", round(prop.SNPs.not.missing, digits = 3), "\n"),
          x = "Chromosomes", y = "Genomic positions (Mb)")
-  
-  
+
+
   # select all SVs
-  parents.SVs <- parents.data.cross[grep("^snp", parents.data.cross[, 1], perl = TRUE), ]
-  geno.data.all.SVs <- geno.data[grep("^snp", geno.data$marker, perl = TRUE), ]
+  if (marker.type == "all") {
+    marker.filter <- "^snp|^del|^ins|^inv|^dup|^tra"
+  }
+  if (marker.type == "sv") {
+    marker.filter <- "^del|^ins|^inv|^dup|^tra"
+  }
+  if (marker.type == "snp") {
+    marker.filter <- "^snp"
+  }
+  parents.SVs <- parents.data.cross[grep(marker.filter, parents.data.cross[, 1], perl = TRUE), ]
+  geno.data.all.SVs <- geno.data[grep(marker.filter, geno.data$marker, perl = TRUE), ]
   # add parental info
   geno.data.all.SVs <- cbind(geno.data.all.SVs, parents.SVs[, c(p1.col.reseq, p2.col.reseq)])
   colnames(geno.data.all.SVs) <- c("marker", "chr", "pos", "geno", "parent1", "parent2")
-  
+
   # select only projected SVs
   geno.data.all.SVs.proj <- subset(geno.data.all.SVs, geno != "NN")
   geno.data.all.SVs.not.proj <- subset(geno.data.all.SVs, geno == "NN")
-  
+
   # check from which parent an allele came
   geno.data.all.SVs.proj.p1 <- geno.data.all.SVs.proj[which(geno.data.all.SVs.proj[, "geno"] == geno.data.all.SVs.proj[, "parent1"] &
                                                               geno.data.all.SVs.proj[, "geno"] != geno.data.all.SVs.proj[, "parent2"] &
@@ -223,7 +239,7 @@ for (RIL in selected.RILs) {
                                                               geno.data.all.SVs.proj[, "parent1"] != "NN"), ]
   geno.data.all.SVs.proj.rest <- geno.data.all.SVs.proj[which(!geno.data.all.SVs.proj[, "marker"] %in% geno.data.all.SVs.proj.p1[, "marker"] &
                                                                 !geno.data.all.SVs.proj[, "marker"] %in% geno.data.all.SVs.proj.p2[, "marker"]), ]
-  
+
   # find hets
   geno.data.all.SVs.proj.het <- apply(geno.data.all.SVs.proj.rest, MARGIN = 1, function(snp) {
     # check if ril snp is a het or if it has a different allele from parents
@@ -234,14 +250,13 @@ for (RIL in selected.RILs) {
     if (length(unique(p1.alleles)) == 1 & length(unique(p2.alleles)) == 1) {
       if (ril.alleles[1] != ril.alleles[2] & unique(p1.alleles) %in% ril.alleles & unique(p2.alleles) %in% ril.alleles) {
         return(snp)
-        geno.data.all.SVs.proj.het <- rbind(geno.data.all.SVs.proj.het, geno.data.all.SVs.proj.rest[snp, ])
       }
     }
   })
-  geno.data.all.SVs.proj.het <- data.frame(t(geno.data.all.SVs.proj.het), stringsAsFactors = FALSE)
+  geno.data.all.SVs.proj.het <- data.frame(do.call(rbind, geno.data.all.SVs.proj.het), stringsAsFactors = FALSE)
   geno.data.all.SVs.proj.het$chr <- as.numeric(geno.data.all.SVs.proj.het$chr)
   geno.data.all.SVs.proj.het$pos <- as.numeric(geno.data.all.SVs.proj.het$pos)
-  
+
   if (NROW(geno.data.all.SVs.proj.p1) == 0) {
     geno.data.all.SVs.proj.p1  <- rbind(geno.data.all.SVs.proj.p1, list(marker = NA, chr = NA, pos = NA, geno = NA, parent1 = NA, parent2 = NA))
   }
@@ -251,9 +266,9 @@ for (RIL in selected.RILs) {
   if (NROW(geno.data.all.SVs.proj.het) == 0) {
     geno.data.all.SVs.proj.het  <- rbind(geno.data.all.SVs.proj.het, list(marker = NA, chr = NA, pos = NA, geno = NA, parent1 = NA, parent2 = NA))
   }
-  
-  
-  # plot karyotypes after SV projection 
+
+
+  # plot karyotypes after SV projection
   karyo.plot.after <- ggplot() +
     geom_segment(data = chrms,
                  aes(x = 0, xend = 0, y = start_pos, yend = end_pos),
@@ -285,22 +300,22 @@ for (RIL in selected.RILs) {
     labs(caption = paste0(cross, " - ", gsub("RIL_", "RIL ", RIL), "\n\n",
                           "Projected: ", round(NROW(geno.data.all.SVs.proj)/NROW(geno.data.all.SVs), digits = 3), "\n"),
          x = "Chromosomes", y = "Genomic positions (Mb)")
-  
+
   # create directory for output if it doesn't exist
   if (!dir.exists(out.folder)) {
     dir.create(out.folder, recursive = TRUE)
   }
-  
+
   # save plots
-  karyo.name.before <- paste0(out.folder, "/", cross, "_", RIL,"_before-proj_reseq-snps.png")
+  karyo.name.before <- paste0(out.folder, "/", cross, "_", RIL,"_before-proj_snp-chip-only.png")
   if (sliding.window) {
-    karyo.name.after <- paste0(out.folder, "/", cross, "_", RIL,"_after-proj_reseq-snps_sliding-window.png")
+    karyo.name.after <- paste0(out.folder, "/", cross, "_", RIL,"_after-proj_svs-snps_sliding-window.png")
   } else {
-    karyo.name.after <- paste0(out.folder, "/", cross, "_", RIL,"_after-proj_reseq-snps.png")
+    karyo.name.after <- paste0(out.folder, "/", cross, "_", RIL,"_after-proj_svs-snps.png")
   }
   ggsave(filename = karyo.name.before, plot = karyo.plot.before, device = "png")
   ggsave(filename = karyo.name.after, plot = karyo.plot.after, device = "png")
-  
+
 }
 
 cat("Done!\n\n")

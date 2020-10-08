@@ -15,7 +15,7 @@ Usage: Rscript sliding_window_reseq-snps.R [...]")
 # you should provide 6 arguments
 if (length(args) != 6) {
   stop("incorrect number of arguments provided.
-       
+
        Usage: Rscript sliding_window_reseq-snps.R [...]
        ")
 }
@@ -88,30 +88,30 @@ if (all(geno.data.infile[,1] != reseq.parents.infile[,1])) stop("Data have diffe
 
 geno.data.outfile <- data.frame(stringsAsFactors = FALSE)
 for (chr in 1:10) {
-  
+
   cat("Analyze chromosome ", chr, "\n", sep = "")
   # subset by chr
   reseq.parents.infile.chr <- subset(reseq.parents.infile, chrom == chr)
   geno.data.infile.chr <- subset(geno.data.infile, chrom == chr)
-  
+
   registerDoParallel(cores = num.cores)
   geno.data.infile.window <- foreach(ril.col=12:NCOL(geno.data.infile.chr), .combine = cbind) %dopar% {
-    
+
     # set up first window
     window.start <- 1
     window.stop <- window.start + (window.size - 1)
-    
+
     # create a vector to store consenus genotype for each window
     window.consensus <- c()
-    
+
     # use slide window approach until end of the window reaches the last SNP
     while (window.stop <= NROW(geno.data.infile.chr)) {
-      
+
       # get genotypes from parents and ril for that window
       window <- cbind(reseq.parents.infile.chr[window.start:window.stop, p1.col.reseq],
                       reseq.parents.infile.chr[window.start:window.stop, p2.col.reseq],
                       geno.data.infile.chr[window.start:window.stop, ril.col])
-      
+
       # define from which parents the SNP in ril comes from
       window.calls <- apply(window, MARGIN = 1, FUN = function(genotypes) {
         if (genotypes[3] == "NN") {
@@ -135,17 +135,17 @@ for (chr in 1:10) {
           }
         }
       })
-      
+
       # check if there is enough ril snps genotyped
       if (sum(window.calls != "missing") >= min.snps.per.window) {
-        
+
         # get number of alleles for each parent (multiply by 2 because a homozygous has 2 alleles)
         n.p1.alleles <- (sum(window.calls == "p1") * 2) + (sum(window.calls == "het"))
         n.p2.alleles <- (sum(window.calls == "p2") * 2) + (sum(window.calls == "het"))
         total.alleles <- sum(window.calls != "missing") * 2
         # from those not missing, what proportion is p1, p2 and het?
         prop.p1 <- n.p1.alleles/total.alleles
-        
+
         # define consensus based on threshold (p1: p1>0.7, p2: p1<0.3, het: 0.3<p1<0.7)
         if (prop.p1 >= 0.7) {
           # assign parent1 genotype of first snp on window to consensus
@@ -157,32 +157,38 @@ for (chr in 1:10) {
           # assign het genotype to consensus
           p1.allele <- sapply(window[1:window.step, 1], function(x) return(unlist(strsplit(x, split = ""))[1]))
           p2.allele <- sapply(window[1:window.step, 2], function(x) return(unlist(strsplit(x, split = ""))[1]))
-          window.consensus <- append(window.consensus, paste0(p1.allele, p2.allele))
+          # since I didn't filter any SNP chip parent with missing data before,
+          # need to make sure to return NN if one of the parents have missing data
+          if (p1.allele == "N" | p2.allele == "N") {
+            window.consensus <- append(window.consensus, "NN")
+          } else {
+            window.consensus <- append(window.consensus, paste0(p1.allele, p2.allele))
+          }
         }
       } else {
         # if there is very few or none ril SNPs genotyped, consider consensus as missing data
         window.consensus <- append(window.consensus, rep("NN", times = window.step))
       }
-      
+
       # set up the start of next window
       window.start <- window.start + window.step
       window.stop <- window.start + (window.size - 1)
     }
-    
+
     # after that, add (window.size - 1) NNs in the consensus
     window.consensus <- append(window.consensus, rep("NN", times = NROW(geno.data.infile.chr) - length(window.consensus)))
-    
+
     window.consensus
-    
+
   }
   stopImplicitCluster()
-  
+
   # correct column names
   colnames(geno.data.infile.window) <- colnames(geno.data.infile.chr)[12:NCOL(geno.data.infile.chr)]
-  
+
   # create hapmap again
   geno.data.outfile.chr <- cbind(geno.data.infile.chr[, 1:11], geno.data.infile.window, stringsAsFactors = FALSE)
-  
+
   # bind to final data frame
   geno.data.outfile <- rbind(geno.data.outfile, geno.data.outfile.chr)
 }
@@ -192,6 +198,3 @@ for (chr in 1:10) {
 # write file
 outfile <- gsub(".projected.hmp.txt", ".projected.sliding-window.hmp.txt", data.filename, fixed = TRUE)
 fwrite(geno.data.outfile, outfile, quote = FALSE, sep = "\t", na = "NA", row.names = FALSE)
-
-
-
