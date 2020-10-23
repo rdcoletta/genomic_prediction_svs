@@ -4,6 +4,40 @@ by Rafael Della Coletta, Alex Lipka, Martin Bohn, and Candice Hirsch (June 2019 
 
 > The objective of this project is to simulate traits in one or more environments and analyze the effects of structural variants in genome prediction accuracy. The overall workflow for the simulations involves simulating traits, running genomic prediction models and validating results.
 
+<!-- TOC START min:1 max:3 link:true asterisk:false update:true -->
+- [Structural variation and genomic prediction: a simulation approach](#structural-variation-and-genomic-prediction-a-simulation-approach)
+  - [Project folder](#project-folder)
+  - [SNP chip dataset](#snp-chip-dataset)
+    - [HapMap format](#hapmap-format)
+    - [Data QC](#data-qc)
+    - [Remove low quality SNPs](#remove-low-quality-snps)
+    - [Check reference genome version of SNP chip](#check-reference-genome-version-of-snp-chip)
+    - [Convert SNP coordinates from B73v2 to B73v4](#convert-snp-coordinates-from-b73v2-to-b73v4)
+    - [Divide dataset by cross](#divide-dataset-by-cross)
+  - [SV dataset](#sv-dataset)
+    - [Hapmap format](#hapmap-format-1)
+    - [Divide dataset by cross](#divide-dataset-by-cross-1)
+  - [Remove chip SNPs inside deletions](#remove-chip-snps-inside-deletions)
+  - [Correct SNP chip miscalls with sliding window approach](#correct-snp-chip-miscalls-with-sliding-window-approach)
+  - [Resequencing SNPs](#resequencing-snps)
+    - [Divide dataset by cross](#divide-dataset-by-cross-2)
+    - [Remove resequecing SNPs inside deletions and keep only polymorphic SNPs](#remove-resequecing-snps-inside-deletions-and-keep-only-polymorphic-snps)
+  - [Merge SNP and SV data](#merge-snp-and-sv-data)
+  - [Project SVs and resequencing SNPs from parents to RILs](#project-svs-and-resequencing-snps-from-parents-to-rils)
+    - [Sliding window approach](#sliding-window-approach)
+    - [Add monomorphic resequencing SNPs back](#add-monomorphic-resequencing-snps-back)
+    - [Add back SNPs and SVs not present in a certain cross](#add-back-snps-and-svs-not-present-in-a-certain-cross)
+    - [Merge projected markers from different families](#merge-projected-markers-from-different-families)
+  - [LD structure between SNPs and SVs](#ld-structure-between-snps-and-svs)
+    - [Distribution](#distribution)
+    - [Decay](#decay)
+    - [Closest SNPs to SVs](#closest-snps-to-svs)
+    - [LD by common parent](#ld-by-common-parent)
+    - [LD by family](#ld-by-family)
+    - [PCA](#pca)
+  - [Trait Simulation](#trait-simulation)
+<!-- TOC END -->
+
 
 
 
@@ -1574,3 +1608,7 @@ done
 ```
 
 > PCA plots between SNPs and SVs are not the same, but I overall there seems to be 3 major distinct groups (and they make sense when looking at the lines within each group) and they seem to agree between SNPs and SVs. Comparing PCA from SVs and SNPs in highest LD, the pattern is the same (just with the x-axis flipped). This pattern, however, is different from the PCA from closest SNPs to SVs (althought the 3 major groups seem to be well separated). In conclusion, these plots show that there is no major problem with our datasets and also reinforce the idea that the closest SNPs to SVs are not necessarily those in highest LD to an SV.
+
+
+
+## Trait Simulation
