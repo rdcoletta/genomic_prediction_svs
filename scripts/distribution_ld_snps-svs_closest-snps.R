@@ -31,10 +31,10 @@ sv.type <- args[5]
 
 if (!dir.exists(out.dir.ld)) dir.create(out.dir.ld, recursive = TRUE)
 
-# plink.file <- "analysis/ld/ld_usda_rils_snp-sv_only.chr1.window-100kb.filter-0.25.ld"
+# plink.file <- "analysis/ld/ld_usda_rils_snp-sv_only.chr1.window-1kb.filter-0.25.ld"
 # sv.file <- "data/usda_SVs_parents.sorted.hmp.txt"
-# snp.file <- "analysis/ld/usda_SNPs-SVs_rils.not-in-SVs.projected.reseq-SNPs.closest-snps-to-svs.all.hmp.txt"
-# out.dir.ld <- "analysis/ld/window-100kb_filter-0.25_closest-snps"
+# snp.file <- "analysis/ld/usda_rils_projected-SVs-SNPs.closest-snps-to-svs.filter-0.25.all.hmp.txt"
+# out.dir.ld <- "analysis/ld/window-1kb_filter-0.25_closest-snps"
 # sv.type <- "all"
 
 
@@ -114,7 +114,7 @@ for (chr in 1:10) {
   # open table with LD among markers
   LD_results <- fread(plink.file.chr, header = TRUE, data.table = FALSE)
   
-  if (length(SVs.chr) != length(SNPs.chr)) stop(paste0("Number of SVs and closest SNPs in chr", chr, " doesn't match"))
+  # if (length(SVs.chr) != length(SNPs.chr)) stop(paste0("Number of SVs and closest SNPs in chr", chr, " doesn't match"))
   
   # filter ld df to have only SV and it's closest SNP
   LD_results_filtered <- data.frame(matrix(nrow = 0, ncol = NCOL(LD_results)), stringsAsFactors = FALSE)
@@ -187,7 +187,8 @@ plot_R2_dist <- function(ld_files_to_plot) {
     geom_histogram(fill = "#900721", binwidth = 0.01) +
     labs(title = paste0("LD between SVs and SNPs"),
          x = bquote("LD"~(r^2)),
-         y = "Count") +
+         y = "Count",
+         subtitle = paste0("(", NROW(LD_results_all), " closest SNPs)")) +
     coord_cartesian(xlim = c(0, 1)) +
     theme(title = element_text(size = 15),
           axis.title = element_text(size = 20),

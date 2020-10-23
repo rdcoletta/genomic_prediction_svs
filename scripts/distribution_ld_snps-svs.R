@@ -31,7 +31,7 @@ if (!dir.exists(out.dir.ld)) dir.create(out.dir.ld, recursive = TRUE)
 
 # plink.file <- "analysis/ld/ld_usda_rils_snp-sv_only.chr10.window-100kb.filter-0.25.ld"
 # sv.file <- "data/usda_SVs_parents.sorted.hmp.txt"
-# out.dir.ld <- "analysis/ld"
+# out.dir.ld <- "analysis/ld/window-1000kb_filter-0.25"
 
 
 
@@ -281,7 +281,7 @@ plot_R2_dist <- function(ld_files_to_plot) {
   
   # write summary table
   summary_ld <- cbind(summary_ld, size_range_summary[, -1])
-  
+
   return(list(plot_dist, summary_ld))
   
 }
@@ -299,6 +299,4 @@ files_not_in_ld <- list.files(path = out.dir.ld, pattern = "not-in-ld.ld", full.
 plot_not_in_ld <- plot_R2_dist(files_not_in_ld)
 ggsave(plot_not_in_ld[[1]], filename = paste0(out.dir.ld, "/dist-not-in-LD_SNPs-SVs.png"), device = "png")
 fwrite(plot_not_in_ld[[2]], paste0(out.dir.ld, "/summary-not-in-LD_SNPs-SVs.txt"), sep = "\t", quote = FALSE, row.names = FALSE, na = NA)
-
-
 

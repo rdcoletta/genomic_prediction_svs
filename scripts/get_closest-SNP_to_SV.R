@@ -6,12 +6,13 @@ outfile.name <- args[2]
 missing.threshold <- as.numeric(args[3])
 sv.type <- args[4]
 
-# hmp.file <- "data/usda_SNPs-SVs_rils.not-in-SVs.projected.chr10.reseq-SNPs.hmp.txt"
+# hmp.file <- "data/usda_rils_projected-SVs-SNPs.chr10.hmp.txt"
 # outfile.name <- "analysis/ld/closest_low-missing-data-SNPs_to_SVs.chr-10.txt"
 # missing.threshold <- 0.25
 # sv.type <- "all"
 
 library(data.table)
+library(ggplot2)
 
 # load data
 hmp.chr <- fread(hmp.file, header = TRUE, data.table = FALSE)
@@ -48,6 +49,9 @@ hmp.chr.filtered <- hmp.chr.filtered[extend.idx, ]
 
 # create list to store snps to keep
 snps.to.keep <- c()
+# also create empty df to store distance of svs to closest snp
+dist.to.sv <- data.frame(matrix(nrow = 0, ncol = 3), stringsAsFactors = FALSE)
+colnames(dist.to.sv) <- c("sv", "closest_snp", "distance")
 
 for (sv in SVs) {
 
@@ -86,13 +90,25 @@ for (sv in SVs) {
   # keep closest snp
   if (snp.dist.up < snp.dist.down) {
     snps.to.keep <- append(snps.to.keep, snp.upstream[1, 1])
+    dist.to.sv <- rbind(dist.to.sv, data.frame(sv = sv,
+                                               closest_snp = snp.upstream[1, 1],
+                                               distance = snp.dist.up,
+                                               stringsAsFactors = FALSE))
   } else {
     snps.to.keep <- append(snps.to.keep, snp.downstream[1, 1])
+    dist.to.sv <- rbind(dist.to.sv, data.frame(sv = sv,
+                                               closest_snp = snp.downstream[1, 1],
+                                               distance = snp.dist.down,
+                                               stringsAsFactors = FALSE))
   }
 
 }
 
-# write file
+# write file with snp info only
 snps.to.keep <- data.frame(t(as.matrix(snps.to.keep)), stringsAsFactors = FALSE)
 outfile.name <- gsub("txt", paste0(sv.type, ".txt"), outfile.name)
 fwrite(snps.to.keep, outfile.name, sep = " ", row.names = FALSE, col.names = FALSE, quote = FALSE)
+
+# write file with distances as well
+outfile.dist <- gsub("txt", ".distances.txt", outfile.name)
+fwrite(dist.to.sv, outfile.dist, sep = "\t", row.names = FALSE, col.names = TRUE, quote = FALSE)

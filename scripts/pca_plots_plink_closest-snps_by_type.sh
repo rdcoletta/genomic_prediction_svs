@@ -11,17 +11,17 @@
 # go to project folder
 cd ~/projects/genomic_prediction/simulation/analysis/ld/
 
-run_pipeline.pl -Xmx10g -importGuess usda_SNPs-SVs_rils.not-in-SVs.projected.reseq-SNPs.closest-snps-to-svs.${TYPE}.hmp.txt -export usda_SNPs-SVs_rils.not-in-SVs.projected.reseq-SNPs.closest-snps-to-svs.${TYPE} -exportType Plink
+run_pipeline.pl -Xmx10g -importGuess usda_rils_projected-SVs-SNPs.closest-snps-to-svs.filter-0.25.${TYPE}.hmp.txt -export usda_rils_projected-SVs-SNPs.closest-snps-to-svs.filter-0.25.${TYPE} -exportType Plink
 
 # change first marker names (some are duplicated and plink doesn't like that)
 module load R/3.6.0
-Rscript ~/projects/genomic_prediction/simulation/scripts/change_marker_names_plink_map.R usda_SNPs-SVs_rils.not-in-SVs.projected.reseq-SNPs.closest-snps-to-svs.${TYPE}.plk.map
+Rscript ~/projects/genomic_prediction/simulation/scripts/change_marker_names_plink_map.R usda_rils_projected-SVs-SNPs.closest-snps-to-svs.filter-0.25.${TYPE}.plk.map
 
 # transform format to one that plink2 accepts
-plink --file usda_SNPs-SVs_rils.not-in-SVs.projected.reseq-SNPs.closest-snps-to-svs.${TYPE}.plk --mind 0.8 --make-bed --freq --out usda_SNPs-SVs_rils.not-in-SVs.projected.reseq-SNPs.closest-snps-to-svs.${TYPE} --allow-extra-chr --make-founders
+plink --file usda_rils_projected-SVs-SNPs.closest-snps-to-svs.filter-0.25.${TYPE}.plk --mind 0.8 --make-bed --freq --out usda_rils_projected-SVs-SNPs.closest-snps-to-svs.filter-0.25.${TYPE} --allow-extra-chr --make-founders
 
 # create pca with plink2
-plink2 --bfile usda_SNPs-SVs_rils.not-in-SVs.projected.reseq-SNPs.closest-snps-to-svs.${TYPE} --make-grm-list --pca 10 --out pca_plink_usda_closest-snps_${TYPE} --allow-extra-chr --read-freq usda_SNPs-SVs_rils.not-in-SVs.projected.reseq-SNPs.closest-snps-to-svs.${TYPE}.frq
+plink2 --bfile usda_rils_projected-SVs-SNPs.closest-snps-to-svs.filter-0.25.${TYPE} --make-grm-list --pca 10 --out pca_plink_usda_closest-snps_${TYPE} --allow-extra-chr --read-freq usda_rils_projected-SVs-SNPs.closest-snps-to-svs.filter-0.25.${TYPE}.frq
 
 # plot pca
 module load R

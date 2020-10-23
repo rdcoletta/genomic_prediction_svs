@@ -12,4 +12,4 @@
 cd ~/projects/genomic_prediction/simulation
 
 # transform hmp into plink format
-run_pipeline.pl -Xmx110g -importGuess data/usda_SNPs-SVs_rils.not-in-SVs.projected.chr${CHR}.reseq-SNPs.hmp.txt -export /scratch.global/della028/hirsch_lab/genomic_prediction/ld/usda_SNPs-SVs_rils.not-in-SVs.projected.chr${CHR}.reseq-SNPs -exportType Plink
+run_pipeline.pl -Xmx110g -importGuess data/usda_rils_projected-SVs-SNPs.chr${CHR}.hmp.txt -export /scratch.global/della028/hirsch_lab/genomic_prediction/ld/usda_rils_projected-SVs-SNPs.chr${CHR} -exportType Plink

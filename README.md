@@ -1031,3 +1031,546 @@ done
 # plot maf and missing data distribution (just need to call one chr -- but the others should be in same folder)
 Rscript scripts/plot_maf-missing_distribution.R analysis/qc/tassel_usda-SNPs-SVs_chr1_summary3.txt analysis/qc/maf_missing-data
 ```
+
+
+
+## LD structure between SNPs and SVs
+
+An important thing to do is to calculate the LD between SNPs and SVs, because if SNPs are in high LD with SVs, then genomic prediction with SVs will likely add little information to the models. Since I don't know the LD structure in the population and due to the high amount of resequencing SNPs, I'm calculating LD in a 1kb, 10kb, 100kb, and 1Mb window. Additionally, I'm filtering out variants with more than 0.25 missing data to make sure that LD is not very much influenced by missing data.
+
+> LD decay in maize is somewhere around 5kb, so the window range tested should be enough to find out the best window
+
+```bash
+# create directory to store results
+mkdir -p /scratch.global/della028/hirsch_lab/genomic_prediction/ld
+mkdir -p analysis/ld
+
+# convert hapmap to plink format
+for chr in {1..10}; do
+  qsub -v CHR=$chr scripts/hmp2plk.sh
+done
+
+# calculate LD
+for chr in {1..10}; do
+  for filter in 0.25; do
+    for window in 1 10 100 1000; do
+      [[ ${window} == 1000 ]] && res="walltime=24:00:00,nodes=1:ppn=1,mem=150gb" || res="walltime=8:00:00,nodes=1:ppn=1,mem=100gb"
+      qsub -l ${res} -v CHR=$chr,WINDOW=$window,FILTER=$filter scripts/plink_ld_calculation.sh
+    done
+  done
+done
+```
+
+Besides that, it's important to QC the dataset in different ways to get a broader picture of how the LD structure in my population can affect genomic predition.
+
+
+
+### Distribution
+
+First, I will plot the distribution of r2 values from LD between SV and its SNP with highest LD to see if all SVs are perfectly tagged by an SNP or not. Additionally, some summary statistics of LD between SNPs and SVs are also calculated.
+
+```bash
+# get only SNP-SV LD
+for chr in {1..10}; do
+  for filter in 0.25; do
+    for window in 1 10 100 1000; do
+      qsub -v CHR=$chr,WINDOW=$window,FILTER=$filter scripts/select_only_sv-snp_ld.sh
+    done
+  done
+done
+
+# filter plink ld files and plot distribution (only need the first chr file -- it will find the other chr)
+for filter in 0.25; do
+  for window in 1 10 100 1000; do
+    qsub -v WINDOW=$window,FILTER=$filter scripts/distribution_ld_snps-svs.sh
+  done
+done
+
+# plot extra stats for markers in high ld
+for filter in 0.25; do
+  for window in 1 10 100 1000; do
+    echo $window
+    Rscript scripts/extra_ld_stats.R analysis/ld/window-${window}kb_filter-${filter}
+  done
+done
+```
+
+> Most of SNPs in high LD with SVs have r2 > 0.8, and the number increases as window size increses (probably due to population structure).
+
+Second, I will plot the distribution of each marker type (SNP or SV) along the chromosome to see if there's enrichment of a particular marker for certain parts of the chromosomes:
+
+```bash
+# create a 3 column file (id, chr, pos) to be the input for R script
+for chr in {1..10}; do
+  echo "$chr"
+  for filter in 0.25; do
+    for window in 1 10 100 1000; do
+      # highest ld
+      sed 1d analysis/ld/window-$window\kb_filter-$filter/ld_usda_rils_snp-sv_only.chr$chr.window-$window\kb.filter-$filter.highest-ld.ld  | awk '{ print $3 "\t" $1 "\t" $2 "\n" $7 "\t" $5 "\t" $6}' | sort -n -k 3 | uniq >> analysis/ld/window-$window\kb_filter-$filter/marker_info_highest-ld.txt
+      # not in ld
+      sed 1d analysis/ld/window-$window\kb_filter-$filter/ld_usda_rils_snp-sv_only.chr$chr.window-$window\kb.filter-$filter.not-in-ld.ld  | awk '{ print $3 "\t" $1 "\t" $2 "\n" $7 "\t" $5 "\t" $6}' | sort -n -k 3 | uniq >> analysis/ld/window-$window\kb_filter-$filter/marker_info_not-in-ld.txt
+    done
+  done
+done
+
+# plot distribution along chromosome
+for filter in 0.25; do
+  for window in 1 10 100 1000; do
+    # highest ld
+    Rscript scripts/distribution_snps-svs_chrom.R analysis/ld/window-$window\kb_filter-$filter/marker_info_highest-ld.txt analysis/ld/window-$window\kb_filter-$filter/distribution_snps-svs_chrom.png
+    # not in ld
+    Rscript scripts/distribution_snps-svs_chrom.R analysis/ld/window-$window\kb_filter-$filter/marker_info_not-in-ld.txt analysis/ld/window-$window\kb_filter-$filter/distribution_snps-not-ld-svs_chrom.png
+  done
+done
+
+# count how many SVs have an SNP in high LD within different window sizes
+for window in 1 10 100 1000; do
+  count=$(grep -c -P "^del|^ins|^inv|^dup|^tra" analysis/ld/window-${window}kb_filter-0.25/marker_info_highest-ld.txt)
+  echo "$count SNPs in high LD with a SV within $window kb"
+done
+# 5472 SNPs in high LD with a SV within 1 kb
+# 7609 SNPs in high LD with a SV within 10 kb
+# 7975 SNPs in high LD with a SV within 100 kb
+# 7977 SNPs in high LD with a SV within 1000 kb
+
+# also plot distribution along chromosome for anchors only
+for chr in {1..10}; do
+  cut -f 1,3,4 data/usda_22kSNPs_rils.sorted.diploid.filtered.v4.hmp.txt | awk -v chr=$chr '$2 == chr' > analysis/projection_svs-snps/anchor_positions.chr$chr.txt
+done
+Rscript scripts/distribution_snps-svs_chrom.R analysis/projection_svs-snps/anchor_positions.chr$chr.txt analysis/projection_svs-snps/distribution_anchors_chrom.png
+
+# also plot distribution snps in highest ld to svs along chromosome for by ld quarter
+for chr in {1..10}; do
+  for filter in 0.25; do
+    for window in 1 10 100 1000; do
+      # r2 < 0.25
+      sed 1d analysis/ld/window-$window\kb_filter-$filter/ld_usda_rils_snp-sv_only.chr$chr.window-$window\kb.filter-$filter.highest-ld.ld | awk -v chr=$chr '$1 == chr' | awk '$9 < 0.25' | awk '{ print $3 "\t" $1 "\t" $2 "\n" $7 "\t" $5 "\t" $6}' | sort -n -k 3 | uniq >> analysis/ld/window-$window\kb_filter-$filter/marker_info_r2_0_0.25.window-${window}kb.filter-${filter}.txt
+      # 0.25 < r2 < 0.5
+      sed 1d analysis/ld/window-$window\kb_filter-$filter/ld_usda_rils_snp-sv_only.chr$chr.window-$window\kb.filter-$filter.highest-ld.ld | awk -v chr=$chr '$1 == chr' | awk '$9 > 0.25 && $9 < 0.5' | awk '{ print $3 "\t" $1 "\t" $2 "\n" $7 "\t" $5 "\t" $6}' | sort -n -k 3 | uniq >> analysis/ld/window-$window\kb_filter-$filter/marker_info_r2_0.25_0.5.window-${window}kb.filter-${filter}.txt
+      # 0.5 < r2 < 0.75
+      sed 1d analysis/ld/window-$window\kb_filter-$filter/ld_usda_rils_snp-sv_only.chr$chr.window-$window\kb.filter-$filter.highest-ld.ld | awk -v chr=$chr '$1 == chr' | awk '$9 > 0.5 && $9 < 0.75' | awk '{ print $3 "\t" $1 "\t" $2 "\n" $7 "\t" $5 "\t" $6}' | sort -n -k 3 | uniq >> analysis/ld/window-$window\kb_filter-$filter/marker_info_r2_0.5_0.75.window-${window}kb.filter-${filter}.txt
+      # r2 > 0.75
+      sed 1d analysis/ld/window-$window\kb_filter-$filter/ld_usda_rils_snp-sv_only.chr$chr.window-$window\kb.filter-$filter.highest-ld.ld | awk -v chr=$chr '$1 == chr' | awk '$9 > 0.75' | awk '{ print $3 "\t" $1 "\t" $2 "\n" $7 "\t" $5 "\t" $6}' | sort -n -k 3 | uniq >> analysis/ld/window-$window\kb_filter-$filter/marker_info_r2_0.75_1.window-${window}kb.filter-${filter}.txt
+    done
+  done
+done
+
+for filter in 0.25; do
+  for window in 1 10 100 1000; do
+    # r2 < 0.25
+    Rscript scripts/distribution_snps-svs_chrom.R analysis/ld/window-$window\kb_filter-$filter/marker_info_r2_0_0.25.window-${window}kb.filter-${filter}.txt analysis/ld/window-$window\kb_filter-$filter/distribution_markers_chrom_r2_0_0.25.png
+    # 0.25 < r2 < 0.5
+    Rscript scripts/distribution_snps-svs_chrom.R analysis/ld/window-$window\kb_filter-$filter/marker_info_r2_0.25_0.5.window-${window}kb.filter-${filter}.txt analysis/ld/window-$window\kb_filter-$filter/distribution_markers_chrom_r2_0.25_0.5.png
+    # 0.5 < r2 < 0.75
+    Rscript scripts/distribution_snps-svs_chrom.R analysis/ld/window-$window\kb_filter-$filter/marker_info_r2_0.5_0.75.window-${window}kb.filter-${filter}.txt analysis/ld/window-$window\kb_filter-$filter/distribution_markers_chrom_r2_0.5_0.75.png
+    # r2 > 0.75
+    Rscript scripts/distribution_snps-svs_chrom.R analysis/ld/window-$window\kb_filter-$filter/marker_info_r2_0.75_1.window-${window}kb.filter-${filter}.txt analysis/ld/window-$window\kb_filter-$filter/distribution_markers_chrom_r2_0.75_1.png
+  done
+done
+```
+
+> Depletion of SNPs in high LD with SVs in centromeres because there are very few SVs called in these regions. And it's hard to visualize differences in distribution of SNPs in highest LD by different r2 values due to differences in the number of SNPs per quarter.
+
+
+
+### Decay
+
+Visualizing LD decay will be import to define which LD window should be used in prediction, i.e. to find SNPs that are close enough to SVs to avoid SNPs in LD due to population structure but also far enough so there's enough recombination happening between SNPs and SVs. Thus, I will plot LD decay of SNP-SV and SNP-SNP for markers up to 100kb and/or 1Mb up or downstream a SV. Additionally, I will compare these LD decay plots with LD decay patterns from SNPs of SNP chip only and from the 282 diversity panel.
+
+
+
+#### SNP-SV
+
+```bash
+mkdir analysis/ld/decay
+
+# merge ld files from different chr into one
+for window in 100 1000; do
+  cp analysis/ld/ld_usda_rils_snp-sv_only.chr1.window-${window}kb.filter-0.25.ld analysis/ld/ld_usda_rils_snp-sv_only.window-${window}kb.filter-0.25.ld
+  for chr in {2..10}; do
+    sed 1d analysis/ld/ld_usda_rils_snp-sv_only.chr${chr}.window-${window}kb.filter-0.25.ld >> analysis/ld/ld_usda_rils_snp-sv_only.window-${window}kb.filter-0.25.ld
+  done
+  gzip analysis/ld/ld_usda_rils_snp-sv_only.window-${window}kb.filter-0.25.ld
+done
+
+# plot ld decay between all SVs and SNPs (distance from SNP to closest SV boundary)
+qsub -l walltime=5:00:00,nodes=1:ppn=1,mem=120gb -v IN=analysis/ld/ld_usda_rils_snp-sv_only.window-1000kb.filter-0.25.ld.gz,OUT=analysis/ld/decay/ld_decay_usda_snps-svs_1000kb,OPT="--unequal-windows" scripts/plot_ld_decay.sh
+
+# plot ld decay by sv type
+for type in del ins dup inv tra; do
+  echo $type
+  zcat analysis/ld/ld_usda_rils_snp-sv_only.window-1000kb.filter-0.25.ld.gz | head -n 1 > analysis/ld/ld_usda_rils_snp-sv_only.window-1000kb.filter-0.25.${type}-only.ld
+  zgrep $type analysis/ld/ld_usda_rils_snp-sv_only.window-1000kb.filter-0.25.ld.gz >> analysis/ld/ld_usda_rils_snp-sv_only.window-1000kb.filter-0.25.${type}-only.ld
+  qsub -l walltime=2:00:00,nodes=1:ppn=1,mem=50gb -v IN=analysis/ld/ld_usda_rils_snp-sv_only.window-1000kb.filter-0.25.${type}-only.ld,OUT=analysis/ld/decay/ld_decay_usda_snps-svs_1000kb_${type}-only,OPT="--unequal-windows" scripts/plot_ld_decay.sh
+done
+
+# plot ld decay by chr
+for chr in {1..10}; do
+  echo $chr
+  zcat analysis/ld/ld_usda_rils_snp-sv_only.window-1000kb.filter-0.25.ld.gz | sed 's/^ *//' | tr -s " " | tr " " "\t" | head -n 1 > analysis/ld/ld_usda_rils_snp-sv_only.chr$chr.window-1000kb.filter-0.25.ld
+  zcat analysis/ld/ld_usda_rils_snp-sv_only.window-1000kb.filter-0.25.ld.gz | sed 's/^ *//' | tr -s " " | tr " " "\t" | awk -v chr=$chr '$1 == chr' >> analysis/ld/ld_usda_rils_snp-sv_only.chr$chr.window-1000kb.filter-0.25.ld
+  qsub -l walltime=2:00:00,nodes=1:ppn=1,mem=50gb -v IN=analysis/ld/ld_usda_rils_snp-sv_only.chr$chr.window-1000kb.filter-0.25.ld,OUT=analysis/ld/decay/ld_decay_usda_snps-svs_1000kb_chr$chr,OPT="--unequal-windows" scripts/plot_ld_decay.sh
+done
+```
+
+
+
+#### SNP-SNP
+
+```bash
+# get only SNP-SNP LD
+for chr in {1..10}; do
+  for filter in 0.25; do
+    for window in 100 1000; do
+      qsub -v CHR=$chr,WINDOW=$window,FILTER=$filter scripts/select_only_snp-snp_ld.sh
+    done
+  done
+done
+
+# plot ld decay between all SNPs (per chr due to size of files)
+for chr in {1..10}; do
+  qsub -l walltime=2:00:00,nodes=1:ppn=1,mem=120gb -v IN=/scratch.global/della028/hirsch_lab/genomic_prediction/ld/ld_usda_rils_snp-snp_only.chr${chr}.window-100kb.filter-0.25.ld.gz,OUT=analysis/ld/decay/ld_decay_usda_snps-snps_chr${chr}_100kb,OPT="--unequal-windows" scripts/plot_ld_decay.sh
+done
+```
+
+
+
+#### SNP chip
+
+```bash
+mkdir -p analysis/snp-chip_ld
+
+# transform hmp to plink format
+run_pipeline.pl -Xmx50g -importGuess data/usda_22kSNPs_rils.sorted.diploid.filtered.v4.hmp.txt -export analysis/snp-chip_ld/usda_22kSNPs_rils.sorted.diploid.filtered.v4 -exportType Plink
+
+# calculate LD
+for filter in 0.25; do
+  for window in 100 1000; do
+    plink --file analysis/snp-chip_ld/usda_22kSNPs_rils.sorted.diploid.filtered.v4.plk --make-founders --r2 gz dprime with-freqs --ld-window-r2 0 --ld-window ${window}000 --ld-window-kb ${window} --geno ${filter} --out analysis/snp-chip_ld/usda_22kSNPs_rils.sorted.diploid.filtered.v4.window-${window}kb.filter-${filter}
+  done
+done
+
+# plot decay
+Rscript scripts/plot_ld_decay.R analysis/snp-chip_ld/usda_22kSNPs_rils.sorted.diploid.filtered.v4.window-1000kb.filter-0.25.ld.gz \
+                                analysis/ld/decay/ld_decay_usda_snps-chip-only_1000kb \
+                                --unequal-windows
+# also plot ld decay by chromosome to compare with reseq SNPs LD decay
+for chr in {1..10}; do
+  zcat analysis/snp-chip_ld/usda_22kSNPs_rils.sorted.diploid.filtered.v4.window-1000kb.filter-0.25.ld.gz | head -n 1 > analysis/snp-chip_ld/usda_22kSNPs_rils.sorted.diploid.filtered.v4.chr$chr.window-1000kb.filter-0.25.ld
+  zcat analysis/snp-chip_ld/usda_22kSNPs_rils.sorted.diploid.filtered.v4.window-1000kb.filter-0.25.ld.gz | awk -v CHR=$chr '$1 == CHR' >> analysis/snp-chip_ld/usda_22kSNPs_rils.sorted.diploid.filtered.v4.chr$chr.window-1000kb.filter-0.25.ld
+  Rscript scripts/plot_ld_decay.R analysis/snp-chip_ld/usda_22kSNPs_rils.sorted.diploid.filtered.v4.chr$chr.window-1000kb.filter-0.25.ld \
+                                  analysis/ld/decay/ld_decay_usda_snps-chip-only_chr${chr}_1000kb \
+                                  --unequal-windows
+done
+```
+
+
+
+#### 282 diversity panel
+
+```bash
+mkdir -p analysis/div-panel_ld
+
+# download data -- notet that this data has b73v3 coordinates
+cd analysis/div-panel_ld
+wget https://de.cyverse.org/dl/d/E4CB9C2B-A3A0-4412-9D2B-D2DFC3A06CC9/SNP55K_maize282_AGP3_20190419.hmp.txt.gz
+gunzip SNP55K_maize282_AGP3_20190419.hmp.txt.gz
+# remove scaffolds
+head -n 1 SNP55K_maize282_AGP3_20190419.hmp.txt > SNP55K_maize282_AGP3_20190419_no-scaff.hmp.txt
+for chr in {1..10}; do
+  awk -v chr="$chr" '$3 == chr' SNP55K_maize282_AGP3_20190419.hmp.txt >> SNP55K_maize282_AGP3_20190419_no-scaff.hmp.txt
+done
+
+# transform hmp into plink format
+run_pipeline.pl -Xmx10g -importGuess SNP55K_maize282_AGP3_20190419_no-scaff.hmp.txt -export SNP55K_maize282_AGP3_20190419_no-scaff -exportType Plink
+for filter in 0.25; do
+  for window in 100 1000; do
+    # calculate LD
+    plink --file SNP55K_maize282_AGP3_20190419_no-scaff.plk --make-founders --r2 gz dprime with-freqs --ld-window-r2 0 --ld-window ${window}000 --ld-window-kb ${window} --geno ${filter} --out SNP55K_maize282_AGP3_20190419_no-scaff.window-${window}kb.filter-${filter}
+  done
+done
+cd ~/projects/genomic_prediction/simulation
+
+# plot ld decay
+Rscript scripts/plot_ld_decay.R analysis/div-panel_ld/SNP55K_maize282_AGP3_20190419_no-scaff.window-1000kb.filter-0.25.ld.gz \
+                                analysis/ld/decay/ld_decay_282-div-panel_1000kb \
+                                --unequal-windows
+```
+
+> LD between SNPs and SVs decays pretty fast. Within the first 100bp the median was r2 ~ 0.5, and decreased to r2 ~ 0.25 around 10kb.
+
+
+
+### Closest SNPs to SVs
+
+In addition to visualizing distribution of SNPs in high LD with SVs, it's also important to see how their distribution compare to the closest SNPs to SVs (as they would, in theory, be in high LD with a SV).
+
+```bash
+# get closest snps
+for filter in 0.25; do
+  for chr in {1..10}; do
+    for type in all del ins inv dup; do
+      qsub -v CHR=$chr,TYPE=$type,FILTER=$filter scripts/keep_closest_SNP_to_SV.sh
+    done
+  done
+done
+
+# merge chromosomes
+cd ~/projects/genomic_prediction/simulation/analysis/ld/
+for filter in 0.25; do
+  for type in all del ins inv dup; do
+    cp closest_low-missing-data-SNPs_to_SVs.chr-1.filter-0.25.all.distances.txt closest_low-missing-data-SNPs_to_SVs.filter-0.25.all.distances.txt
+    cp usda_rils_projected-SVs-SNPs.chr1.closest-snps-to-svs.filter-${filter}.${type}.hmp.txt usda_rils_projected-SVs-SNPs.closest-snps-to-svs.filter-${filter}.${type}.hmp.txt
+    for chr in {2..10}; do
+      sed 1d closest_low-missing-data-SNPs_to_SVs.chr-${chr}.filter-0.25.all.distances.txt >> closest_low-missing-data-SNPs_to_SVs.filter-0.25.all.distances.txt
+      sed 1d usda_rils_projected-SVs-SNPs.chr${chr}.closest-snps-to-svs.filter-${filter}.${type}.hmp.txt >> usda_rils_projected-SVs-SNPs.closest-snps-to-svs.filter-${filter}.${type}.hmp.txt
+    done
+  done
+done
+
+# plot distribution of distances of closest SNPs to SVs
+module load R
+cd ~/projects/genomic_prediction/simulation/
+Rscript scripts/distribution_distance_closest-snps-to-svs.R analysis/ld/closest_low-missing-data-SNPs_to_SVs.filter-0.25.all.distances.txt \
+                                                            analysis/ld/closest_low-missing-data-SNPs_to_SVs.filter-0.25.all.png
+# 5230 SNPs were more than 0.1kb away from a SV
+# 1601 SNPs were more than 0.5kb away from a SV
+# 807 SNPs were more than 1kb away from a SV
+# 307 SNPs were more than 5kb away from a SV
+# 239 SNPs were more than 10kb away from a SV
+# 92 SNPs were more than 100kb away from a SV
+# 47 SNPs were more than 1000kb away from a SV
+
+# plot LD distribution for closest snps (all SVs)
+for filter in 0.25; do
+  for window in 1 10 100 1000; do
+    echo "filter $filter - $window kb window"
+    Rscript scripts/distribution_ld_snps-svs_closest-snps.R analysis/ld/ld_usda_rils_snp-sv_only.chr1.window-$window\kb.filter-$filter.ld data/usda_SVs_parents.sorted.hmp.txt analysis/ld/usda_rils_projected-SVs-SNPs.closest-snps-to-svs.filter-${filter}.all.hmp.txt analysis/ld/window-${window}kb_filter-${filter}_closest-snps all
+  done
+done
+```
+
+
+### LD by common parent
+
+Just as comparison, it might be interesting to compare the LD decay for SNP-SNP (chip only) and SNP-SV, and LD distribution of SNPs and SVs for each RILs that have a common parent.
+
+
+
+#### SNP chip
+
+```bash
+mkdir -p data/hapmap_by_common-parent
+
+# separate hapmap by common parent
+for parent in B73 PHG39 PHG47 PH207 PHG35 LH82; do
+  echo $parent
+  rils=$(head -n 1 data/usda_22kSNPs_rils.sorted.diploid.filtered.v4.hmp.txt | tr "\t" "\n" | cat -n | tr "*" "x" | grep $parent | cut -f 1 | tr -s " " | tr "\n" "," | tr -d " " | sed '$ s/.$/ /')
+  cut -f 1-11,$rils data/usda_22kSNPs_rils.sorted.diploid.filtered.v4.hmp.txt > data/hapmap_by_common-parent/usda_22kSNPs_rils.sorted.diploid.filtered.v4.${parent}-parent.hmp.txt
+done
+
+for parent in B73 PHG39 PHG47 PH207 PHG35 LH82; do
+  # hmp2plk
+  run_pipeline.pl -Xmx50g -importGuess data/hapmap_by_common-parent/usda_22kSNPs_rils.sorted.diploid.filtered.v4.${parent}-parent.hmp.txt -export analysis/snp-chip_ld/usda_22kSNPs_rils.sorted.diploid.filtered.v4.${parent}-parent -exportType Plink
+  for filter in 0.25; do
+    for window in 1000; do
+      # calculate LD
+      plink --file analysis/snp-chip_ld/usda_22kSNPs_rils.sorted.diploid.filtered.v4.${parent}-parent.plk --make-founders --r2 gz dprime with-freqs --ld-window-r2 0 --ld-window ${window}000 --ld-window-kb ${window} --geno ${filter} --out analysis/snp-chip_ld/usda_22kSNPs_rils.sorted.diploid.filtered.v4.${parent}-parent.window-${window}kb.filter-${filter}
+    done
+  done
+  # plot ld decay
+  Rscript scripts/plot_ld_decay.R analysis/snp-chip_ld/usda_22kSNPs_rils.sorted.diploid.filtered.v4.${parent}-parent.window-1000kb.filter-0.25.ld.gz \
+                                  analysis/ld/decay/ld_decay_usda_snps-chip-only_1000kb_${parent}-parent \
+                                  --unequal-windows
+done
+```
+
+
+
+#### SNP-SV
+
+```bash
+# separate hapmap by common parent
+for parent in B73 PHG39 PHG47 PH207 PHG35 LH82; do
+  echo $parent
+  for chr in {1..10}; do
+    rils=$(head -n 1 data/usda_rils_projected-SVs-SNPs.chr$chr.hmp.txt | tr "\t" "\n" | cat -n | tr "*" "x" | grep $parent | cut -f 1 | tr -s " " | tr "\n" "," | tr -d " " | sed '$ s/.$/ /')
+    cut -f 1-11,$rils data/usda_rils_projected-SVs-SNPs.chr$chr.hmp.txt > data/hapmap_by_common-parent/usda_rils_projected-SVs-SNPs.${parent}-parent.chr${chr}.hmp.txt
+  done
+done
+
+# calculate ld in 1Mb windows for ld plot
+for parent in B73 PHG39 PHG47 PH207 PHG35 LH82; do
+  for chr in {1..10}; do
+    qsub -v PARENT=$parent,CHR=$chr scripts/calculate_ld_by_parent.sh
+  done
+  sleep 60
+done
+
+# merge chromosomes
+cd /scratch.global/della028/hirsch_lab/genomic_prediction/ld/
+for parent in B73 PHG39 PHG47 PH207 PHG35 LH82; do
+  echo $parent
+  cp ld_usda_rils_snp-sv_only.${parent}-parent.chr1.window-1000kb.filter-0.25.ld ld_usda_rils_snp-sv_only.${parent}-parent.window-1000kb.filter-0.25.ld
+  for chr in {2..10}; do
+    sed 1d ld_usda_rils_snp-sv_only.${parent}-parent.chr${chr}.window-1000kb.filter-0.25.ld >> ld_usda_rils_snp-sv_only.${parent}-parent.window-1000kb.filter-0.25.ld
+  done
+  gzip ld_usda_rils_snp-sv_only.${parent}-parent.window-1000kb.filter-0.25.ld
+done
+cd ~/projects/genomic_prediction/simulation
+
+# plot ld decay between all SVs and SNPs (distance from SNP to closest SV boundary)
+for parent in B73 PHG39 PHG47 PH207 PHG35 LH82; do
+  qsub -l walltime=5:00:00,nodes=1:ppn=1,mem=120gb -v IN=/scratch.global/della028/hirsch_lab/genomic_prediction/ld/ld_usda_rils_snp-sv_only.${parent}-parent.window-1000kb.filter-0.25.ld.gz,OUT=analysis/ld/decay/ld_decay_usda_snps-svs_${parent}_1000kb,OPT="--unequal-windows" scripts/plot_ld_decay.sh
+done
+
+
+# for ld distribution plot, calculate LD in 1kb windows
+cd /scratch.global/della028/hirsch_lab/genomic_prediction/ld/
+for parent in B73 PHG39 PHG47 PH207 PHG35 LH82; do
+  for chr in {1..10}; do
+    # input 'usda_rils_projected-SVs-SNPs.${PARENT}-parent.chr${CHR}.plk*' was generated from 'scripts/calculate_ld_by_parent.sh'
+    # calculate LD
+    plink --file usda_rils_projected-SVs-SNPs.${parent}-parent.chr${chr}.plk --make-founders --r2 gz dprime with-freqs --ld-window-r2 0 --ld-window 1000 --ld-window-kb 1 --geno 0.25 --out usda_rils_projected-SVs-SNPs.${parent}-parent.chr${chr}.window-1kb.filter-0.25
+    # copy header for filtered file
+    zcat usda_rils_projected-SVs-SNPs.${parent}-parent.chr${chr}.window-1kb.filter-0.25.ld.gz | head -n 1 > ld_usda_rils_snp-sv_only.${parent}-parent.chr${chr}.window-1kb.filter-0.25.ld
+    # keep only snp and sv r2 (excluding translocations)
+    zcat usda_rils_projected-SVs-SNPs.${parent}-parent.chr${chr}.window-1kb.filter-0.25.ld.gz | awk '$3 ~ /^del|^dup|^ins|^inv|^tra/ && $7 !~ /^del|^dup|^ins|^inv|^tra/ || $3 !~ /^del|^dup|^ins|^inv|^tra/ && $7 ~ /^del|^dup|^ins|^inv|^tra/' - >> ld_usda_rils_snp-sv_only.${parent}-parent.chr${chr}.window-1kb.filter-0.25.ld
+  done
+done
+cd ~/projects/genomic_prediction/simulation
+
+# filter plink ld files and plot distribution (only need the first chr file -- it will find the other chr)
+B73 PHG39 PHG47 PH207 PHG35 LH82
+for parent in B73 PHG39 PHG47 PH207 PHG35 LH82; do
+  for filter in 0.25; do
+    for window in 1; do
+      Rscript scripts/distribution_ld_snps-svs.R /scratch.global/della028/hirsch_lab/genomic_prediction/ld/ld_usda_rils_snp-sv_only.${parent}-parent.chr1.window-1kb.filter-0.25.ld data/usda_SVs_parents.sorted.hmp.txt analysis/ld/window-${window}kb_filter-${filter}_by_${parent}
+    done
+  done
+done
+```
+
+> LD distribution from RILs with a common parent still shows few SNPs with highest LD to a SV < 0.8, but it's less than those from the LD distribution among all RILs.
+
+
+
+
+### LD by family
+
+Similarly, it might be interesting to compare the LD decay for SNP-SNP (chip only), and LD distribution of SNPs and SVs for each RIL family.
+
+
+
+#### SNP chip
+
+```bash
+crosses=$(ls data/hapmap_by_cross/usda_22kSNPs_rils.sorted.diploid.filtered.v4.*.hmp.txt | xargs -n 1 basename |  cut -d '.' -f 6 | uniq)
+
+for cross in $crosses; do
+  # hmp2plk
+  run_pipeline.pl -Xmx50g -importGuess data/hapmap_by_cross/usda_22kSNPs_rils.sorted.diploid.filtered.v4.${cross}.hmp.txt -export analysis/snp-chip_ld/usda_22kSNPs_rils.sorted.diploid.filtered.v4.${cross} -exportType Plink
+  for filter in 0.25; do
+    for window in 100 1000; do
+      # calculate LD
+      plink --file analysis/snp-chip_ld/usda_22kSNPs_rils.sorted.diploid.filtered.v4.${cross}.plk --make-founders --r2 gz dprime with-freqs --ld-window-r2 0 --ld-window ${window}000 --ld-window-kb ${window} --geno ${filter} --out analysis/snp-chip_ld/usda_22kSNPs_rils.sorted.diploid.filtered.v4.${cross}.window-${window}kb.filter-${filter}
+    done
+  done
+  # plot ld decay
+  Rscript scripts/plot_ld_decay.R analysis/snp-chip_ld/usda_22kSNPs_rils.sorted.diploid.filtered.v4.${cross}.window-1000kb.filter-0.25.ld.gz \
+                                  analysis/ld/decay/ld_decay_usda_snps-chip-only_1000kb_${cross} \
+                                  --unequal-windows
+done
+```
+
+
+
+#### SNP-SV
+
+```bash
+crosses=$(ls data/hapmap_by_cross/usda_22kSNPs_rils.sorted.diploid.filtered.v4.*.hmp.txt | xargs -n 1 basename |  cut -d '.' -f 6 | uniq)
+
+# separate by cross
+for cross in $crosses; do
+  echo $cross
+  for chr in {1..10}; do
+    rils=$(head -n 1 data/usda_rils_projected-SVs-SNPs.chr$chr.hmp.txt | tr "\t" "\n" | cat -n | tr "*" "x" | grep $cross | cut -f 1 | tr -s " " | tr "\n" "," | tr -d " " | sed '$ s/.$/ /')
+    cut -f 1-11,$rils data/usda_rils_projected-SVs-SNPs.chr$chr.hmp.txt > /scratch.global/della028/hirsch_lab/genomic_prediction/ld/usda_rils_projected-SVs-SNPs.$cross.chr$chr.hmp.txt
+  done
+done
+
+# calculate ld
+for cross in $crosses; do
+  for chr in {1..10}; do
+    qsub -v CROSS=$cross,CHR=$chr scripts/calculate_ld_by_cross.sh
+  done
+  sleep 15
+done
+
+# merge chromosomes
+for cross in $crosses; do
+  echo $cross
+  cp /scratch.global/della028/hirsch_lab/genomic_prediction/ld/ld_usda_rils_snp-sv_only.${cross}.chr1.window-1000kb.filter-0.25.ld /scratch.global/della028/hirsch_lab/genomic_prediction/ld/ld_usda_rils_snp-sv_only.${cross}.window-1000kb.filter-0.25.ld
+  for chr in {2..10}; do
+    sed 1d /scratch.global/della028/hirsch_lab/genomic_prediction/ld/ld_usda_rils_snp-sv_only.${cross}.chr${chr}.window-1000kb.filter-0.25.ld >> /scratch.global/della028/hirsch_lab/genomic_prediction/ld/ld_usda_rils_snp-sv_only.${cross}.window-1000kb.filter-0.25.ld
+  done
+  gzip /scratch.global/della028/hirsch_lab/genomic_prediction/ld/ld_usda_rils_snp-sv_only.${cross}.window-1000kb.filter-0.25.ld
+done
+
+# plot ld decay between all SVs and SNPs (distance from SNP to closest SV boundary)
+for cross in $crosses; do
+  qsub -l walltime=4:00:00,nodes=1:ppn=1,mem=120gb -v IN=/scratch.global/della028/hirsch_lab/genomic_prediction/ld/ld_usda_rils_snp-sv_only.${cross}.window-1000kb.filter-0.25.ld.gz,OUT=analysis/ld/decay/ld_decay_usda_snps-svs_${cross}_1000kb,OPT="--unequal-windows" scripts/plot_ld_decay.sh
+done
+
+# for ld distribution plot, calculate LD in 1kb windows
+cd /scratch.global/della028/hirsch_lab/genomic_prediction/ld/
+for cross in $crosses; do
+  for chr in {1..10}; do
+    # input 'usda_rils_projected-SVs-SNPs.${cross}.chr${chr}.plk*' was generated from 'scripts/calculate_ld_by_parent.sh'
+    # calculate LD
+    plink --file usda_rils_projected-SVs-SNPs.${cross}.chr${chr}.plk --make-founders --r2 gz dprime with-freqs --ld-window-r2 0 --ld-window 1000 --ld-window-kb 1 --geno 0.25 --out usda_rils_projected-SVs-SNPs.${cross}.chr${chr}.window-1kb.filter-0.25
+    # copy header for filtered file
+    zcat usda_rils_projected-SVs-SNPs.${cross}.chr${chr}.window-1kb.filter-0.25.ld.gz | head -n 1 > ld_usda_rils_snp-sv_only.${cross}.chr${chr}.window-1kb.filter-0.25.ld
+    # keep only snp and sv r2 (excluding translocations)
+    zcat usda_rils_projected-SVs-SNPs.${cross}.chr${chr}.window-1kb.filter-0.25.ld.gz | awk '$3 ~ /^del|^dup|^ins|^inv|^tra/ && $7 !~ /^del|^dup|^ins|^inv|^tra/ || $3 !~ /^del|^dup|^ins|^inv|^tra/ && $7 ~ /^del|^dup|^ins|^inv|^tra/' - >> ld_usda_rils_snp-sv_only.${cross}.chr${chr}.window-1kb.filter-0.25.ld
+  done
+done
+cd ~/projects/genomic_prediction/simulation
+
+# filter plink ld files and plot distribution (only need the first chr file -- it will find the other chr)
+for cross in $crosses; do
+  echo $cross
+  for filter in 0.25; do
+    for window in 1; do
+      Rscript scripts/distribution_ld_snps-svs.R /scratch.global/della028/hirsch_lab/genomic_prediction/ld/ld_usda_rils_snp-sv_only.${cross}.chr1.window-1kb.filter-0.25.ld data/usda_SVs_parents.sorted.hmp.txt analysis/ld/window-${window}kb_filter-${filter}_by_${cross}
+    done
+  done
+done
+
+### BUG: there is something wrong with the above script Rscript when parsing certain chromosomes from crosses
+# Error in strsplit(sv, split = ".", fixed = TRUE) : non-character argument
+# Calls: add.info.to.ld.df -> apply -> FUN -> unlist -> strsplit
+```
+
+
+### PCA
+
+Another helpful QC is to look at PCA plots and see if SVs can also distinguish maize groups as well as SNPs. I will compare PCA plots built different marker types.
+
+```bash
+# only with SVs
+qsub scripts/pca_plots_plink_svs.sh
+
+# only with SNPs
+qsub scripts/pca_plots_plink_snps.sh
+
+# only with SNPs in high ld (1kb and <0.25 missing data)
+qsub scripts/pca_plots_plink_snps-highest-ld.sh
+
+#  only with closest snps (and by marker type)
+for type in all del inv dup; do
+  qsub -v TYPE=$type scripts/pca_plots_plink_closest-snps_by_type.sh
+done
+```
+
+> PCA plots between SNPs and SVs are not the same, but I overall there seems to be 3 major distinct groups (and they make sense when looking at the lines within each group) and they seem to agree between SNPs and SVs. Comparing PCA from SVs and SNPs in highest LD, the pattern is the same (just with the x-axis flipped). This pattern, however, is different from the PCA from closest SNPs to SVs (althought the 3 major groups seem to be well separated). In conclusion, these plots show that there is no major problem with our datasets and also reinforce the idea that the closest SNPs to SVs are not necessarily those in highest LD to an SV.

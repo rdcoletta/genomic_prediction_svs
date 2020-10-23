@@ -13,10 +13,10 @@ cd ~/projects/genomic_prediction/simulation
 
 # find closest low missing SNP to SV
 module load R
-Rscript scripts/get_closest-SNP_to_SV.R data/usda_SNPs-SVs_rils.not-in-SVs.projected.chr${CHR}.reseq-SNPs.hmp.txt analysis/ld/closest_low-missing-data-SNPs_to_SVs.chr-${CHR}.filter-${FILTER}.txt ${FILTER} ${TYPE}
+Rscript scripts/get_closest-SNP_to_SV.R data/usda_rils_projected-SVs-SNPs.chr${CHR}.hmp.txt analysis/ld/closest_low-missing-data-SNPs_to_SVs.chr-${CHR}.filter-${FILTER}.txt ${FILTER} ${TYPE}
 
 # keep only SNPs with low missing data
-run_pipeline.pl -Xmx120g -importGuess data/usda_SNPs-SVs_rils.not-in-SVs.projected.chr${CHR}.reseq-SNPs.hmp.txt \
+run_pipeline.pl -Xmx120g -importGuess data/usda_rils_projected-SVs-SNPs.chr${CHR}.hmp.txt \
                 -includeSiteNamesInFile analysis/ld/closest_low-missing-data-SNPs_to_SVs.chr-${CHR}.filter-${FILTER}.${TYPE}.txt \
-                -export analysis/ld/usda_SNPs-SVs_rils.not-in-SVs.projected.chr${CHR}.reseq-SNPs.closest-snps-to-svs.filter-${FILTER}.${TYPE}.hmp.txt \
+                -export analysis/ld/usda_rils_projected-SVs-SNPs.chr${CHR}.closest-snps-to-svs.filter-${FILTER}.${TYPE}.hmp.txt \
                 -exportType HapmapDiploid

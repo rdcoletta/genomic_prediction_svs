@@ -1,5 +1,5 @@
 #!/bin/bash
-#PBS -l walltime=8:00:00,nodes=1:ppn=1,mem=100gb
+#PBS -l walltime=4:00:00,nodes=1:ppn=1,mem=50gb
 #PBS -o /home/hirschc1/della028/projects/genomic_prediction/simulation/analysis/ld
 #PBS -e /home/hirschc1/della028/projects/genomic_prediction/simulation/analysis/ld
 #PBS -V
@@ -12,7 +12,7 @@
 cd /scratch.global/della028/hirsch_lab/genomic_prediction/ld
 
 # copy header for filtered file
-zcat usda_SNPs-SVs_rils.not-in-SVs.projected.chr${CHR}.reseq-SNPs.window-${WINDOW}kb.filter-${FILTER}.ld.gz | head -n 1 > ~/projects/genomic_prediction/simulation/analysis/ld/ld_usda_rils_snp-sv_only.chr${CHR}.window-${WINDOW}kb.filter-${FILTER}.ld
+zcat usda_rils_projected-SVs-SNPs.chr${CHR}.window-${WINDOW}kb.filter-${FILTER}.ld.gz | head -n 1 > ~/projects/genomic_prediction/simulation/analysis/ld/ld_usda_rils_snp-sv_only.chr${CHR}.window-${WINDOW}kb.filter-${FILTER}.ld
 
 # keep only snp and sv r2 (excluding translocations)
-zcat usda_SNPs-SVs_rils.not-in-SVs.projected.chr${CHR}.reseq-SNPs.window-${WINDOW}kb.filter-${FILTER}.ld.gz | awk '$3 ~ /^del|^dup|^ins|^inv|^tra/ && $6 ~ !/^del|^dup|^ins|^inv|^tra/ || $3 ~ !/^del|^dup|^ins|^inv|^tra/ && $6 ~ /^del|^dup|^ins|^inv|^tra/' - >> ~/projects/genomic_prediction/simulation/analysis/ld/ld_usda_rils_snp-sv_only.chr${CHR}.window-${WINDOW}kb.filter-${FILTER}.ld
+zcat usda_rils_projected-SVs-SNPs.chr${CHR}.window-${WINDOW}kb.filter-${FILTER}.ld.gz | awk '$3 ~ /^del|^dup|^ins|^inv|^tra/ && $7 !~ /^del|^dup|^ins|^inv|^tra/ || $3 !~ /^del|^dup|^ins|^inv|^tra/ && $7 ~ /^del|^dup|^ins|^inv|^tra/' - >> ~/projects/genomic_prediction/simulation/analysis/ld/ld_usda_rils_snp-sv_only.chr${CHR}.window-${WINDOW}kb.filter-${FILTER}.ld

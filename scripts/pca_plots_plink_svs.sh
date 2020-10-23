@@ -11,19 +11,22 @@
 # go to project folder
 cd ~/projects/genomic_prediction/simulation/
 
-run_pipeline.pl -Xmx10g -importGuess data/usda_SNPs-SVs_rils.not-in-SVs.projected.SVs-only.hmp.txt -export analysis/ld/usda_SNPs-SVs_rils.not-in-SVs.projected.SVs-only -exportType Plink
+head -n 1 data/usda_rils_projected-SVs-SNPs.hmp.txt > data/usda_rils_projected-SVs-only.hmp.txt
+grep -P "^del|^dup|^ins|^inv|^tra" data/usda_rils_projected-SVs-SNPs.hmp.txt >> data/usda_rils_projected-SVs-only.hmp.txt
+
+run_pipeline.pl -Xmx10g -importGuess data/usda_rils_projected-SVs-only.hmp.txt -export analysis/ld/usda_rils_projected-SVs-only -exportType Plink
 
 cd ~/projects/genomic_prediction/simulation/analysis/ld/
 
 # change first marker names (some are duplicated and plink doesn't like that)
 module load R/3.6.0
-Rscript ~/projects/genomic_prediction/simulation/scripts/change_marker_names_plink_map.R usda_SNPs-SVs_rils.not-in-SVs.projected.SVs-only.plk.map
+Rscript ~/projects/genomic_prediction/simulation/scripts/change_marker_names_plink_map.R usda_rils_projected-SVs-only.plk.map
 
 # transform format to one that plink2 accepts
-plink --file usda_SNPs-SVs_rils.not-in-SVs.projected.SVs-only.plk --mind 0.5 --make-bed --freq --out usda_SNPs-SVs_rils.not-in-SVs.projected.SVs-only --allow-extra-chr --make-founders
+plink --file usda_rils_projected-SVs-only.plk --mind 0.5 --make-bed --freq --out usda_rils_projected-SVs-only --allow-extra-chr --make-founders
 
 # create pca with plink2
-plink2 --bfile usda_SNPs-SVs_rils.not-in-SVs.projected.SVs-only --make-grm-list --pca 10 --out pca_plink_usda_svs --allow-extra-chr --read-freq usda_SNPs-SVs_rils.not-in-SVs.projected.SVs-only.frq
+plink2 --bfile usda_rils_projected-SVs-only --make-grm-list --pca 10 --out pca_plink_usda_svs --allow-extra-chr --read-freq usda_rils_projected-SVs-only.frq
 
 # plot pca
 module load R

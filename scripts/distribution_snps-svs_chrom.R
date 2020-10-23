@@ -43,14 +43,18 @@ if(!require("ggplot2")) install.packages("ggplot2")
 
 #### plot ----
 
+# # get the correct genotypic data
+# marker_data <- data.frame(stringsAsFactors = FALSE)
+# for (chr in 1:10) {
+#   marker_data_chr <- gsub("chr[0-9]+", paste0("chr", chr), marker_info_file, perl = TRUE)
+#   marker_data_chr <- fread(marker_data_chr, header = FALSE, data.table = FALSE)
+#   marker_data <- rbind(marker_data, marker_data_chr)
+# }
+# marker_data_chr <- NULL
+
 # get the correct genotypic data
-marker_data <- data.frame(stringsAsFactors = FALSE)
-for (chr in 1:10) {
-  marker_data_chr <- gsub("chr[0-9]+", paste0("chr", chr), marker_info_file, perl = TRUE)
-  marker_data_chr <- fread(marker_data_chr, header = FALSE, data.table = FALSE)
-  marker_data <- rbind(marker_data, marker_data_chr)
-}
-marker_data_chr <- NULL
+marker_data <- fread(marker_info_file, header = FALSE, data.table = FALSE)
+
 
 # add type of markers into main df
 marker_type <- apply(marker_data, MARGIN = 1, function(marker) {
