@@ -36,6 +36,8 @@ optional argument:
   --cor-matrix=FILE       file containing a correlation matrix among environments to be simulated.
                           If '--ntraits' > 1 and a file is not provided, a random correlation matrix
                           will be generated, with number of rows = number of traits.
+  --gxe                   simulate GxE interactions by adding random effects to each QTN at each
+                          environment
   --seed=VALUE            value for set.seed (default: NULL; random number is selected)
          
 "
@@ -166,11 +168,40 @@ simulate_trait <- function(geno_data = NULL,
     # set the same heritability for all traits
     h2 <- rep(h2, ntraits)
     
+    # if GxE, change effect sizes for each environment
+    if (gxe) {
+      
+      for (env in 1:length(add_effect_value)) {
+        
+        # draw specific effects from normal distribution
+        gxe_seed <- seed + env
+        set.seed(gxe_seed)
+        gxe_effect <- rnorm(n = length(add_effect_value[[env]]), mean = 0, sd = 0.3)
+        # add effects for each qtn
+        add_effect_value[[env]] <- add_effect_value[[env]] + gxe_effect
+        add_effect_value[[env]] <- sapply(add_effect_value[[env]], function(i) {
+          if (i > 1) i = 1
+          if (i < 0) i = 0
+          return(i)
+        })
+        
+      }
+    }
+    
   }
   
   #### if causative variant = "both", resample SNPs again???
   
   cat("--- Simulating traits with ", add_QTN_num, " QTNs and ", h2[1], " heritability (seed number: ", seed, ") ---\n", sep = "")
+  
+  if (ntraits == 1) {
+    cat("QTN effects: ", add_effect_value, "\n", sep = "")
+  } else {
+    cat("QTN effects: env1 - ", paste0(add_effect_value[[1]], collapse = " "), "\n", sep = "")
+    for (i in 2:length(add_effect_value)) {
+      cat("             env", i, " - ", paste0(add_effect_value[[i]], collapse = " "), "\n", sep = "")
+    }
+  }
   
   # simulate trait for single environment
   create_phenotypes(geno_obj = geno2trait_sim,
@@ -213,6 +244,7 @@ add_QTN_num <- "3"
 add_effect <- "0.5"
 architecture <- "pleiotropic"
 cor_matrix <- NULL
+gxe <- FALSE
 seed <- NULL
 
 args <- commandArgs(trailingOnly = TRUE)
@@ -225,7 +257,7 @@ if (length(args) > 3) {
   
   opt_args <- args[-1:-3]
   opt_args_allowed <- c("--causal-variant", "--rep", "--ntraits", "--h2", "--model", "--add-QTN-num", 
-                        "--add-effect", "--architecture", "--seed",  "--cor-matrix")
+                        "--add-effect", "--architecture", "--seed",  "--cor-matrix", "--gxe")
   opt_args_requested <- as.character(sapply(opt_args, function(x) unlist(strsplit(x, split = "="))[1]))
   if (any(!opt_args_requested %in% opt_args_allowed)) stop(usage(), "wrong optional argument(s)")
   
@@ -307,6 +339,8 @@ if (ntraits > 1) {
   }
 }
 
+if (gxe & ntraits == 1) stop("Optional argument '--gxe' only valid if '--ntraits' > 1")
+
 # print conditions selected
 cat("\nNumber of traits to be simulated: ", ntraits, "\n", sep = "")
 cat("Number of QTNs: ", paste0(add_QTN_num, collapse = ", "), "\n", sep = "")
@@ -324,8 +358,8 @@ sv_list <- args[2]
 out_folder <- args[3]
 # infile_name <- "data/test_usda_rils_projected-SVs-only.poly.hmp.txt"
 # sv_list <- "data/test_SVs_IDs.txt"
-# out_folder <- "analysis/trait_sim/additive_model/geom_series_effects/3-QTNs_from_SNP/0.2-heritability"
-# out_folder <- "analysis/trait_sim_mult-env/additive_model/geom_series_effects/3-QTNs_from_SNP/0.2-heritability"
+# # out_folder <- "analysis/trait_sim/additive_model/geom_series_effects/3-QTNs_from_SNP/0.2-heritability"
+# # out_folder <- "analysis/trait_sim_mult-env/additive_model/geom_series_effects/3-QTNs_from_SNP/0.2-heritability"
 # causal_variant <- "SNP"
 # # causal_variant <- "SV"
 # rep <- 3
@@ -341,10 +375,14 @@ out_folder <- args[3]
 # architecture <- "pleiotropic"
 # seed <- 2020
 # set.seed(seed); cor_matrix <- apply(randcorr(ntraits), MARGIN = c(1,2), function(x) as.numeric(as.character(x)))
+# gxe <- TRUE
 # # out_folder <- paste0("analysis/trait_sim_mult-env/additive_model/geom_series_effects/", add_QTN_num,
 # #                      "-QTNs_from_", causal_variant, "/", h2, "-heritability")
-# out_folder <- paste0("analysis/trait_sim_mult-env/additive_model/equal_effects/", add_QTN_num,
+# # out_folder <- paste0("analysis/trait_sim_mult-env/additive_model/equal_effects/", add_QTN_num,
+# #                      "-QTNs_from_", causal_variant, "/", h2, "-heritability")
+# out_folder <- paste0("analysis/trait_sim_mult-env/additive_model/equal_effects_gxe/", add_QTN_num,
 #                      "-QTNs_from_", causal_variant, "/", h2, "-heritability")
+
 
 
 #### simulate trait ----
@@ -387,4 +425,3 @@ for (rep_number in 1:rep) {
                  out_folder = out_folder_rep)
   
 }
-
