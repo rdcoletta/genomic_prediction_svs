@@ -35,7 +35,14 @@ by Rafael Della Coletta, Alex Lipka, Martin Bohn, and Candice Hirsch (June 2019 
     - [LD by common parent](#ld-by-common-parent)
     - [LD by family](#ld-by-family)
     - [PCA](#pca)
-  - [Trait Simulation](#trait-simulation)
+  - [Trait simulation for RILs](#trait-simulation-for-rils)
+    - [Data filtering](#data-filtering)
+    - [Single environment, additive effects](#single-environment-additive-effects)
+    - [Multiple environments (random correlation), additive effects](#multiple-environments-random-correlation-additive-effects)
+  - [Genomic prediction](#genomic-prediction)
+    - [LD between polymorphic SNPs and polymorphic SVs](#ld-between-polymorphic-snps-and-polymorphic-svs)
+    - [Create datasets](#create-datasets)
+    - [Predict simulated traits](#predict-simulated-traits)
 <!-- TOC END -->
 
 
@@ -1611,4 +1618,295 @@ done
 
 
 
-## Trait Simulation
+## Trait simulation for RILs
+
+Simulations are a great way to quickly test some hypothesis about genomic prediction models and to frame how to interpret results obtained from empirical data. Here, we are simulating traits (i.e. generating phenotypic values) for individuals of the USDA population. For this purpose, we are using the R package [simplePHENOTYPES](https://github.com/samuelbfernandes/simplePHENOTYPES), which generate such values after providing the genotypic information of the population and selecting different genetic architectures. As a starting point, I'm simulation traits for RILs, as we just need to account for additive effects. But later, traits will be simulated for hybrids as well.
+
+
+
+### Data filtering
+
+First I will remove any marker that is monomonorphic across all RILs of the population. Such markers are not informative, and by getting rid of them we can reduce the total number of markers to be parsed when simulating traits (thus, reducing computation time)
+
+```bash
+mkdir -p analysis/trait_sim
+
+# remove monomorphic snps
+for chr in {1..10}; do
+  qsub -v IN=data/usda_rils_projected-SVs-SNPs.chr${chr}.hmp.txt,OUT=data/usda_rils_projected-SVs-SNPs.chr${chr}.poly.hmp.txt scripts/remove_mono_markers.sh
+done
+
+# merge chromosomes
+cp data/usda_rils_projected-SVs-SNPs.chr1.poly.hmp.txt data/usda_rils_projected-SVs-SNPs.poly.hmp.txt
+for chr in {2..10}; do
+  sed 1d data/usda_rils_projected-SVs-SNPs.chr${chr}.poly.hmp.txt >> data/usda_rils_projected-SVs-SNPs.poly.hmp.txt
+done
+
+# create file with svs ids
+cut -f 1 data/usda_rils_projected-SVs-SNPs.poly.hmp.txt | grep -P "^del|^dup|^inv|^ins|^tra" > data/SVs_IDs_poly.txt
+```
+
+Prior running genomic prediction, any missing data will be imputed by GAPIT. Thus, I just wanted to have an idea about how much having missing data the genotypic dataset currently has, and also plot marker distribution along the chromosomes.
+
+```bash
+# just need one chromosome file as input -- the others need to be in the same folder though
+qsub -v HMP=data/usda_rils_projected-SVs-SNPs.chr1.poly.hmp.txt,SVS=data/SVs_IDs_poly.txt,FOLDER=analysis/trait_sim/qc scripts/qc_snp-sv_hmp.sh
+# Total amount of SNP calls missing:
+# Total amount of SV calls missing:
+
+### FIX ABOVE SCRIPT:  INTEGER OVERFLOW ON SNPS
+```
+
+There are many combinations of genetic architecture parameters to be simulated (single vs multiple enviromnets, additive vs additive + dominance effects, number of QTNs, no GxE vs GxE, same vs different effect sizes between SNPs and SVs, etc.) Each combination will be performed in the sections below.
+
+
+### Single environment, additive effects
+
+QTNs' effect sizes follows a geometric series (and there is no difference between SNPs and SVs effects):
+
+```bash
+# set variables
+HMP=data/usda_rils_projected-SVs-SNPs.poly.hmp.txt
+SVS=data/SVs_IDs_poly.txt
+REPS=10
+ENVS=1
+MODEL=A
+EFFECT=0.5
+SEED=2020
+
+for H2 in 0.2 0.5 0.9; do
+  for QTN in 3 25 75; do
+    for VAR in SNP SV both; do
+      FOLDER=analysis/trait_sim/additive_model/geom_series_effects/${QTN}-QTNs_from_${VAR}/${H2}-heritability
+      # simulate trait for single environment
+      qsub -v HMP=${HMP},SVS=${SVS},FOLDER=${FOLDER},VAR=${VAR},REPS=${REPS},ENVS=${ENVS},H2=${H2},MODEL=${MODEL},QTN=${QTN},EFFECT=${EFFECT},SEED=${SEED} scripts/trait_simulation.sh
+    done
+  done
+done
+```
+
+QTNs' effect sizes are all the same (and there is no difference between SNPs and SVs effects):
+
+```bash
+# set variables
+HMP=data/usda_rils_projected-SVs-SNPs.poly.hmp.txt
+SVS=data/SVs_IDs_poly.txt
+REPS=10
+ENVS=1
+MODEL=A
+EFFECT=equal
+SEED=2020
+
+for H2 in 0.2 0.5 0.9; do
+  for QTN in 3 25 75; do
+    for VAR in SNP SV both; do
+      FOLDER=analysis/trait_sim/additive_model/equal_effects/${QTN}-QTNs_from_${VAR}/${H2}-heritability
+      # simulate trait for single environment
+      qsub -v HMP=${HMP},SVS=${SVS},FOLDER=${FOLDER},VAR=${VAR},REPS=${REPS},ENVS=${ENVS},H2=${H2},MODEL=${MODEL},QTN=${QTN},EFFECT=${EFFECT},SEED=${SEED} scripts/trait_simulation.sh
+    done
+  done
+done
+```
+
+### Multiple environments (random correlation), additive effects
+
+QTNs' effect sizes follows a geometric series (and there is no difference between SNPs and SVs effects):
+
+```bash
+# set variables
+HMP=data/usda_rils_projected-SVs-SNPs.poly.hmp.txt
+SVS=data/SVs_IDs_poly.txt
+REPS=10
+ENVS=20
+MODEL=A
+EFFECT=0.5
+SEED=2020
+
+for H2 in 0.2 0.5 0.9; do
+  for QTN in 3 25 75; do
+    for VAR in SNP SV both; do
+      FOLDER=analysis/trait_sim_mult-env/additive_model/geom_series_effects/${QTN}-QTNs_from_${VAR}/${H2}-heritability
+      # simulate trait for single environment
+      qsub -v HMP=${HMP},SVS=${SVS},FOLDER=${FOLDER},VAR=${VAR},REPS=${REPS},ENVS=${ENVS},H2=${H2},MODEL=${MODEL},QTN=${QTN},EFFECT=${EFFECT},SEED=${SEED} scripts/trait_simulation.sh
+    done
+  done
+done
+```
+
+QTNs' effect sizes are all the same (and there is no difference between SNPs and SVs effects):
+
+```bash
+# set variables
+HMP=data/usda_rils_projected-SVs-SNPs.poly.hmp.txt
+SVS=data/SVs_IDs_poly.txt
+REPS=10
+ENVS=20
+MODEL=A
+EFFECT=equal
+SEED=2020
+
+for H2 in 0.2 0.5 0.9; do
+  for QTN in 3 25 75; do
+    for VAR in SNP SV both; do
+      FOLDER=analysis/trait_sim_mult-env/additive_model/equal_effects/${QTN}-QTNs_from_${VAR}/${H2}-heritability
+      # simulate trait for single environment
+      qsub -v HMP=${HMP},SVS=${SVS},FOLDER=${FOLDER},VAR=${VAR},REPS=${REPS},ENVS=${ENVS},H2=${H2},MODEL=${MODEL},QTN=${QTN},EFFECT=${EFFECT},SEED=${SEED} scripts/trait_simulation.sh
+    done
+  done
+done
+```
+
+
+
+## Genomic prediction
+
+We will test different types of markers for prediction: only SNPs, all SVs, all SNPs and SVs, only SNPs in LD to SVs, only SNPs not in LD. Thus, I first need to filter the hapmap file with projected markers and generate one hapmap for each type of marker. In addition, we have to guarantee that all of the filtered datasets have the same number of markers for equal comparison of models.
+
+
+
+### LD between polymorphic SNPs and polymorphic SVs
+
+```bash
+# calculate ld
+for chr in {1..10}; do
+  qsub -v CHR=${chr} scripts/ld_snp-sv_poly-markers.sh
+done
+
+# filter plink ld files and plot distribution (only need the first chr file -- it will find the other chr)
+Rscript scripts/distribution_ld_snps-svs.R analysis/ld/ld_usda_rils_poly-snp-sv_only.chr1.ld \
+                                           data/usda_SVs_parents.sorted.hmp.txt \
+                                           analysis/ld/poly-snp-svs_1kb-window
+
+# plot extra stats for markers in high ld
+Rscript scripts/extra_ld_stats.R analysis/ld/poly-snp-svs_1kb-window
+
+# get marker names of snps in ld and not ld
+# create a 3 column file (id, chr, pos) to be the input for R script
+for chr in {1..10}; do
+  # highest ld
+  sed 1d analysis/ld/poly-snp-svs_1kb-window/ld_usda_rils_poly-snp-sv_only.chr${chr}.highest-ld.ld  | awk '{ print $3 "\t" $1 "\t" $2 "\n" $7 "\t" $5 "\t" $6}' | sort -n -k 3 | uniq >> analysis/ld/poly-snp-svs_1kb-window/marker_info_highest-ld.txt
+  cut -f 1 analysis/ld/poly-snp-svs_1kb-window/marker_info_highest-ld.txt | grep -v -P "^del|^dup|^ins|^inv|^tra" >> analysis/ld/poly-snp-svs_1kb-window/snp-names_highest-ld.txt
+  # not in ld
+  sed 1d analysis/ld/poly-snp-svs_1kb-window/ld_usda_rils_poly-snp-sv_only.chr${chr}.not-in-ld.ld  | awk '{ print $3 "\t" $1 "\t" $2 "\n" $7 "\t" $5 "\t" $6}' | sort -n -k 3 | uniq >> analysis/ld/poly-snp-svs_1kb-window/marker_info_not-in-ld.txt
+  cut -f 1 analysis/ld/poly-snp-svs_1kb-window/marker_info_not-in-ld.txt | grep -v -P "^del|^dup|^ins|^inv|^tra" >> analysis/ld/poly-snp-svs_1kb-window/snp-names_not-in-ld.txt
+done
+# remove redudant markers
+sort analysis/ld/poly-snp-svs_1kb-window/snp-names_highest-ld.txt | uniq > analysis/ld/poly-snp-svs_1kb-window/snp-names_highest-ld.no-duplicates.txt
+sort analysis/ld/poly-snp-svs_1kb-window/snp-names_not-in-ld.txt | uniq > analysis/ld/poly-snp-svs_1kb-window/snp-names_not-in-ld.no-duplicates.txt
+```
+
+
+
+### Create datasets
+
+```bash
+mkdir -p analysis/trait_sim/datasets
+
+# create file with snps ids
+cut -f 1 data/usda_rils_projected-SVs-SNPs.poly.hmp.txt | sed 1d | grep -v -P "^del|^dup|^inv|^ins|^tra" > data/SNPs_IDs_poly.txt
+
+# all polymorphic markers
+cp data/usda_rils_projected-SVs-SNPs.poly.hmp.txt analysis/trait_sim/datasets/usda_rils.all_markers.hmp.txt
+# different polymorphic marker types
+for marker in sv snp snp_ld snp_not_ld; do
+  [[ ${marker} == sv ]] && list=data/SVs_IDs_poly.txt
+  [[ ${marker} == snp ]] && list=data/SNPs_IDs_poly.txt
+  [[ ${marker} == snp_ld ]] && list=analysis/ld/poly-snp-svs_1kb-window/snp-names_highest-ld.no-duplicates.txt
+  [[ ${marker} == snp_not_ld ]] && list=analysis/ld/poly-snp-svs_1kb-window/snp-names_not-in-ld.no-duplicates.txt
+  # filter files
+  qsub -v IN=data/usda_rils_projected-SVs-SNPs.poly.hmp.txt,LIST=${list},OUT=analysis/trait_sim/datasets/usda_rils.${marker}_markers.hmp.txt scripts/filter_hmp_based_on_marker_names.sh
+done
+```
+
+After filtering the hapmap file according to marker types, I needed to make sure that all datasets have the same number of markers. To do that, I will randomly select markers based on the dataset with the lowest number of markers.
+
+```bash
+wc -l analysis/trait_sim/datasets/usda_rils.*_markers.hmp.txt
+# 9847163 analysis/trait_sim/datasets/usda_rils.all_markers.hmp.txt
+#    5477 analysis/trait_sim/datasets/usda_rils.snp_ld_markers.hmp.txt
+# 9838687 analysis/trait_sim/datasets/usda_rils.snp_markers.hmp.txt
+#   40962 analysis/trait_sim/datasets/usda_rils.snp_not_ld_markers.hmp.txt
+#    8477 analysis/trait_sim/datasets/usda_rils.sv_markers.hmp.txt
+
+# minimum number is 5477 - header = 5476
+
+seed=1990
+for marker in all sv snp snp_ld snp_not_ld; do
+  # if data has SVs and SNPs, randomly sample equal numbers of SVs and SNPs
+  [[ ${marker} == all ]] && options="--proportion-SV-SNP=0.5 --SVs-list=data/SVs_IDs_poly.txt" || options=""
+  IN=analysis/trait_sim/datasets/usda_rils.${marker}_markers.hmp.txt
+  OUT=analysis/trait_sim/datasets/usda_rils.${marker}_markers.adjusted-n-markers.hmp.txt
+  NSAMPLE=5476
+  OPT=${options}
+  SEED=${seed}
+  Rscript scripts/select_random_markers.R ${IN} ${OUT} ${NSAMPLE} ${OPT} --seed=${SEED}
+  # each dataset will have different seed number
+  seed=$((${seed}+1))
+done
+
+# make sure allele column is correct
+for marker in all sv snp snp_ld snp_not_ld; do
+  run_pipeline.pl -Xmx10g -importGuess analysis/trait_sim/datasets/usda_rils.${marker}_markers.adjusted-n-markers.hmp.txt \
+                  -export analysis/trait_sim/datasets/usda_rils.${marker}_markers.adjusted-n-markers.hmp.txt \
+                  -exportType HapmapDiploid
+done
+
+
+
+# before genomic prediction, check which dataset has the minimum number of markers and then
+# bootstrap (100 times) to select random markers to keep all datsets with same number of markers
+```
+
+
+
+### Predict simulated traits
+
+I will run prediction models in both single and multiple environment scenarios.
+
+
+
+#### Single environment
+
+```bash
+for effect in geom_series_effects equal_effects; do
+  for marker in all sv snp snp_ld snp_not_ld; do
+    qsub -v EFFECT=${effect},MARKER=${marker},REPS=10,ENVS=single scripts/predict_sim_trait.sh
+  done
+done
+
+# plot prediction accuracy
+for effect in geom_series_effects equal_effects; do
+  Rscript scripts/plot_prediction_accuracy.R analysis/trait_sim/additive_model/${effect} \
+                                             analysis/trait_sim/additive_model/${effect}/prediction_accuracy_sim-traits_single-env.txt \
+                                             --trait-qtn=3,25,75 \
+                                             --trait-var-source=SNP,SV,both \
+                                             --trait-h2=0.2,0.5,0.9 \
+                                             --pred-marker-n=max-number \
+                                             --pred-marker-type=all_markers,sv_markers,snp_markers,snp_ld_markers,snp_not_ld_markers \
+                                             --error-bars=SE
+done
+```
+
+
+
+#### Multiple environments
+
+```bash
+for effect in geom_series_effects equal_effects; do
+  for marker in all sv snp snp_ld snp_not_ld; do
+    qsub -v EFFECT=${effect},MARKER=${marker},REPS=10,ENVS=multiple scripts/predict_sim_trait.sh
+  done
+done
+
+# plot prediction accuracy
+for effect in geom_series_effects equal_effects; do
+  Rscript scripts/plot_prediction_accuracy.R analysis/trait_sim_mult-env/additive_model/${effect} \
+                                             analysis/trait_sim_mult-env/additive_model/${effect}/prediction_accuracy_sim-traits_mult-random-cor-env.txt \
+                                             --trait-qtn=3,25,75 \
+                                             --trait-var-source=SNP,SV,both \
+                                             --trait-h2=0.2,0.5,0.9 \
+                                             --pred-marker-n=max-number \
+                                             --pred-marker-type=all_markers,sv_markers,snp_markers,snp_ld_markers,snp_not_ld_markers \
+                                             --error-bars=SE
+done
+```

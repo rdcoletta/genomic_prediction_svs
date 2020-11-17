@@ -71,7 +71,7 @@ for (type in c("del", "inv", "dup")) {
           axis.title = element_text(size = 20),
           axis.text = element_text(size = 15))
   
-  ggsave(plot_dist_SVtype, filename = paste0(out.dir.ld, "/dist-highest-LD_SNPs-SVs_", type, "-only.png"), device = "png")
+  ggsave(plot_dist_SVtype, filename = paste0(out.dir.ld, "/dist-highest-LD_SNPs-SVs_", type, "-only.pdf"), device = "pdf")
   
 }
 
@@ -84,7 +84,7 @@ plot_SVsize <- ggplot(LD_results_all, aes(x = size_range)) +
         axis.title = element_text(size = 20),
         axis.text = element_text(size = 15))
 
-ggsave(plot_SVsize, filename = paste0(out.dir.ld, "/dist_SV-sizes.png"), device = "png")
+ggsave(plot_SVsize, filename = paste0(out.dir.ld, "/dist_SV-sizes.pdf"), device = "pdf")
 
 
 # plot frequency of SVs by LD quarter
@@ -116,7 +116,7 @@ plot_SVmaf_LD <- ggplot(LD_results_MAFbyLD, aes(x = ld_quarter, y = sv_maf)) +
         axis.title = element_text(size = 20),
         axis.text = element_text(size = 15))
 
-ggsave(plot_SVmaf_LD, filename = paste0(out.dir.ld, "/dist_SV-MAF_by_LD.png"), device = "png")
+ggsave(plot_SVmaf_LD, filename = paste0(out.dir.ld, "/dist_SV-MAF_by_LD.pdf"), device = "pdf")
 
 plot_SVmaf_LD_densi <- ggplot(LD_results_MAFbyLD, aes(x = sv_maf, color = ld_quarter)) + 
   geom_density() +
@@ -127,7 +127,7 @@ plot_SVmaf_LD_densi <- ggplot(LD_results_MAFbyLD, aes(x = sv_maf, color = ld_qua
         axis.title = element_text(size = 20),
         axis.text = element_text(size = 15))
 
-ggsave(plot_SVmaf_LD_densi, filename = paste0(out.dir.ld, "/dist_SV-MAF_by_LD_densi.png"), device = "png")
+ggsave(plot_SVmaf_LD_densi, filename = paste0(out.dir.ld, "/dist_SV-MAF_by_LD_densi.pdf"), device = "pdf")
 
 
 # distribution sv sizes and distance to sv by ld quarter
@@ -140,7 +140,7 @@ plot_SVsize_by_LD <- ggplot(LD_results_all[which(LD_results_all$sv_size < 100000
         axis.title = element_text(size = 20),
         axis.text = element_text(size = 15))
 
-ggsave(plot_SVsize_by_LD, filename = paste0(out.dir.ld, "/dist_SV-sizes_by_LD.png"), device = "png")
+ggsave(plot_SVsize_by_LD, filename = paste0(out.dir.ld, "/dist_SV-sizes_by_LD.pdf"), device = "pdf")
 
 plot_distSV_by_LD <- ggplot(LD_results_all[which(LD_results_all$dist_to_sv < 1000000), ], aes(x = ld_quarter, y = dist_to_sv)) + 
   geom_boxplot() +
@@ -151,4 +151,4 @@ plot_distSV_by_LD <- ggplot(LD_results_all[which(LD_results_all$dist_to_sv < 100
         axis.title = element_text(size = 20),
         axis.text = element_text(size = 15))
 
-ggsave(plot_distSV_by_LD, filename = paste0(out.dir.ld, "/dist_dist-to-SV_by_LD.png"), device = "png")
+ggsave(plot_distSV_by_LD, filename = paste0(out.dir.ld, "/dist_dist-to-SV_by_LD.pdf"), device = "pdf")

@@ -290,13 +290,13 @@ plot_R2_dist <- function(ld_files_to_plot) {
 # highest ld
 files_highest_ld <- list.files(path = out.dir.ld, pattern = "highest-ld.ld", full.names = TRUE)
 plot_highest_ld <- plot_R2_dist(files_highest_ld)
-ggsave(plot_highest_ld[[1]], filename = paste0(out.dir.ld, "/dist-highest-LD_SNPs-SVs.png"), device = "png")
+ggsave(plot_highest_ld[[1]], filename = paste0(out.dir.ld, "/dist-highest-LD_SNPs-SVs.pdf"), device = "pdf")
 fwrite(plot_highest_ld[[2]], paste0(out.dir.ld, "/summary-highest-LD_SNPs-SVs.txt"), sep = "\t", quote = FALSE, row.names = FALSE, na = NA)
 
 
 # not in ld
 files_not_in_ld <- list.files(path = out.dir.ld, pattern = "not-in-ld.ld", full.names = TRUE)
 plot_not_in_ld <- plot_R2_dist(files_not_in_ld)
-ggsave(plot_not_in_ld[[1]], filename = paste0(out.dir.ld, "/dist-not-in-LD_SNPs-SVs.png"), device = "png")
+ggsave(plot_not_in_ld[[1]], filename = paste0(out.dir.ld, "/dist-not-in-LD_SNPs-SVs.pdf"), device = "pdf")
 fwrite(plot_not_in_ld[[2]], paste0(out.dir.ld, "/summary-not-in-LD_SNPs-SVs.txt"), sep = "\t", quote = FALSE, row.names = FALSE, na = NA)
 
