@@ -29,6 +29,10 @@ optional argument:
                           'norm' or 'unif' is provided, then additive effects will be
                           sampled from a normal or uniform distribution, respectively. Finally,
                           if 'equal' is provided, additive effects across all loci will be 0.5.
+  --SV-effect=VALUE       the magnitude of SV effects relative to SNPs. If '--SV-effect=1' (default),
+                          there's no difference between SV and SNP effect sizes. If '--SV-effect' > 1,
+                          SVs will have larger effect than SNPs, while '--SV-effect' < 1 will lead to
+                          SVs having smaller effects than SNPs.
   --architecture=VALUE    genetic architecture to be simulated ('pleiotropic' for traits being
                           controlled by the same QTNs, 'partially' for traits being controlled by
                           pleiotropic and trait-specific QTNs, 'LD' for traits being exclusively
@@ -53,7 +57,17 @@ getArgValue <- function(arg) {
   
 }
 
-simulate_trait <- function(geno_data = NULL,
+createGeomSeries <- function(qtn_number, largest_effect) {
+  
+  list_effects <- rep(largest_effect, times = qtn_number)
+  order_effects <- 1:qtn_number
+  geom_series <- list(list_effects ^ order_effects)
+  
+  return(geom_series)
+  
+}
+
+simulateTraits <- function(geno_data = NULL,
                            list_of_SV_IDs = NULL,
                            source_trait_variation = c("SNPs", "SVs", "both"),
                            # experiments
@@ -64,8 +78,10 @@ simulate_trait <- function(geno_data = NULL,
                            model = c("A", "D", "E", "AE", "DE", "ADE"),
                            add_QTN_num = 3,
                            add_effect = NULL,
+                           SV_effect = 1,
                            architecture = "pleiotropic",
                            cor_matrix = NULL,
+                           gxe = FALSE,
                            seed = 2020,
                            # ouput
                            out_folder = getwd()) {
@@ -108,16 +124,14 @@ simulate_trait <- function(geno_data = NULL,
   if (is.numeric(add_effect)) {
     
     # if add_effect is numeric, use geometric series
-    sim_method <- "geometric"
-    add_effect_value <- add_effect
-    
+    add_effect_value <- createGeomSeries(qtn_number = add_QTN_num, largest_effect = add_effect)
+
   } else {
     
     # otherwise...
     if (add_effect == "norm") {
       
       # generate a normal distribution to draw additive effects
-      sim_method <- "custom"
       dist_mean <- 0.5
       set.seed(seed)
       add_effect_value <- rnorm(n = add_QTN_num, mean = dist_mean, sd = dist_mean/3)
@@ -137,7 +151,6 @@ simulate_trait <- function(geno_data = NULL,
     if (add_effect == "unif") {
       
       # generate an uniform distribution to draw additive effects
-      sim_method <- "custom"
       set.seed(seed)
       add_effect_value <- runif(n = add_QTN_num, min = 0, max = 1)
       # transform to list for compatibility to simplePHENOTYPES
@@ -146,7 +159,6 @@ simulate_trait <- function(geno_data = NULL,
     
     if (add_effect == "equal") {
       # generate an uniform distribution and sample one additive effect to be the same across all loci
-      sim_method <- "custom"
       # set.seed(seed)
       # add_effect_value <- sample(runif(n = add_QTN_num, min = 0, max = 1), size = 1)
       add_effect_value <- rep(0.5, times = add_QTN_num)
@@ -156,6 +168,17 @@ simulate_trait <- function(geno_data = NULL,
     
   }
   
+  # adjust effect size if SVs have different effects than SNPs
+  if (SV_effect != 1) {
+    
+    # find which qtns are SVs
+    sv_qtns <- grep("^del|^dup|^ins|^inv|^tra", geno2trait_sim[, 1], perl = TRUE)
+    # modify effect size of svs
+    if (length(sv_qtns) > 0) {
+      add_effect_value[[1]][sv_qtns] <- add_effect_value[[1]][sv_qtns] * SV_effect
+    }
+    
+  }
   
   # adjust some parameters if multiple traits
   if (ntraits > 1) {
@@ -213,7 +236,7 @@ simulate_trait <- function(geno_data = NULL,
                     add_QTN_num = add_QTN_num,
                     add_effect = add_effect_value,
                     architecture = architecture,
-                    sim_method = sim_method,
+                    sim_method = "custom",
                     vary_QTN = FALSE,
                     cor = cor_matrix,
                     seed = seed,
@@ -242,6 +265,7 @@ h2 <- "0.2"
 model <- "A"
 add_QTN_num <- "3"
 add_effect <- "0.5"
+SV_effect <- "1"
 architecture <- "pleiotropic"
 cor_matrix <- NULL
 gxe <- FALSE
@@ -257,7 +281,8 @@ if (length(args) > 3) {
   
   opt_args <- args[-1:-3]
   opt_args_allowed <- c("--causal-variant", "--rep", "--ntraits", "--h2", "--model", "--add-QTN-num", 
-                        "--add-effect", "--architecture", "--seed",  "--cor-matrix", "--gxe")
+                        "--add-effect", "--SV-effect", "--architecture", "--seed",  "--cor-matrix",
+                        "--gxe")
   opt_args_requested <- as.character(sapply(opt_args, function(x) unlist(strsplit(x, split = "="))[1]))
   if (any(!opt_args_requested %in% opt_args_allowed)) stop(usage(), "wrong optional argument(s)")
   
@@ -319,6 +344,12 @@ if (suppressWarnings(!any(is.na(as.integer(add_QTN_num))))) {
   stop("Optional argument '--add-QTN-num' should be an integer or a comma-separated list of integers")
 }
 
+if (suppressWarnings(!is.na(as.numeric(SV_effect)))) {
+  SV_effect <- as.numeric(SV_effect) 
+} else {
+  stop("Optional argument '--SV-effect' should be a number")
+}
+
 if (is.null(seed)) {
   seed <- ceiling(runif(1, 0, 1000000))
 } else {
@@ -356,12 +387,13 @@ cat("Seed number: ", seed, "\n\n", sep = "")
 infile_name <- args[1]
 sv_list <- args[2]
 out_folder <- args[3]
-# infile_name <- "data/test_usda_rils_projected-SVs-only.poly.hmp.txt"
+# infile_name <- "data/usda_rils.all_markers.adjusted-n-markers.hmp.txt"
 # sv_list <- "data/test_SVs_IDs.txt"
 # # out_folder <- "analysis/trait_sim/additive_model/geom_series_effects/3-QTNs_from_SNP/0.2-heritability"
 # # out_folder <- "analysis/trait_sim_mult-env/additive_model/geom_series_effects/3-QTNs_from_SNP/0.2-heritability"
-# causal_variant <- "SNP"
+# # causal_variant <- "SNP"
 # # causal_variant <- "SV"
+# causal_variant <- "both"
 # rep <- 3
 # # ntraits <- 1
 # ntraits <- 5
@@ -370,8 +402,9 @@ out_folder <- args[3]
 # model <- "A"
 # add_QTN_num <- 3
 # # add_QTN_num <- 25
-# # add_effect <- 0.5
-# add_effect <- "equal"
+# add_effect <- 0.5
+# # add_effect <- "equal"
+# SV_effect <- 2
 # architecture <- "pleiotropic"
 # seed <- 2020
 # set.seed(seed); cor_matrix <- apply(randcorr(ntraits), MARGIN = c(1,2), function(x) as.numeric(as.character(x)))
@@ -380,7 +413,7 @@ out_folder <- args[3]
 # #                      "-QTNs_from_", causal_variant, "/", h2, "-heritability")
 # # out_folder <- paste0("analysis/trait_sim_mult-env/additive_model/equal_effects/", add_QTN_num,
 # #                      "-QTNs_from_", causal_variant, "/", h2, "-heritability")
-# out_folder <- paste0("analysis/trait_sim_mult-env/additive_model/equal_effects_gxe/", add_QTN_num,
+# out_folder <- paste0("analysis/trait_sim_mult-env/additive_model/geom_series_gxe/", add_QTN_num,
 #                      "-QTNs_from_", causal_variant, "/", h2, "-heritability")
 
 
@@ -407,7 +440,7 @@ for (rep_number in 1:rep) {
   cat ("rep #", rep_number, "\n", sep = "")
   
   # simulate traits with different QTNs per experiment
-  simulate_trait(geno_data = geno_data,
+  simulateTraits(geno_data = geno_data,
                  list_of_SV_IDs = SVs,
                  source_trait_variation = causal_variant,
                  # experiments
@@ -418,8 +451,10 @@ for (rep_number in 1:rep) {
                  model = model,
                  add_QTN_num = add_QTN_num,
                  add_effect = add_effect,
+                 SV_effect = SV_effect,
                  architecture = architecture,
                  cor_matrix = cor_matrix,
+                 gxe = gxe,
                  seed = seed_rep,
                  # ouput
                  out_folder = out_folder_rep)
