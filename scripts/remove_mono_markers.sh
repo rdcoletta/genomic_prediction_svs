@@ -1,7 +1,7 @@
 #!/bin/bash
 #PBS -l walltime=2:00:00,nodes=1:ppn=1,mem=80gb
-#PBS -o /home/hirschc1/della028/projects/genomic_prediction/simulation/analysis/trait_sim
-#PBS -e /home/hirschc1/della028/projects/genomic_prediction/simulation/analysis/trait_sim
+#PBS -o /home/hirschc1/della028/projects/genomic_prediction/simulation/analysis/trait_sim/MSI_dump
+#PBS -e /home/hirschc1/della028/projects/genomic_prediction/simulation/analysis/trait_sim/MSI_dump
 #PBS -V
 #PBS -N remove_mono_markers
 #PBS -M della028@umn.edu

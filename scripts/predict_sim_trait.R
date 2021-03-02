@@ -1,5 +1,6 @@
 library(data.table)
 library(rrBLUP)
+library(dplyr)
 suppressWarnings(suppressMessages(library(GAPIT3)))
 suppressWarnings(suppressMessages(library(doParallel)))
 suppressWarnings(suppressMessages(library(foreach)))
@@ -40,7 +41,6 @@ getArgValue <- function(arg) {
 
 GBLUPkfoldCV <- function(pheno = NULL,
                          geno = NULL,
-                         traitname = "Name_of_Trait",
                          multiple_envs = NULL,
                          path.for.results = getwd(),
                          number.of.folds = 5,
@@ -245,7 +245,7 @@ GBLUPkfoldCV <- function(pheno = NULL,
   SLR.model <- lm(vector.of.observed.values ~ vector.of.predicted.values)
   
   # plot the regression
-  pdf(paste0(path.for.results, number.of.folds, "-fold_CV_Results_", traitname, "Obs.vs.Pred.pdf"))
+  pdf(paste0(path.for.results, number.of.folds, "-fold_CV_Results_sim-traits_Obs.vs.Pred.pdf"))
   plot(vector.of.observed.values ~ vector.of.predicted.values, col = "blue", xlab = "Predicted values", ylab = "Observed Values")
   abline(SLR.model)
   legend("topleft", paste("Intercept = ", round(coef(SLR.model)["(Intercept)"],2), ", Slope = ", round(coef(SLR.model)["vector.of.predicted.values"],2), sep = ""))
@@ -272,7 +272,7 @@ GBLUPkfoldCV <- function(pheno = NULL,
                        r_upperCI = as.numeric(r.gy.output[1, "r_avg"]) + (t_value * as.numeric(r.gy.output[1, "r_SE"])))
   
   # write correlation table
-  write.table(r.gy.output, paste0(path.for.results, number.of.folds, "-fold_CV_Results_", traitname, ".txt"),
+  write.table(r.gy.output, paste0(path.for.results, number.of.folds, "-fold_CV_Results_sim-traits.txt"),
               quote = FALSE, sep = "\t", row.names = FALSE, col.names = TRUE)
   
   # write out the observed and predicted values
@@ -281,10 +281,10 @@ GBLUPkfoldCV <- function(pheno = NULL,
                                                  vector.of.predicted.values)
   
   colnames(the.observed.predicted.and.taxa.names) <- c("SampleID",
-                                                       paste("Observed_", traitname, sep = ""),
-                                                       paste("Predicted_", traitname, sep = ""))
+                                                       paste("Observed_sim-traits", sep = ""),
+                                                       paste("Predicted_sim-traits", sep = ""))
   
-  write.table(the.observed.predicted.and.taxa.names,  paste0(path.for.results, "Obs.and.Predicted.Trait.values", traitname, ".txt"),
+  write.table(the.observed.predicted.and.taxa.names,  paste0(path.for.results, "Obs.and.Predicted.Trait.values_sim-traits.txt"),
               quote = FALSE, sep = "\t", row.names = FALSE, col.names = TRUE)
   
 }
@@ -348,16 +348,7 @@ if (is.null(seed)) {
 infile_name <- args[1]
 sim_trait_filename <- args[2]
 outfolder <- args[3]
-# infile_name <- "analysis/trait_sim/datasets/usda_rils.sv_markers.adjusted-n-markers.hmp.txt"
-# # sim_trait_filename <- "analysis/trait_sim/additive_model/geom_series_effects/3-QTNs_from_SNP/0.2-heritability/rep1/Simulated_Data_1_Reps_Herit_0.2.txt"
-# sim_trait_filename <- "analysis/trait_sim_mult-env/additive_model/geom_series_effects/3-QTNs_from_SV/0.9-heritability/rep1/Simulated_Data_1_Reps_Herit_0.9_0.9_0.9_0.9_0.9_0.9_0.9_0.9_0.9_0.9_0.9_0.9_0.9_0.9_0.9_0.9_0.9_0.9_0.9_0.9.txt"
-# # outfolder <- "analysis/trait_sim/additive_model/geom_series_effects/3-QTNs_from_SNP/gs_with_max-number_markers/all_markers/0.2-heritability/rep1"
-# outfolder <- "analysis/trait_sim_mult-env/additive_model/geom_series_effects/3-QTNs_from_SV/gs_with_max-number_markers/sv_markers/0.9-heritability/rep1"
-# # multiple_envs <- FALSE
-# multiple_envs <- TRUE
-# SNP_impute <- "Major"
-# seed <- 999
-# number_folds <- 5
+
 
 
 #### simulate trait ----
@@ -367,13 +358,12 @@ geno_data <- fread(infile_name, header = FALSE, data.table = FALSE)
 
 # read in file with simulated trait replicated 50 times
 sim_trait <- fread(sim_trait_filename, header = TRUE, data.table = FALSE)
-# remove column with rep number
-sim_trait <- sim_trait[, colnames(sim_trait) != "Rep"]
+# sim_trait <- sim_trait[, colnames(sim_trait) != "Rep"]
+sim_trait <- pivot_wider(sim_trait, names_from = environment, values_from = predicted_trait_value)
+sim_trait <- data.frame(sim_trait)
 
-
-# retrieve name of trait being parsed (heritability and replicate number)
-trait_name <- colnames(sim_trait)[2]
-
+# # retrieve name of trait being parsed (heritability and replicate number)
+# trait_name <- colnames(sim_trait)[NCOL(sim_trait)]
 
 # check if directory already exists, create a new one if it doesn't
 if (!dir.exists(outfolder)) dir.create(outfolder, recursive = TRUE)
@@ -381,12 +371,50 @@ if (!dir.exists(outfolder)) dir.create(outfolder, recursive = TRUE)
 if (!grepl("/$", outfolder, perl = TRUE)) outfolder <- paste0(outfolder, "/")
 
 # generate kinship matrix and run k-fold cross validation with GBLUP
+
+pheno = sim_trait
+geno = geno_data
+multiple_envs = multiple_envs
+path.for.results = outfolder
+number.of.folds = number_folds
+seed.number = seed
+SNP.effect = "Add"
+SNP.impute = SNP_impute
+
+
 GBLUPkfoldCV(pheno = sim_trait,
              geno = geno_data,
-             traitname = trait_name,
              multiple_envs = multiple_envs,
              path.for.results = outfolder,
              number.of.folds = number_folds,
              seed.number = seed,
              SNP.effect = "Add",
              SNP.impute = SNP_impute)
+
+
+
+#### debug ----
+
+# infile_name <- "analysis/trait_sim/datasets/usda_rils.sv_markers.adjusted-n-markers.hmp.txt"
+infile_name <- "analysis/test_prediction/usda_rils.all_markers.adjusted-n-markers.hmp.txt"
+
+# sim_trait_filename <- "analysis/trait_sim/additive_model/geom_series_effects/3-QTNs_from_SNP/0.2-heritability/rep1/Simulated_Data_1_Reps_Herit_0.2.txt"
+# outfolder <- "analysis/trait_sim/additive_model/geom_series_effects/3-QTNs_from_SNP/gs_with_max-number_markers/all_markers/0.2-heritability/rep1"
+
+# sim_trait_filename <- "analysis/trait_sim_mult-env/additive_model/geom_series_effects/3-QTNs_from_SV/0.5-heritability/rep1/Simulated_Data_1_Reps_Herit_0.5_0.5_0.5_0.5_0.5.txt"
+# outfolder <- "analysis/trait_sim_mult-env/additive_model/geom_series_effects/3-QTNs_from_SV/gs_with_max-number_markers/sv_markers/0.9-heritability/rep1"
+
+# sim_trait_filename <- "analysis/test_prediction/single_env/100qtns_SVs_equal_0.5h2_pop1/blups_1st_stage.txt"
+# outfolder <- "analysis/test_prediction/single_env/100qtns_SVs_equal_0.5h2_pop1"
+
+# sim_trait_filename <- "analysis/test_prediction/multi_env/no_gxe/100qtns_SVs_equal_0.5h2_pop1/blups_1st_stage.txt"
+# outfolder <- "analysis/test_prediction/multi_env/no_gxe/100qtns_SVs_equal_0.5h2_pop1/prediction_all-markers"
+
+sim_trait_filename <- "analysis/test_prediction/multi_env/with_gxe/100qtns_SVs_equal_0.5h2_pop1/blups_1st_stage.txt"
+outfolder <- "analysis/test_prediction/multi_env/with_gxe/100qtns_SVs_equal_0.5h2_pop1/prediction_all-markers"
+
+# multiple_envs <- FALSE
+multiple_envs <- TRUE
+SNP_impute <- "Major"
+seed <- 999
+number_folds <- 5
