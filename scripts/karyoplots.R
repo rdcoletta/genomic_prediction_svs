@@ -84,7 +84,9 @@ outfile_name <- args[4]
 # centromere_info <- "data/centromeres_Schneider-2016-pnas_v4.bed"
 # infile_name <- "karyoplot_toy.txt"
 # outfile_name <- "karyoplot_toy.pdf"
-
+# line_width <- 6
+# alpha <- 0.3
+# add_legend <- FALSE
 
 # chromosomes
 chrms <- fread(chr_info, header = TRUE, data.table = FALSE)

@@ -2,6 +2,8 @@ library(data.table)
 library(asreml)
 library(cvTools)
 library(plyr)
+library(dplyr)
+library(gtools)
 library(rrBLUP)
 library(MASS)
 library(reshape)
@@ -13,11 +15,11 @@ usage <- function() {
   cat("
 description: simulate trait based on user-defined genetic architecture.
 
-usage: Rscript genomic_prediction_from_blups.R [markers_file] [blups_file] [output_folder] [...]
+usage: Rscript genomic_prediction_from_blups.R [markers_file] [sim_trait_filename] [output_folder] [...]
 
 positional arguments:
   markers_file            hapmap file with genotypic data
-  blups_file              file with BLUPs in long format
+  sim_trait_filename      simulated traits from simplePHENOTYPES
   output_folder           output folder name
 
 optional argument:
@@ -28,7 +30,8 @@ optional argument:
 
 credits:
   part of this script was modified from Fernandes et al. 2018 (TAG, doi:10.1007/s00122-017-3033-y),
-  available at https://github.com/samuelbfernandes/Trait-assisted-GS
+  available at https://github.com/samuelbfernandes/Trait-assisted-GS, and from Dias et al. 2018
+  (Heredity, doi:10.1038/s41437-018-0053-6; script kindly provided by Kaio Olímpio Das Graças Dias)
 "
   )
 }
@@ -95,15 +98,13 @@ if (!is.null(total_envs)) {
     stop("Optional argument '--total-envs' should be a number")
   }
 }
-
-
 # get positional arguments
 markers_file <- args[1]
-blups_file <- args[2]
+sim_trait_filename <- args[2]
 output_folder <- args[3]
 
 # markers_file <- "analysis/trait_sim/datasets/usda_rils.all_markers.adjusted-n-markers.hmp.txt"
-# blups_file <- "analysis/test_prediction/multi_env/with_gxe/100qtns_SVs_equal_0.5h2_pop1/blups_1st_stage.txt"
+# sim_trait_filename <- "analysis/test_prediction/multi_env/with_gxe/100qtns_SVs_equal_0.5h2_pop1/Simulated_Data_3_Reps_Herit_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5.txt"
 # output_folder <- "analysis/test_prediction/multi_env/with_gxe/100qtns_SVs_equal_0.5h2_pop1/prediction_all_markers"
 # n_folds <- 5
 # cv_iter <- 5
@@ -129,37 +130,45 @@ rownames(markers) <- hapmap$GT
 rm(hapmap)
 
 # load and format phenotypic data
-means <- fread(blups_file, header = TRUE, data.table = FALSE)
-means <- pivot_wider(means, names_from = environment, values_from = predicted_trait_value)
-means <- data.frame(means)
-
+pheno_pop <- fread(sim_trait_filename, header = TRUE, data.table = FALSE)
+# adjust column names
+colnames(pheno_pop)[1] <- "genotype"
+colnames(pheno_pop)[NCOL(pheno_pop)] <- "rep"
+colnames(pheno_pop)[2:(NCOL(pheno_pop) - 1)] <- paste0("env", 1:length(2:(NCOL(pheno_pop) - 1)))
 # filter total number of environments
-if (is.null(total_envs)) total_envs <- NCOL(means) - 1
-means <- means[, c(1:(total_envs + 1))]
-
+pheno_pop <- pheno_pop[, c("genotype", paste0("env", 1:total_envs), "rep")]
+# transform df into long format
+pheno_pop <- pivot_longer(pheno_pop, !c(genotype, rep), names_to = "environment", values_to = "trait_value") %>%
+  mutate(rep = paste0("rep", rep)) %>% 
+  relocate(rep, .after = environment) %>%
+  arrange(environment, genotype) %>% 
+  mutate(genotype = factor(genotype),
+         environment = factor(environment, levels = mixedsort(unique(environment))),
+         rep = factor(rep, levels = mixedsort(unique(rep))))
+# make sure it's data.frame, not tibble
+pheno_pop <- data.frame(pheno_pop)
 # using only phenotypes with snp information
-means <- means[means$genotype %in% rownames(markers), ]
-means <- means[match(means$genotype, rownames(markers)), ]
-# all(rownames(markers) == means$genotype)
+pheno_pop <- pheno_pop[pheno_pop$genotype %in% rownames(markers), ]
+pheno_pop$genotype <- droplevels(pheno_pop$genotype)
 
 # changing names for numbers, but save ids for later as well
-geno_names <- means$genotype
-geno_ids <- 1:length(geno_names)
-means$genotype <- geno_ids
-means <- transform(means, genotype = factor(genotype))
+geno_names <- pheno_pop$genotype
+pheno_pop$genotype <- match(pheno_pop$genotype, levels(geno_names))
+pheno_pop <- transform(pheno_pop, genotype = factor(genotype))
 
 
 
 #### create relationship matrix ----
 
 kmatrix <- A.mat(markers, return.imputed = FALSE)
+kmatrix <- kmatrix[match(rownames(kmatrix), levels(geno_names)), match(colnames(kmatrix), levels(geno_names))]
 rm(markers)
 # kmatrix<-as.matrix(read.table("kmatrix.txt", h=T)) ##### importing previously calculated kinship matrix.
 
 # inverting relationship matrix
 A <- ginv(kmatrix)
-colnames(A) <- geno_ids
-rownames(A) <- geno_ids
+colnames(A) <- match(colnames(kmatrix), levels(geno_names))
+rownames(A) <- match(rownames(kmatrix), levels(geno_names))
 rm(kmatrix)
 
 # changing inverted A matrix format to be used in asreml
@@ -169,12 +178,12 @@ rownames(A) <- NULL
 #ginv <- read.csv("ginv.csv")
 ginv <- data.frame(A[,2], A[,1], A[,3])
 colnames(ginv)<- c("Row", "Column", "GINV")
-attr(ginv,"rowNames") <- geno_ids
+attr(ginv,"rowNames") <- 1:nlevels(geno_names)
 rm(A)
 #write.csv(ginv, "ginv.csv", row.names = FALSE)
 
-# # means over location
-# means2 <- ddply(means,.(geno), summarize, Y=mean(Y,na.rm=T), M=mean(M,na.rm=T),  h1=mean(h1,na.rm=T), h2=mean(h2,na.rm=T), h3=mean(h3,na.rm=T), h4=mean(h4,na.rm=T)  )
+# # pheno_pop over location
+# pheno_pop2 <- ddply(pheno_pop,.(geno), summarize, Y=mean(Y,na.rm=T), M=mean(M,na.rm=T),  h1=mean(h1,na.rm=T), h2=mean(h2,na.rm=T), h3=mean(h3,na.rm=T), h4=mean(h4,na.rm=T)  )
 
 
 
@@ -183,7 +192,7 @@ rm(A)
 sort <- list()
 for(a in 1:cv_iter){
   for(j in 1:n_folds){
-    folds <- cvFolds(nlevels(means$genotype), type ="random", K = 5, R = 1)
+    folds <- cvFolds(nlevels(pheno_pop$genotype), type ="random", K = 5, R = 1)
     Sample <- cbind(folds$which, folds$subsets)
     cv <- split(Sample[,2], f=Sample[,1])
   }
@@ -202,9 +211,10 @@ attr(ginv, "rowNames") <- as.character(attr(ginv, "rowNames"))
 
 # start list to store results
 accuracy <- list()
-gebv <- geno_ids
+# gebv <- geno_ids
+gebv <- 1:nlevels(geno_names)
 
-for(j in 1:cv_iter) {
+for(j in 1:cv_iter){
   
   cat(paste0("\n---- k-fold CV iteration ", j, " ---\n"))
   
@@ -213,30 +223,39 @@ for(j in 1:cv_iter) {
   results_folds <- foreach(i = 1:n_folds, .combine = c) %dopar% {
     
     # get pheno data
-    test <- means
+    test <- pheno_pop
     # mask genotypes in test population (CV2 method)
-    test[which(means[, "genotype"] %in% sort[[j]][[i]]), 2:NCOL(means)] <- NA
+    test[which(pheno_pop[, "genotype"] %in% sort[[j]][[i]]), "trait_value"] <- NA
     
-    # run mixed model -- test with diag structure first, then unstructured
-    cols <- as.matrix(test[, 2:NCOL(means)])
-    model <- asreml(fixed = cols ~ trait,
-                    random = ~ diag(trait):vm(genotype, source = ginv),
-                    residual = ~ units:diag(trait),   #### try: ~ units:us(trait)
+    # run mixed model
+    # cols <- as.matrix(test[, 2:NCOL(pheno_pop)])
+    resp  <- test[, "trait_value"]
+    model <- asreml(fixed = resp ~ environment,   #### try: resp ~ 1 (no fixed effect)
+                    random = ~ fa(environment, 2):vm(genotype, source = ginv) + environment:rep,
+                    residual = ~ dsum(~ id(units)|environment),
                     workspace = "128mb",
                     maxit = 100,
                     data = test)
-    # model$converge  ### use while loop until converge...
-    # any(summary(model)$varcomp$`%ch` > 0.1, na.rm = TRUE)
-    # model <- update.asreml(model, extra = 10)
+    
+    ##### ERROR: The estimation was aborted; too many exceptions.
+    
+    
+    if(!convergence(model, tol = 0.01)){   #### use a while loop until get convergence and parameters less than 0.1 change
+      model <- update.asreml(model)}   
+    if(!convergence(model, tol = 0.01)){
+      model <- update.asreml(model)}   
+    if(!model$converge){print ('ERROR')}
+    if(!model$converge){print ('ERROR')}
+    
     
     # predict phenotypes
-    x <- as.matrix(coef(model, pattern = ~ genotype))  #### try: predict(model, classify = "trait:genotype")
+    x <- as.matrix(coef(model, pattern = ~ genotype))  #### try: x2 <- predict(model, classify = "environment:genotype")
     rownames(x) <- sapply(rownames(x), function(name) {
       trait <- unlist(strsplit(name, split = "_"))[2]
       trait <- unlist(strsplit(trait, split = ":"))[1]
       name <- unlist(strsplit(name, split = "_"))[3]
       return(paste0(trait, "_", name))
-      })
+    })
     
     # format table
     x <- data.frame(treatment = as.character(rownames(x)), effect = x)
@@ -261,8 +280,8 @@ for(j in 1:cv_iter) {
   
   # calculate prediction accuracy
   accuracy[[j]] <- list()
-  for (env in colnames(means)[2:NCOL(means)]) {
-    accuracy[[j]] <- append(accuracy[[j]], cor(ram[, env], means[, env]))
+  for (env in colnames(pheno_pop)[2:NCOL(pheno_pop)]) {
+    accuracy[[j]] <- append(accuracy[[j]], cor(ram[, env], pheno_pop[, env]))
   }
   accuracy[[j]] <- unlist(accuracy[[j]])
   
@@ -287,13 +306,13 @@ summary <- data.frame(apply(accuracy, MARGIN = 2, function(x) {
   upper_CI <- mean + (t_value * se)
   return(c(mean = mean, se = se, lower_CI = lower_CI, upper_CI = upper_CI))
 }))
-colnames(summary) <- colnames(means)[2:NCOL(means)]
+colnames(summary) <- colnames(pheno_pop)[2:NCOL(pheno_pop)]
 
 
 
 ##### write results ----
 
-# make sure folder exists
+# make sure direcotry exists
 if (!dir.exists(output_folder)) dir.create(output_folder, recursive = TRUE)
 
 # prediction accuracy

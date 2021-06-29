@@ -8,9 +8,9 @@ library(gtools)
 
 usage <- function() {
   cat("
-description: simulate trait based on user-defined genetic architecture.
+description: get BLUPs for each environment in simplePHENOTYPES.
 
-usage: Rscript get_blups_per_env.R [sim_trait_filename] [...]
+usage: Rscript get_blups_per_env.R [sim_trait_filename] [outfolder]
 
 positional arguments:
   sim_trait_filename      simulated traits from simplePHENOTYPES
@@ -19,6 +19,9 @@ positional arguments:
 optional argument:
   --help                  show this helpful message
 
+credits:
+  part of this script was modified from Fernandes et al. 2018 (TAG, doi:10.1007/s00122-017-3033-y),
+  available at https://github.com/samuelbfernandes/Trait-assisted-GS
 "
   )
 }
@@ -36,23 +39,14 @@ if (length(args) != 2) stop(usage(), "missing positional argument(s)")
 # get positional arguments
 sim_trait_filename <- args[1]
 outfolder <- args[2]
-
-# sim_trait_filename <- "analysis/test_prediction/single_env/100qtns_SVs_equal_0.5h2_pop1/Simulated_Data_3_Reps_Herit_0.5.txt"
-# outfolder <- "analysis/test_prediction/single_env/100qtns_SVs_equal_0.5h2_pop1"
-# 
-# sim_trait_filename <- "analysis/test_prediction/multi_env/no_gxe/100qtns_SVs_equal_0.5h2_pop1/Simulated_Data_3_Reps_Herit_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5.txt"
-# outfolder <- "analysis/test_prediction/multi_env/no_gxe/100qtns_SVs_equal_0.5h2_pop1"
-# 
 # sim_trait_filename <- "analysis/test_prediction/multi_env/with_gxe/100qtns_SVs_equal_0.5h2_pop1/Simulated_Data_3_Reps_Herit_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5.txt"
 # outfolder <- "analysis/test_prediction/multi_env/with_gxe/100qtns_SVs_equal_0.5h2_pop1"
 
 
-
 #### get BLUPs for each environment ----
 
+# load data
 pheno_pop <- fread(sim_trait_filename, header = TRUE, data.table = FALSE)
-# info_pop <- fread(file_qtns, header = TRUE, data.table = FALSE)
-# log_pop <- scan(file_log, what = "character", sep = "\n")
 
 # adjust column names
 colnames(pheno_pop)[1] <- "genotype"
@@ -81,7 +75,6 @@ pheno_pop <- pivot_longer(pheno_pop, !c(genotype, rep), names_to = "environment"
 #            method = "jitter",
 #            bg = "cadetblue",
 #            pch = 21)
-
 
 # create empty data frame
 results_1st_stage <- data.frame(environment = character(),
@@ -121,6 +114,5 @@ fwrite(results_1st_stage, file = paste0(outfolder, "/blups_1st_stage.txt"),
        quote = FALSE, sep = "\t", na = NA, row.names = FALSE)
 
 
-
-
-#### https://asreml.kb.vsni.co.uk/knowledge-base/predict-asreml/
+# more info about ASReml predict function:
+# https://asreml.kb.vsni.co.uk/knowledge-base/predict-asreml/
