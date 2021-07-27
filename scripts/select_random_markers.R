@@ -10,29 +10,29 @@ positional arguments:
   infile_name                   hapmap file containing SNPs and/or SVs
   outfile_name                  name of filtered dataset
   markers_to_sample             number of markers to randomly sample
-  
+
 optional argument:
   --help                        show this helpful message
-  --proportion-SV-SNP=[VALUE]   if hapmap contains both SNPs and SVs, choose the proportion of 
+  --proportion-SV-SNP=[VALUE]   if hapmap contains both SNPs and SVs, choose the proportion of
                                 random markers to be sampled for each marker type. For example,
                                 a value of 0.5 means that half of the random markers will be SNPs
                                 and the other half will be SVs.
   --SVs-list=FILE               single-column file containing SV IDs. Providing SV IDs is necessary
                                 if '--proportion-SV-SNP' option was requested.
   --seed=VALUE                  value for set.seed (default: NULL; random number is selected)
-  
-    
+
+
 "
   )
 }
 
 getArgValue <- function(arg) {
-  
+
   # get value from command-line arguments
   arg <- unlist(strsplit(arg, "="))
   if (length(arg) == 1) return(TRUE)
   if (length(arg) > 1) return(arg[2])
-  
+
 }
 
 
@@ -51,12 +51,12 @@ if ("--help" %in% args) usage() & q(save = "no")
 if (length(args) < 3) stop(usage(), "missing positional argument(s)")
 
 if (length(args) > 3) {
-  
+
   opt_args <- args[-1:-3]
   opt_args_allowed <- c("--proportion-SV-SNP", "--SVs-list", "--seed")
   opt_args_requested <- as.character(sapply(opt_args, function(x) unlist(strsplit(x, split = "="))[1]))
   if (any(!opt_args_requested %in% opt_args_allowed)) stop(usage(), "wrong optional argument(s)")
-  
+
   # change default based on the argument provided
   for (argument in opt_args_allowed) {
     if (any(grepl(argument, opt_args_requested))) {
@@ -65,7 +65,7 @@ if (length(args) > 3) {
       assign(arg_name, arg_value)
     }
   }
-  
+
 }
 
 if (!is.null(proportion_SV_SNP)) {
@@ -86,7 +86,7 @@ if (is.null(seed)) {
   seed <- ceiling(runif(1, 0, 1000000))
 } else {
   if (suppressWarnings(!any(is.na(as.numeric(seed))))) {
-    seed <- as.numeric(seed) 
+    seed <- as.numeric(seed)
   } else {
     stop("Optional argument '--seed' should be a number")
   }
@@ -96,10 +96,10 @@ if (is.null(seed)) {
 # get positional arguments
 infile_name <- args[1]
 outfile_name <- args[2]
-markers_to_sample <- as.numeric(args[3])
+markers_to_sample <- args[3]
 
 if (suppressWarnings(!any(is.na(as.numeric(markers_to_sample))))) {
-  seed <- as.numeric(markers_to_sample) 
+  markers_to_sample <- as.numeric(markers_to_sample)
 } else {
   stop("Positional argument 'markers_to_sample' should be a number")
 }
