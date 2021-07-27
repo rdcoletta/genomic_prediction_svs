@@ -207,27 +207,27 @@ simulateTraits <- function(geno_data = NULL,
 
     # if GxE, change effect sizes for each environment
     if (gxe) {
-      
+
       # select QTNs to have constant effects across envs -- 10% QTNs without GxE
       n_constant_qtns <- ceiling(0.1 * add_QTN_num)
       constant_seed <- seed + seed
       set.seed(constant_seed)
       constant_qtns <- sort(sample(1:add_QTN_num, size = n_constant_qtns, replace = FALSE))
-      
+
       # select QTNs that can change signs across environments -- 10% QTNs can change signs
       n_diff_sign_qtns <- ceiling(0.1 * add_QTN_num)
       diff_sign_seed <- seed * envs
       set.seed(diff_sign_seed)
       diff_sign_qtns <- sort(sample((1:add_QTN_num)[-constant_qtns], size = n_diff_sign_qtns, replace = FALSE))
-      
+
       for (env in 1:length(add_effect_value)) {
-        
+
         # select QTNs to have no effect in this env -- 10% QTNs with no effect at all
         n_zero_qtns <- ceiling(0.1 * add_QTN_num)
         zero_seed <- (seed + seed) * env
         set.seed(zero_seed)
         zero_qtns <- sort(sample((1:add_QTN_num)[-constant_qtns], size = n_zero_qtns, replace = FALSE))
-        
+
         # draw specific effects from a normal distribution
         gxe_seed <- seed + env
         set.seed(gxe_seed)
@@ -248,11 +248,11 @@ simulateTraits <- function(geno_data = NULL,
           if (i < -1) i = -1
           return(i)
         })
-        
+
         #### DO THIS IF QTN CAN CHANGE SIGN ACCORDING TO PREVIOUS ENVS
         # # allow only some QTNs to change the sign of their effects in different envs
         # if (env > 1) {
-        #   
+        #
         #   # first, get all QTNs that changed sign
         #   all_diff_sign_qtns <- sort(c(which(add_effect_value[[env]] > 0 & add_effect_value[[env - 1]] < 0),
         #                                which(add_effect_value[[env]] < 0 & add_effect_value[[env - 1]] > 0)))
@@ -263,24 +263,24 @@ simulateTraits <- function(geno_data = NULL,
         #   keep_sign_qtns <- sort(sample(all_diff_sign_qtns, size = (length(all_diff_sign_qtns) - n_diff_sign_qtns), replace = FALSE))
         #   # add back original sign
         #   add_effect_value[[env]][keep_sign_qtns] <- add_effect_value[[env]][keep_sign_qtns] * (-1)
-        #   
+        #
         # }
         ####
-        
+
       }
-      
+
       # make sure only selected QTNs are allowed to change signs
       for (env in 1:length(add_effect_value)) {
-        
+
         add_effect_value[[env]][-diff_sign_qtns] <- sapply(add_effect_value[[env]][-diff_sign_qtns], function(qtn, effect) {
           # change signs according to initial 'marker_effect' provided
           if (effect > 0) if (qtn < 0) qtn = qtn * (-1)
           if (effect < 0) if (qtn > 0) qtn = qtn * (-1)
           return(qtn)
         }, effect = marker_effect)
-       
+
       }
-      
+
       # make sure to disable the use of any genetic correlation among environments
       gen_cor_matrix <- NULL
 
@@ -365,7 +365,7 @@ if (length(args) > 3) {
   opt_args_allowed <- c("--causal-variant", "--SNP-SV-ratio", "--pops", "--reps", "--envs", "--h2",
                         "--model", "--add-QTN-num", "--add-effect-type", "--marker-effect",
                         "--SV-effect", "--architecture", "--gen-cor-matrix", "--res-cor-matrix",
-                        "--gxe", "--diff-dist-gxe ", "--diff-env-mean", "--QTN-variance", "--seed")
+                        "--gxe", "--diff-dist-gxe", "--diff-env-mean", "--QTN-variance", "--seed")
   opt_args_requested <- as.character(sapply(opt_args, function(x) unlist(strsplit(x, split = "="))[1]))
   if (any(!opt_args_requested %in% opt_args_allowed)) stop(usage(), "wrong optional argument(s)")
 
@@ -573,7 +573,7 @@ for (pop_number in 1:pops) {
 
 
 #### debug ----
- 
+
 # infile_name <- "data/usda_rils.all_markers.adjusted-n-markers.hmp.txt"
 # sv_list <- "data/test_SVs_IDs.txt"
 # # causal_variant <- "SNP"
@@ -593,7 +593,7 @@ for (pop_number in 1:pops) {
 # architecture <- "pleiotropic"
 # seed <- 2020
 # set.seed(seed); res_cor_matrix <- apply(randcorr(envs), MARGIN = c(1,2), function(x) as.numeric(as.character(x)))
-# 
+#
 # # gen_cor_matrix <- matrix(data = c(1, 0, 0, 0, 0,
 # #                                   0, 1, 0, 0, 0,
 # #                                   0, 0, 1, 0, 0,
@@ -618,12 +618,12 @@ for (pop_number in 1:pops) {
 # #                                   1, 1, 1, 1, 1,
 # #                                   1, 1, 1, 1, 1),
 # #                          nrow = 5, ncol = 5)
-# 
+#
 # # mean_gen_cor <- round(mean(gen_cor_matrix[upper.tri(gen_cor_matrix)]), digits = 2)
-# 
+#
 # QTN_variance <- TRUE
-# 
-# 
+#
+#
 # # out_folder <- paste0("analysis/trait_sim_mult-env/additive_model/test/correct_reps/",
 # #                      add_QTN_num, "-QTNs_from_", causal_variant, "/",
 # #                      h2, "-heritability/",
@@ -634,26 +634,26 @@ for (pop_number in 1:pops) {
 # #                      h2, "-heritability/",
 # #                      "effect0.1-0.4-0.7/",
 # #                      "mean-gen-cor_", mean_gen_cor)
-# 
-# 
+#
+#
 # gxe <- TRUE
 # gen_cor_matrix <- NULL
 # diff_dist_gxe <- TRUE
-# 
+#
 # out_folder <- paste0("analysis/trait_sim_mult-env/additive_model/test/correct_reps_gxe/",
 #                      add_QTN_num, "-QTNs_from_", causal_variant, "/",
 #                      h2, "-heritability/",
 #                      "effect0.1/",
 #                      "with-gxe_new-rules/",
 #                      "norm-dist_mean-0_sd-0.3")
-# 
+#
 # # out_folder <- paste0("analysis/trait_sim_mult-env/additive_model/test/correct_reps_gxe/",
 # #                      add_QTN_num, "-QTNs_from_", causal_variant, "/",
 # #                      h2, "-heritability/",
 # #                      "effect0.1/",
 # #                      "no-gxe/",
 # #                      "norm-dist_mean-0_sd-0.3")
-# 
+#
 # # out_folder <- paste0("analysis/trait_sim/additive_model/test/correct_reps/",
 # #                      add_QTN_num, "-QTNs_from_", causal_variant, "/",
 # #                      h2, "-heritability/",
