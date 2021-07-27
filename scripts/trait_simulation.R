@@ -52,6 +52,11 @@ optional argument:
   --gxe                     add this option to simulate GxE by adding random effects (drawn from a
                             normal distribution) to the marker effects in each environment. This
                             option also overrides any genetic correlation matrix provided
+  --diff-dist-gxe           add this option to draw random GxE effects from different normal
+                            distributions depending on marker type (SNP or SV). The normal distribution
+                            used to sample effects will have mean 0 for both SNPs and SVs, but the
+                            standard deviation for SVs will be multiplied by the value of '--SV-effect'
+                            option.
   --diff-env-mean           add this option to force simulated traits to have different means in
                             each environment
   --QTN-variance            add this option to write files with percent variance explained per QTN
@@ -98,6 +103,7 @@ simulateTraits <- function(geno_data = NULL,
                            architecture = "pleiotropic",
                            diff_env_mean = FALSE,
                            gxe = FALSE,
+                           diff_dist_gxe = FALSE,
                            gen_cor_matrix = NULL,
                            res_cor_matrix = NULL,
                            seed = 2020,
@@ -221,11 +227,19 @@ simulateTraits <- function(geno_data = NULL,
         zero_seed <- (seed + seed) * env
         set.seed(zero_seed)
         zero_qtns <- sort(sample((1:add_QTN_num)[-constant_qtns], size = n_zero_qtns, replace = FALSE))
-        # draw specific effects from normal distribution
+        
+        # draw specific effects from a normal distribution
         gxe_seed <- seed + env
         set.seed(gxe_seed)
-        gxe_effect <- rnorm(n = (add_QTN_num - n_constant_qtns - n_zero_qtns), mean = 0, sd = 0.3)
+        gxe_effect <- rnorm(n = add_QTN_num, mean = 0, sd = 0.3)
+        # if requested, draw GxE effects for SVs from a different distribution
+        if (diff_dist_gxe & SV_effect != marker_effect & length(sv_qtns) > 0) {
+          set.seed(gxe_seed)
+          gxe_effect[sv_qtns] <- rnorm(n = length(sv_qtns), mean = 0, sd = (SV_effect / marker_effect) * 0.3)
+        }
         gxe_effect <- round(gxe_effect, digits = 4)
+        # remove gxe effects for qtns with zero or constant effects
+        gxe_effect <- gxe_effect[-c(zero_qtns, constant_qtns)]
         # add effects for each qtn
         add_effect_value[[env]][zero_qtns] <- 0
         add_effect_value[[env]][-c(zero_qtns, constant_qtns)] <- add_effect_value[[env]][-c(zero_qtns, constant_qtns)] + gxe_effect
@@ -251,6 +265,7 @@ simulateTraits <- function(geno_data = NULL,
         #   add_effect_value[[env]][keep_sign_qtns] <- add_effect_value[[env]][keep_sign_qtns] * (-1)
         #   
         # }
+        ####
         
       }
       
@@ -331,6 +346,7 @@ marker_effect <- "0.1"
 SV_effect <- NULL
 architecture <- "pleiotropic"
 gxe <- FALSE
+diff_dist_gxe <- FALSE
 gen_cor_matrix <- NULL
 res_cor_matrix <- NULL
 diff_env_mean <- FALSE
@@ -349,7 +365,7 @@ if (length(args) > 3) {
   opt_args_allowed <- c("--causal-variant", "--SNP-SV-ratio", "--pops", "--reps", "--envs", "--h2",
                         "--model", "--add-QTN-num", "--add-effect-type", "--marker-effect",
                         "--SV-effect", "--architecture", "--gen-cor-matrix", "--res-cor-matrix",
-                        "--gxe",  "--diff-env-mean", "--QTN-variance", "--seed")
+                        "--gxe", "--diff-dist-gxe ", "--diff-env-mean", "--QTN-variance", "--seed")
   opt_args_requested <- as.character(sapply(opt_args, function(x) unlist(strsplit(x, split = "="))[1]))
   if (any(!opt_args_requested %in% opt_args_allowed)) stop(usage(), "wrong optional argument(s)")
 
@@ -543,6 +559,7 @@ for (pop_number in 1:pops) {
                  architecture = architecture,
                  diff_env_mean = diff_env_mean,
                  gxe = gxe,
+                 diff_dist_gxe = diff_dist_gxe,
                  gen_cor_matrix = gen_cor_matrix,
                  res_cor_matrix = res_cor_matrix,
                  seed = seed_pop,
@@ -556,10 +573,12 @@ for (pop_number in 1:pops) {
 
 
 #### debug ----
-
+ 
 # infile_name <- "data/usda_rils.all_markers.adjusted-n-markers.hmp.txt"
 # sv_list <- "data/test_SVs_IDs.txt"
-# causal_variant <- "SNP"
+# # causal_variant <- "SNP"
+# causal_variant <- "SV"
+# # SNP_SV_ratio <- 0.5
 # pops <- 10
 # reps <- 3
 # envs <- 5
@@ -570,7 +589,7 @@ for (pop_number in 1:pops) {
 # add_effect <- "equal"
 # # add_effect_type <- "geometric"
 # marker_effect <- 0.1
-# # SV_effect <- 0.1
+# SV_effect <- 0.2
 # architecture <- "pleiotropic"
 # seed <- 2020
 # set.seed(seed); res_cor_matrix <- apply(randcorr(envs), MARGIN = c(1,2), function(x) as.numeric(as.character(x)))
@@ -619,6 +638,7 @@ for (pop_number in 1:pops) {
 # 
 # gxe <- TRUE
 # gen_cor_matrix <- NULL
+# diff_dist_gxe <- TRUE
 # 
 # out_folder <- paste0("analysis/trait_sim_mult-env/additive_model/test/correct_reps_gxe/",
 #                      add_QTN_num, "-QTNs_from_", causal_variant, "/",

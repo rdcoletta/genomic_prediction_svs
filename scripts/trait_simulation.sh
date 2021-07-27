@@ -21,6 +21,7 @@ module load R/3.6.0
 [[ -z ${GENCOR} ]] && GENCOR="" || GENCOR="--gen-cor-matrix=${GENCOR}"
 [[ -z ${RESCOR} ]] && RESCOR="" || RESCOR="--res-cor-matrix=${RESCOR}"
 [[ -z ${GXE} ]] && GXE="" || GXE="--${GXE}"
+[[ -z ${DIFFDIST} ]] && DIFFDIST="" || DIFFDIST="--${DIFFDIST}"
 [[ -z ${DIFFMEAN} ]] && DIFFMEAN="" || DIFFMEAN="--${DIFFMEAN}"
 # report option
 [[ -z ${QTNVAR} ]] && QTNVAR="" || QTNVAR="--${QTNVAR}"
@@ -41,4 +42,4 @@ Rscript scripts/trait_simulation.R ${HMP} ${SVS} ${FOLDER} \
                                    --marker-effect=${EFFECTSIZE} ${SVEFFECT} \
                                    --architecture=pleiotropic \
                                    --seed=${SEED} \
-                                   ${GENCOR} ${RESCOR} ${GXE} ${DIFFMEAN} ${QTNVAR}
+                                   ${GENCOR} ${RESCOR} ${GXE} ${DIFFDIST} ${DIFFMEAN} ${QTNVAR}
