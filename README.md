@@ -37,7 +37,6 @@ by Rafael Della Coletta, Alex Lipka, Martin Bohn, and Candice Hirsch (June 2019 
     - [PCA](#pca)
   - [Trait simulation for RILs](#trait-simulation-for-rils)
     - [Data filtering](#data-filtering)
-    - [Single environment, inbreds (additive effects only)](#single-environment-inbreds-additive-effects-only)
     - [Multiple environments, inbreds (additive effects only)](#multiple-environments-inbreds-additive-effects-only)
   - [Genomic prediction](#genomic-prediction)
     - [LD between polymorphic SNPs and polymorphic SVs](#ld-between-polymorphic-snps-and-polymorphic-svs)
@@ -1661,128 +1660,7 @@ qsub -v HMP=data/usda_rils_projected-SVs-SNPs.chr1.poly.hmp.txt,SVS=data/SVs_IDs
 
 There are many combinations of genetic architecture parameters to be simulated (single vs multiple enviromnets, additive vs additive + dominance effects, number of QTNs, no GxE vs GxE, same vs different effect sizes between SNPs and SVs, etc.) Each combination will be performed in the sections below.
 
-
-### Single environment, inbreds (additive effects only)
-
-#### No difference between SNPs and SVs effects
-
-QTNs' effect sizes follows a geometric series:
-
-```bash
-# set variables
-HMP=data/usda_rils_projected-SVs-SNPs.poly.hmp.txt
-SVS=data/SVs_IDs_poly.txt
-POPS=10
-REPS=3
-ENVS=1
-MODEL=A
-EFFECTTYPE=geometric
-EFFECTSIZE=0.1
-SEED=2020
-# optional variables
-QTNVAR=QTN-variance
-
-for H2 in 0.2 0.5 0.9; do
-  for QTN in 10 100 200; do
-    for VAR in SNP SV; do
-      FOLDER=analysis/trait_sim/single_env/additive_model/${EFFECTTYPE}_effects/${QTN}-QTNs_from_${VAR}/${H2}-heritability
-      # simulate trait for single environment
-      sbatch --export=HMP=${HMP},SVS=${SVS},FOLDER=${FOLDER},VAR=${VAR},POPS=${POPS},REPS=${REPS},ENVS=${ENVS},H2=${H2},MODEL=${MODEL},QTN=${QTN},EFFECTTYPE=${EFFECTTYPE},EFFECTSIZE=${EFFECTSIZE},SEED=${SEED},QTNVAR=${QTNVAR} scripts/trait_simulation.sh
-    done
-  done
-done
-
-# use different SNP/SV ratio when causative variant is both SNPs and SVs
-VAR=both
-SVEFFECT=${EFFECTSIZE}
-
-for H2 in 0.2 0.5 0.9; do
-  for QTN in 10 100 200; do
-    for RATIO in 0.5 0.8; do
-      FOLDER=analysis/trait_sim/single_env/additive_model/${EFFECTTYPE}_effects/${QTN}-QTNs_from_${VAR}/SNP-SV-ratio_${RATIO}/${H2}-heritability
-      # simulate trait for single environment
-      sbatch --export=HMP=${HMP},SVS=${SVS},FOLDER=${FOLDER},VAR=${VAR},POPS=${POPS},REPS=${REPS},ENVS=${ENVS},H2=${H2},MODEL=${MODEL},QTN=${QTN},EFFECTTYPE=${EFFECTTYPE},EFFECTSIZE=${EFFECTSIZE},SEED=${SEED},QTNVAR=${QTNVAR},RATIO=${RATIO},SVEFFECT=${SVEFFECT} scripts/trait_simulation.sh
-    done
-  done
-done
-```
-
-
-QTNs' effect sizes are all the same:
-
-```bash
-# set variables
-HMP=data/usda_rils_projected-SVs-SNPs.poly.hmp.txt
-SVS=data/SVs_IDs_poly.txt
-POPS=10
-REPS=3
-ENVS=1
-MODEL=A
-EFFECTTYPE=equal
-EFFECTSIZE=0.1
-SEED=2020
-# optional variables
-QTNVAR=QTN-variance
-
-for H2 in 0.2 0.5 0.9; do
-  for QTN in 10 100 200; do
-    for VAR in SNP SV; do
-      FOLDER=analysis/trait_sim/single_env/additive_model/${EFFECTTYPE}_effects/${QTN}-QTNs_from_${VAR}/${H2}-heritability
-      # simulate trait for single environment
-      sbatch --export=HMP=${HMP},SVS=${SVS},FOLDER=${FOLDER},VAR=${VAR},POPS=${POPS},REPS=${REPS},ENVS=${ENVS},H2=${H2},MODEL=${MODEL},QTN=${QTN},EFFECTTYPE=${EFFECTTYPE},EFFECTSIZE=${EFFECTSIZE},SEED=${SEED},QTNVAR=${QTNVAR} scripts/trait_simulation.sh
-    done
-  done
-done
-
-# use different SNP/SV ratio when causative variant is both SNPs and SVs
-VAR=both
-SVEFFECT=${EFFECTSIZE}
-
-for H2 in 0.2 0.5 0.9; do
-  for QTN in 10 100 200; do
-    for RATIO in 0.5 0.8; do
-      FOLDER=analysis/trait_sim/single_env/additive_model/${EFFECTTYPE}_effects/${QTN}-QTNs_from_${VAR}/SNP-SV-ratio_${RATIO}/effects_SNP-${EFFECTSIZE}_SV-${SVEFFECT}/${H2}-heritability
-      # simulate trait for single environment
-      sbatch --export=HMP=${HMP},SVS=${SVS},FOLDER=${FOLDER},VAR=${VAR},POPS=${POPS},REPS=${REPS},ENVS=${ENVS},H2=${H2},MODEL=${MODEL},QTN=${QTN},EFFECTTYPE=${EFFECTTYPE},EFFECTSIZE=${EFFECTSIZE},SEED=${SEED},QTNVAR=${QTNVAR},RATIO=${RATIO},SVEFFECT=${SVEFFECT} scripts/trait_simulation.sh
-    done
-  done
-done
-```
-
-
-
-#### SVs have larger effects than SNPs
-
-
-QTNs' effect sizes are all the same (but if QTN is SV, it's effect size is bigger):
-
-```bash
-# set variables
-HMP=data/usda_rils_projected-SVs-SNPs.poly.hmp.txt
-SVS=data/SVs_IDs_poly.txt
-POPS=10
-REPS=3
-ENVS=1
-MODEL=A
-VAR=both
-EFFECTTYPE=equal
-EFFECTSIZE=0.1
-SEED=2020
-# optional variables
-QTNVAR=QTN-variance
-
-for H2 in 0.2 0.5 0.9; do
-  for QTN in 10 100 200; do
-    for RATIO in 0.5 0.8; do
-      for SVEFFECT in 0.2 0.5; do
-        FOLDER=analysis/trait_sim/single_env/additive_model/${EFFECTTYPE}_effects/${QTN}-QTNs_from_${VAR}/SNP-SV-ratio_${RATIO}/effects_SNP-${EFFECTSIZE}_SV-${SVEFFECT}/${H2}-heritability
-        # simulate trait for single environment
-        sbatch --export=HMP=${HMP},SVS=${SVS},FOLDER=${FOLDER},VAR=${VAR},POPS=${POPS},REPS=${REPS},ENVS=${ENVS},H2=${H2},MODEL=${MODEL},QTN=${QTN},EFFECTTYPE=${EFFECTTYPE},EFFECTSIZE=${EFFECTSIZE},SEED=${SEED},QTNVAR=${QTNVAR},RATIO=${RATIO},SVEFFECT=${SVEFFECT} scripts/trait_simulation.sh
-      done
-    done
-  done
-done
-```
+> Note: for the manuscript, I will focus only on multiple environment predictions.
 
 
 
@@ -1790,19 +1668,14 @@ done
 
 For multiple environments, I need to use a correlation matrix among environments in the `cor_res` option of `create_phenotypes()` function from simplePHENOTYPES.
 
-In my first run of the pipeline, I downloaded weather data (max temp, min temp and precipitation) from [NOAA's website](https://www.ncdc.noaa.gov/cdo-web/) and create a correlation matrix for 6 locations (Saint Paul MN, Janesville WI, Bloomington IL, Champaign IL, Thomasboro IL, White Health IL) in 2 years (from April-November 2019 and April-November 2020). These were the same environments as used for the USDA hybrid trials. The matrix was generated by the script `extract_env_correlations.R` at `../pheno_data/scripts` folder. For simplicity, I copied the matrix `usda_envs_cor_matrix.txt` generated by this script to `data` folder of this simulation project. However, the correlations among these environments are still very high (~0.7), which decreases the chances of getting a significant GxE interaction.
+Using the R package [EnvRtype](https://doi.org/10.1093/g3journal/jkab040), I gathered weather data from 5 locations used in the 2020 USDA hybrid trials (Iowa City IA, Bloomington IL, Champaign IL, Janesville WI, and Saint Paul MN) and obtained a correlation matrix across these envinoments. The input file was manually generated on excel (table containing 4 columns: Location, Symbol, Latitude, Longitude) and saved as `data/usda_sites_coord_for_simulation.csv`. The matrix was generated by `scripts/get_usda_env-types.R` and the output matrix `usda_envs_cor_matrix.txt` was saved in the `data` folder of this simulation project.
 
-Thus, I am now using a random generated correlation matrix for 20 environments to increase the chances of getting more signficant GxE interactions.
-
-```r
-library(data.table)
-library(randcorr)
-
-envs <- 20
-seed <- 2020
-set.seed(seed); res_cor_matrix <- apply(randcorr(envs), MARGIN = c(1,2), function(x) as.numeric(as.character(x)))
-
-fwrite(x = res_cor_matrix, file = "data/random_cor_matrix_20envs.txt", quote = FALSE, sep = "\t",na = NA, row.names = FALSE, col.names = FALSE)
+```bash
+# get similarity across environments
+Rscript scripts/get_usda_env-types.R data/usda_sites_coord_for_simulation.csv data/usda_envs_cor_matrix.txt \
+                                     --country=USA --start=2020-04-01 --end=2020-10-31 --heatmap
+# remove temp files
+rm USA*_msk_alt.*
 ```
 
 
@@ -1811,48 +1684,6 @@ fwrite(x = res_cor_matrix, file = "data/random_cor_matrix_20envs.txt", quote = F
 
 ##### No difference between SNPs and SVs effects
 
-QTNs' effect sizes follows a geometric series:
-
-```bash
-# set variables
-HMP=data/usda_rils_projected-SVs-SNPs.poly.hmp.txt
-SVS=data/SVs_IDs_poly.txt
-POPS=10
-REPS=3
-ENVS=20
-MODEL=A
-EFFECTTYPE=geometric
-EFFECTSIZE=0.1
-SEED=2020
-# optional variables
-QTNVAR=QTN-variance
-RESCOR=data/random_cor_matrix_20envs.txt
-
-for H2 in 0.2 0.5 0.9; do
-  for QTN in 10 100 200; do
-    for VAR in SNP SV; do
-      FOLDER=analysis/trait_sim/multi_env/no_gxe/additive_model/${EFFECTTYPE}_effects/${QTN}-QTNs_from_${VAR}/${H2}-heritability
-      # simulate trait for multiple environments
-      sbatch --export=HMP=${HMP},SVS=${SVS},FOLDER=${FOLDER},VAR=${VAR},POPS=${POPS},REPS=${REPS},ENVS=${ENVS},H2=${H2},MODEL=${MODEL},QTN=${QTN},EFFECTTYPE=${EFFECTTYPE},EFFECTSIZE=${EFFECTSIZE},SEED=${SEED},QTNVAR=${QTNVAR},RESCOR=${RESCOR} scripts/trait_simulation.sh
-    done
-  done
-done
-
-# use different SNP/SV ratio when causative variant is both SNPs and SVs
-VAR=both
-SVEFFECT=${EFFECTSIZE}
-
-for H2 in 0.2 0.5 0.9; do
-  for QTN in 10 100 200; do
-    for RATIO in 0.5 0.8; do
-      FOLDER=analysis/trait_sim/multi_env/no_gxe/additive_model/${EFFECTTYPE}_effects/${QTN}-QTNs_from_${VAR}/SNP-SV-ratio_${RATIO}/${H2}-heritability
-      # simulate trait for multiple environments
-      sbatch --export=HMP=${HMP},SVS=${SVS},FOLDER=${FOLDER},VAR=${VAR},POPS=${POPS},REPS=${REPS},ENVS=${ENVS},H2=${H2},MODEL=${MODEL},QTN=${QTN},EFFECTTYPE=${EFFECTTYPE},EFFECTSIZE=${EFFECTSIZE},SEED=${SEED},QTNVAR=${QTNVAR},RATIO=${RATIO},SVEFFECT=${SVEFFECT},RESCOR=${RESCOR} scripts/trait_simulation.sh
-    done
-  done
-done
-```
-
 QTNs' effect sizes are all the same:
 
 ```bash
@@ -1868,7 +1699,7 @@ EFFECTSIZE=0.1
 SEED=2020
 # optional variables
 QTNVAR=QTN-variance
-RESCOR=data/random_cor_matrix_20envs.txt
+RESCOR=data/usda_envs_cor_matrix.txt
 
 for H2 in 0.2 0.5 0.9; do
   for QTN in 10 100 200; do
@@ -1915,7 +1746,7 @@ EFFECTSIZE=0.1
 SEED=2020
 # optional variables
 QTNVAR=QTN-variance
-RESCOR=data/random_cor_matrix_20envs.txt
+RESCOR=data/usda_envs_cor_matrix.txt
 
 for H2 in 0.2 0.5 0.9; do
   for QTN in 10 100 200; do
@@ -1938,49 +1769,6 @@ done
 
 ##### No difference between SNPs and SVs effects
 
-QTNs' effect sizes follows a geometric series:
-
-```bash
-# set variables
-HMP=data/usda_rils_projected-SVs-SNPs.poly.hmp.txt
-SVS=data/SVs_IDs_poly.txt
-POPS=10
-REPS=3
-ENVS=20
-MODEL=A
-EFFECTTYPE=geometric
-EFFECTSIZE=0.1
-SEED=2020
-# optional variables
-QTNVAR=QTN-variance
-RESCOR=data/random_cor_matrix_20envs.txt
-GXE=gxe
-
-for H2 in 0.2 0.5 0.9; do
-  for QTN in 10 100 200; do
-    for VAR in SNP SV; do
-      FOLDER=analysis/trait_sim/multi_env/with_gxe/additive_model/${EFFECTTYPE}_effects/${QTN}-QTNs_from_${VAR}/${H2}-heritability
-      # simulate trait for multiple environments
-      sbatch --export=HMP=${HMP},SVS=${SVS},FOLDER=${FOLDER},VAR=${VAR},POPS=${POPS},REPS=${REPS},ENVS=${ENVS},H2=${H2},MODEL=${MODEL},QTN=${QTN},EFFECTTYPE=${EFFECTTYPE},EFFECTSIZE=${EFFECTSIZE},SEED=${SEED},QTNVAR=${QTNVAR},RESCOR=${RESCOR},GXE=${GXE} scripts/trait_simulation.sh
-    done
-  done
-done
-
-# use different SNP/SV ratio when causative variant is both SNPs and SVs
-VAR=both
-SVEFFECT=${EFFECTSIZE}
-
-for H2 in 0.2 0.5 0.9; do
-  for QTN in 10 100 200; do
-    for RATIO in 0.5 0.8; do
-      FOLDER=analysis/trait_sim/multi_env/with_gxe/additive_model/${EFFECTTYPE}_effects/${QTN}-QTNs_from_${VAR}/SNP-SV-ratio_${RATIO}/${H2}-heritability
-      # simulate trait for multiple environments
-      sbatch --export=HMP=${HMP},SVS=${SVS},FOLDER=${FOLDER},VAR=${VAR},POPS=${POPS},REPS=${REPS},ENVS=${ENVS},H2=${H2},MODEL=${MODEL},QTN=${QTN},EFFECTTYPE=${EFFECTTYPE},EFFECTSIZE=${EFFECTSIZE},SEED=${SEED},QTNVAR=${QTNVAR},RATIO=${RATIO},SVEFFECT=${SVEFFECT},RESCOR=${RESCOR},GXE=${GXE} scripts/trait_simulation.sh
-    done
-  done
-done
-```
-
 QTNs' effect sizes are all the same:
 
 ```bash
@@ -1996,7 +1784,7 @@ EFFECTSIZE=0.1
 SEED=2020
 # optional variables
 QTNVAR=QTN-variance
-RESCOR=data/random_cor_matrix_20envs.txt
+RESCOR=data/usda_envs_cor_matrix.txt
 GXE=gxe
 
 for H2 in 0.2 0.5 0.9; do
@@ -2046,7 +1834,7 @@ EFFECTSIZE=0.1
 SEED=2020
 # optional variables
 QTNVAR=QTN-variance
-RESCOR=data/random_cor_matrix_20envs.txt
+RESCOR=data/usda_envs_cor_matrix.txt
 GXE=gxe
 
 for H2 in 0.2 0.5 0.9; do
@@ -2078,7 +1866,7 @@ EFFECTSIZE=0.1
 SEED=2020
 # optional variables
 QTNVAR=QTN-variance
-RESCOR=data/random_cor_matrix_20envs.txt
+RESCOR=data/usda_envs_cor_matrix.txt
 GXE=gxe
 DIFFDIST=diff-dist-gxe
 
@@ -2111,7 +1899,7 @@ for H2 in 0.2 0.5 0.9; do
   for QTN in 10 100 200; do
     for VAR in SNP SV; do
       for GXE in no with; do
-        for EFFECTTYPE in geometric equal; do
+        for EFFECTTYPE in equal; do
           # get folder name
           FOLDER=analysis/trait_sim/multi_env/${GXE}_gxe/additive_model/${EFFECTTYPE}_effects/${QTN}-QTNs_from_${VAR}/${H2}-heritability
           # run anova and plot pve
