@@ -1786,11 +1786,6 @@ done
 
 
 
-
-
-
-
-
 ### Multiple environments, inbreds (additive effects only)
 
 For multiple environments, I need to use a correlation matrix among environments in the `cor_res` option of `create_phenotypes()` function from simplePHENOTYPES.
@@ -2033,7 +2028,9 @@ done
 
 ##### SVs have larger effects than SNPs
 
-QTNs' effect sizes are all the same (but if QTN is SV, it's effect size is bigger):
+QTNs' effect sizes are all the same (but if QTN is SV, it's effect size is bigger).
+
+First, the random effects added per environment to simulate GxE will come from the same normal distribution for SNPs and SVs.
 
 ```bash
 # set variables
@@ -2065,9 +2062,42 @@ for H2 in 0.2 0.5 0.9; do
 done
 ```
 
+Second, the random effects added per environment to simulate GxE will come from different normal distributions: both will have mean zero, but the standard deviation of SVs will be proportional to the SV effects in relation to SNP effects (e.g. if SV effect is double the SNP effect, the standard deviation of SVs' normal distribution will also be 2x bigger than SNPs').
+
+```bash
+# set variables
+HMP=data/usda_rils_projected-SVs-SNPs.poly.hmp.txt
+SVS=data/SVs_IDs_poly.txt
+POPS=10
+REPS=3
+ENVS=20
+MODEL=A
+VAR=both
+EFFECTTYPE=equal
+EFFECTSIZE=0.1
+SEED=2020
+# optional variables
+QTNVAR=QTN-variance
+RESCOR=data/random_cor_matrix_20envs.txt
+GXE=gxe
+DIFFDIST=diff-dist-gxe
+
+for H2 in 0.2 0.5 0.9; do
+  for QTN in 10 100 200; do
+    for RATIO in 0.5 0.8; do
+      for SVEFFECT in 0.2 0.5; do
+        FOLDER=analysis/trait_sim/multi_env/with_gxe/additive_model/${EFFECTTYPE}_effects/${QTN}-QTNs_from_${VAR}/SNP-SV-ratio_${RATIO}/effects_SNP-${EFFECTSIZE}_SV-${SVEFFECT}_${DIFFDIST}/${H2}-heritability
+        # simulate trait for multiple environments
+        sbatch --export=HMP=${HMP},SVS=${SVS},FOLDER=${FOLDER},VAR=${VAR},POPS=${POPS},REPS=${REPS},ENVS=${ENVS},H2=${H2},MODEL=${MODEL},QTN=${QTN},EFFECTTYPE=${EFFECTTYPE},EFFECTSIZE=${EFFECTSIZE},SEED=${SEED},QTNVAR=${QTNVAR},RATIO=${RATIO},SVEFFECT=${SVEFFECT},RESCOR=${RESCOR},GXE=${GXE},DIFFDIST=${DIFFDIST} scripts/trait_simulation.sh
+      done
+    done
+  done
+done
+```
 
 
-#### QC multiple environment traits with ANOVA
+
+#### QC with ANOVA
 
 Run ANOVA and plot PVE of QTNs:
 
@@ -2111,8 +2141,49 @@ for H2 in 0.2 0.5 0.9; do
     done
   done
 done
-```
 
+# SNPs and SVs with different effects -- GxE effects from different distributions
+VAR=both
+EFFECTTYPE=equal
+EFFECTSIZE=0.1
+
+for H2 in 0.2 0.5 0.9; do
+  for QTN in 10 100 200; do
+    for GXE in with; do
+      for RATIO in 0.5 0.8; do
+        for SVEFFECT in 0.2 0.5; do
+          # get folder name
+          FOLDER=analysis/trait_sim/multi_env/${GXE}_gxe/additive_model/${EFFECTTYPE}_effects/${QTN}-QTNs_from_${VAR}/SNP-SV-ratio_${RATIO}/effects_SNP-${EFFECTSIZE}_SV-${SVEFFECT}_diff-dist-gxe/${H2}-heritability
+          # run anova and plot pve
+          sbatch --export=FOLDER=${FOLDER},SVS=${SVS},POPS=${POPS} scripts/anova_sim_traits.sh
+        done
+      done
+    done
+  done
+done
+
+
+
+#### check jobs that didn't run -- all from diff-dist-gxe
+#### retrieve all variance explained plots using scp
+#### TODO -- fix ssh keys before doing that
+# for H2 in 0.2 0.5 0.9; do
+#   for QTN in 10 100 200; do
+#     for VAR in SNP SV; do
+#       for GXE in no with; do
+#         for EFFECTTYPE in geometric equal; do
+#           for POP in {1..10}; do
+#             # get folder name with files
+#             FOLDER=analysis/trait_sim/multi_env/${GXE}_gxe/additive_model/${EFFECTTYPE}_effects/${QTN}-QTNs_from_${VAR}/${H2}-heritability/pop${POP}
+#             # copy files to my mac
+#             scp della028@mangi.msi.umn.edu:/home/hirschc1/della028/projects/genomic_prediction/simulation/${FOLDER}/var_explained*.pdf ${FOLDER}
+#           done
+#         done
+#       done
+#     done
+#   done
+# done
+```
 
 
 
@@ -2179,7 +2250,7 @@ for marker in sv snp snp_ld snp_not_ld; do
 done
 ```
 
-After filtering the hapmap file according to marker types, I needed to make sure that all datasets have the same number of markers. To do that, I will randomly select markers based on the dataset with the lowest number of markers.
+After filtering the hapmap file according to marker types, I needed to make sure that all datasets have the same number of markers. To do that, I will randomly select markers based on the dataset with the lowest number of markers (bootstraped 100 times to get different markers each iteration).
 
 ```bash
 wc -l analysis/trait_sim/datasets/usda_rils.*_markers.hmp.txt
@@ -2191,34 +2262,44 @@ wc -l analysis/trait_sim/datasets/usda_rils.*_markers.hmp.txt
 
 # minimum number is 5477 - header = 5476
 
+# bootstrap (100 times) to select random markers to keep all datsets with same number of markers
 SEED=1990
 NSAMPLE=5476
-for marker in all sv snp snp_ld snp_not_ld; do
-  # if data has SVs and SNPs, randomly sample equal numbers of SVs and SNPs
-  [[ ${marker} == all ]] && options="--proportion-SV-SNP=0.5 --SVs-list=data/SVs_IDs_poly.txt" || options=""
-  IN=analysis/trait_sim/datasets/usda_rils.${marker}_markers.hmp.txt
-  OUT=analysis/trait_sim/datasets/usda_rils.${marker}_markers.adjusted-n-markers.hmp.txt
-  OPT=${options}
-  SEED=${SEED}
-  Rscript scripts/select_random_markers.R ${IN} ${OUT} ${NSAMPLE} ${OPT} --seed=${SEED}
-  # each dataset will have different seed number
-  SEED=$((${SEED}+1))
-done
-
-
-# TODO:
-# bootstrap (100 times) to select random markers to keep all datsets with same number of markers
-# I might just need to add a for loop from 1..100 before the "for marker" loop
-# at each round, create a new folder with the iteration number and the 5 datasets inside
-
-
-# make sure allele column is correct
-for marker in all sv snp snp_ld snp_not_ld; do
-  run_pipeline.pl -Xmx10g -importGuess analysis/trait_sim/datasets/usda_rils.${marker}_markers.adjusted-n-markers.hmp.txt \
-                  -export analysis/trait_sim/datasets/usda_rils.${marker}_markers.adjusted-n-markers.hmp.txt \
-                  -exportType HapmapDiploid
+for iter in {1..100}; do
+  sbatch --export=SEED=${SEED},NSAMPLE=${NSAMPLE},ITER=${iter} scripts/select_random_markers.sh
+  SEED=$((${SEED}+5))
 done
 ```
+
+
+
+
+
+#### LD between causative variants and predictors
+
+```bash
+
+# calculate ld
+for chr in {1..10}; do
+  sbatch --export=CHR=${chr} scripts/ld_poly-markers.sh
+done
+
+# get predictors (name, chr, pos)
+#   filter ld file to have only the predictors
+#   get causative variants (name, chr, pos) for a certain trait
+#     if causative variant is in the ld file -- get ld and distance
+#     if not -- assume not in ld (ld = 0) and get distance
+
+
+
+
+
+
+
+
+
+```
+
 
 
 
@@ -2226,76 +2307,82 @@ done
 
 I will run prediction models in both single and multiple environment scenarios.
 
-
-
-#### Single environment
+> Note: for the manuscript, I will focus only on multiple environment predictions.
 
 
 
 #### Multiple environments
 
+I will be using ASREML-R to run predictions, but the license I have doesn't allow me to run things in the cloud (or MSI). So I will copy all the files from the simulations and datasets created above to our lab Linux server.
+
 ```bash
-# RUNNING ON MY MAC FOR NOW
-# analysis done for the maize meeting
+# simulated traits without gxe
+scp -r analysis/trait_sim/multi_env/no_gxe/additive_model/equal_effects/ candy@134.84.43.7:/home/candy/rafa/genomic_prediction/simulation/analysis/trait_sim/multi_env/no_gxe/additive_model/
 
-####
-#### get blups
-####
+# simulated traits with gxe
+scp -r analysis/trait_sim/multi_env/with_gxe/additive_model/equal_effects/ candy@134.84.43.7:/home/candy/rafa/genomic_prediction/simulation/analysis/trait_sim/multi_env/with_gxe/additive_model/
 
-for H2 in 0.2 0.5; do
-  for QTN in 10 100; do
-    for VAR in SNP SV; do
-      for GXE in no with; do
-        for EFFECTTYPE in equal; do
-          for POP in 1 2 3; do
-            # get folder name
-            FOLDER=analysis/trait_sim/maize-meeting/multi_env/${GXE}_gxe/additive_model/${EFFECTTYPE}_effects/${QTN}-QTNs_from_${VAR}/${H2}-heritability/pop${POP}
-            # copy file from msi
-            Rscript scripts/get_blups_per_env.R ${FOLDER}/Simulated_Data_3_Reps_Herit_${H2}_${H2}_${H2}_${H2}_${H2}.txt ${FOLDER}
-          done
-        done
-      done
-    done
-  done
+# datasets with marker data for prediction
+for iter in {1..10}; do
+  scp -r analysis/trait_sim/datasets/iter${iter}/ candy@134.84.43.7:/home/candy/rafa/genomic_prediction/simulation/analysis/trait_sim/datasets
 done
+#### TODO - I have 100 iterations for these datasets, but I'm transferring only 10 iterations for now.
+
+# also transfer scripts
+scp scripts/get_blups_per_env.R candy@134.84.43.7:/home/candy/rafa/genomic_prediction/simulation/scripts/
+scp scripts/genomic_prediction_from_blups.R candy@134.84.43.7:/home/candy/rafa/genomic_prediction/simulation/scripts/
+```
+
+I'm doing a two-stage genomic prediction analysis, where in the first stage I extract BLUPs from each environment separately, and then use these BLUPs in a second-stage as the phenotypes for my genomic predictions across multiple environments.
+
+
+```bash
+# 1st stage -- get blups for each environment
+nohup bash scripts/genomic_prediction_stage1.sh > analysis/trait_sim/multi_env/genomic_prediction_stage1.log 2>&1 &
+echo $! > analysis/trait_sim/multi_env/nohup_pid_stage1.txt
+# # if need to kill process, run:
+# kill -9 `analysis/trait_sim/multi_env/nohup_pid_stage1.txt`
+# rm analysis/trait_sim/multi_env/nohup_pid_stage1.txt
+
+# 2nd stage -- run predictions across all environments using blups from previous stage
+nohup bash scripts/genomic_prediction_stage2.sh > analysis/trait_sim/multi_env/genomic_prediction_stage2.part1.log 2>&1 &
+echo $! > analysis/trait_sim/multi_env/nohup_pid_stage2.part1.txt
+# # if need to kill process, run:
+# kill -9 `analysis/trait_sim/multi_env/nohup_pid_stage2.part1.txt`
+# rm analysis/trait_sim/multi_env/nohup_pid_stage2.part1.txt
+
+
+# timing: diag() structure ~ 6 min per scenario
+
+# all_markers - H2 0.5 0.9 - QTN 100 - VAR SNP - GXE no - POP 1
+
+
+
+
+
+
+
+
+#### DO ONE ITERATION AT A TIME
+#### FIRST DO WITHOUT WEIGHTS
+
+
+
 
 VAR=both
 EFFECTTYPE=equal
 EFFECTSIZE=0.1
-for H2 in 0.2 0.5; do
-  for QTN in 10 100; do
-    for GXE in no with; do
-      for RATIO in 0.5 0.8; do
-        for SVEFFECT in 0.1 0.2 0.5; do
-          for POP in 1 2 3; do
-            # get folder name
-            FOLDER=analysis/trait_sim/maize-meeting/multi_env/${GXE}_gxe/additive_model/${EFFECTTYPE}_effects/${QTN}-QTNs_from_${VAR}/SNP-SV-ratio_${RATIO}/effects_SNP-${EFFECTSIZE}_SV-${SVEFFECT}/${H2}-heritability/pop${POP}
-            # copy file from msi
-            Rscript scripts/get_blups_per_env.R ${FOLDER}/Simulated_Data_3_Reps_Herit_${H2}_${H2}_${H2}_${H2}_${H2}.txt ${FOLDER}
-          done
-        done
-      done
-    done
-  done
-done
-
-
-
-####
-#### run predictions
-####
-
 for DATASET in all_markers snp_ld_markers sv_markers snp_markers snp_not_ld_markers; do
-  for H2 in 0.2 0.5; do
-    for QTN in 10 100; do
-      for VAR in SNP SV; do
-        for GXE in no with; do
-          for EFFECTTYPE in equal; do
-            for POP in 1 2 3; do
+  for H2 in 0.2 0.5 0.9; do
+    for QTN in 10 100 200; do
+      for GXE in no with; do
+        for RATIO in 0.5 0.8; do
+          for SVEFFECT in 0.1 0.2 0.5; do
+            for POP in $(seq 1 10); do
               # get folder name
-              FOLDER=analysis/trait_sim/maize-meeting/multi_env/${GXE}_gxe/additive_model/${EFFECTTYPE}_effects/${QTN}-QTNs_from_${VAR}/${H2}-heritability/pop${POP}
+              FOLDER=analysis/trait_sim/multi_env/${GXE}_gxe/additive_model/${EFFECTTYPE}_effects/${QTN}-QTNs_from_${VAR}/SNP-SV-ratio_${RATIO}/effects_SNP-${EFFECTSIZE}_SV-${SVEFFECT}/${H2}-heritability/pop${POP}
               # copy file from msi
-              Rscript scripts/genomic_prediction.R analysis/trait_sim/datasets/usda_rils.${DATASET}.adjusted-n-markers.hmp.txt \
+              Rscript scripts/genomic_prediction.R analysis/trait_sim/datasets/iter1/usda_rils.${DATASET}.adjusted-n-markers.hmp.txt \
                                                    ${FOLDER}/blups_1st_stage.txt \
                                                    ${FOLDER}/prediction_${DATASET} \
                                                    5 5 5
@@ -2311,16 +2398,16 @@ VAR=both
 EFFECTTYPE=equal
 EFFECTSIZE=0.1
 for DATASET in all_markers snp_ld_markers sv_markers snp_markers snp_not_ld_markers; do
-  for H2 in 0.2 0.5; do
-    for QTN in 10 100; do
-      for GXE in no with; do
+  for H2 in 0.2 0.5 0.9; do
+    for QTN in 10 100 200; do
+      for GXE in with; do
         for RATIO in 0.5 0.8; do
-          for SVEFFECT in 0.1 0.2 0.5; do
-            for POP in 2 3; do
+          for SVEFFECT in 0.2 0.5; do
+            for POP in $(seq 1 10); do
               # get folder name
-              FOLDER=analysis/trait_sim/maize-meeting/multi_env/${GXE}_gxe/additive_model/${EFFECTTYPE}_effects/${QTN}-QTNs_from_${VAR}/SNP-SV-ratio_${RATIO}/effects_SNP-${EFFECTSIZE}_SV-${SVEFFECT}/${H2}-heritability/pop${POP}
+              FOLDER=analysis/trait_sim/multi_env/${GXE}_gxe/additive_model/${EFFECTTYPE}_effects/${QTN}-QTNs_from_${VAR}/SNP-SV-ratio_${RATIO}/effects_SNP-${EFFECTSIZE}_SV-${SVEFFECT}_diff-dist-gxe/${H2}-heritability/pop${POP}
               # copy file from msi
-              Rscript scripts/genomic_prediction.R analysis/trait_sim/datasets/usda_rils.${DATASET}.adjusted-n-markers.hmp.txt \
+              Rscript scripts/genomic_prediction.R analysis/trait_sim/datasets/iter1/usda_rils.${DATASET}.adjusted-n-markers.hmp.txt \
                                                    ${FOLDER}/blups_1st_stage.txt \
                                                    ${FOLDER}/prediction_${DATASET} \
                                                    5 5 5
