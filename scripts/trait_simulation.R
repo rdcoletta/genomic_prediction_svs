@@ -470,6 +470,8 @@ if (envs > 1) {
       gen_cor_matrix <- matrix(data = rep(1, times = envs * envs), nrow = envs, ncol = envs)
     } else {
       gen_cor_matrix <- fread(gen_cor_matrix, header = FALSE, data.table = FALSE, stringsAsFactors = FALSE)
+      # remove header, if it exists
+      if (nrow(gen_cor_matrix) > ncol(gen_cor_matrix)) gen_cor_matrix <- apply(gen_cor_matrix[-1, ], c(1,2), as.numeric)
       gen_cor_matrix <- as.matrix(gen_cor_matrix)
     }
   }
@@ -479,6 +481,8 @@ if (envs > 1) {
     res_cor_matrix <- apply(randcorr(envs), MARGIN = c(1,2), function(x) as.numeric(as.character(x)))
   } else {
     res_cor_matrix <- fread(res_cor_matrix, header = FALSE, data.table = FALSE, stringsAsFactors = FALSE)
+    # remove header, if it exists
+    if (nrow(res_cor_matrix) > ncol(res_cor_matrix)) res_cor_matrix <- apply(res_cor_matrix[-1, ], c(1,2), as.numeric)
     res_cor_matrix <- as.matrix(res_cor_matrix)
   }
 }
