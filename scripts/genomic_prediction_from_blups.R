@@ -205,8 +205,11 @@ rm(A)
 
 #### create groups for 5-fold CV ----
 
+# i'll do a few extra CV iterations than what user supplied in the command line
+# to account for possible problems during model convergence by asreml
+
 k_folds <- list()
-for(i in 1:cv_iter){
+for(i in 1:(cv_iter * 3)){
 
   # set seed for reproducibility
   set.seed(seed + i)
@@ -254,104 +257,150 @@ for(j in 1:cv_iter) {
 
   cat(paste0("\n---- ", n_folds, "-fold ", cv_type," iteration ", j, " ---\n"))
 
-  registerDoParallel(cores = n_folds)
-  results_folds <- foreach(i = 1:n_folds, .combine = c) %dopar% {
-
-    cat("  fold ", i, ":\n", sep = "")
-
-    # get pheno data
-    means_test <- means
-    # mask genotypes in test population according to CV scheme
-    if (cv_type == "CV1") {
-      means_test[which(means[, "genotype"] %in% k_folds[[j]][[i]]), 2:NCOL(means)] <- NA
-    }
-    if (cv_type == "CV2") {
-      for (env in 1:total_envs) {
-        means_test[which(means[, "genotype"] %in% k_folds[[j]][[paste0("fold", i, "_env", env)]]), 1 + env] <- NA
+  extra_cv_iter <- 0
+  models_converged <- FALSE
+  while (models_converged == FALSE) {
+    
+    registerDoParallel(cores = n_folds)
+    results_folds <- try(foreach(i = 1:n_folds, .combine = c) %dopar% {
+      
+      cat("  fold ", i, ":\n", sep = "")
+      
+      # get pheno data
+      means_test <- means
+      # mask genotypes in test population according to CV scheme
+      if (cv_type == "CV1") {
+        means_test[which(means[, "genotype"] %in% k_folds[[j+extra_cv_iter]][[i]]), 2:NCOL(means)] <- NA
       }
-    }
-
-    # run mixed model
-    cat("    fitting model...\n")
-
-    if (!env_weights) {
-      # if not using weights, data can be used in the wide format
-      envs_data <- as.matrix(means_test[, 2:NCOL(means)])
-      model <- asreml(fixed = envs_data ~ trait,
-                      random = ~ diag(trait):vm(genotype, source = ginv),
-                      residual = ~ id(units):us(trait),
-                      workspace = "128mb",
-                      maxit = 100,
-                      trace = FALSE,
-                      data = means_test)
-    } else {
-      # if using weights, data need to be in long format
-      means_test <- pivot_longer(means_test, -genotype, names_to = "environment", values_to = "sim_trait")
-      means_test <- means_test[order(means_test$genotype, means_test$environment), ]
-      means_test$environment <- as.factor(means_test$environment)
-      # add weights back to data frame with simulated phenotypes
-      means_test$weight <- weights[match(means_test$environment, weights$environment), "weight"]
-      model <- asreml(fixed = sim_trait ~ environment,
-                      random = ~ diag(environment):vm(genotype, source = ginv),
-                      residual = ~ id(units):us(environment),
-                      weights = weight,
-                      asmv = environment,
-                      family = asr_gaussian(dispersion = 1),
-                      workspace = "128mb",
-                      maxit = 100,
-                      trace = TRUE,
-                      data = means_test)
-    }
-    # update model until converge and % change in parameters is lower than 0.1 -- do it max 10 times
-    try <- 1
-    while ((!model$converge | any(summary(model)$varcomp$`%ch` > 0.1, na.rm = TRUE)) & try <= 10) {
-      cat("    updating model until converge...\n")
-      model <- update.asreml(model)
-      try <- try + 1
-    }
-    if ((!model$converge | any(summary(model)$varcomp$`%ch` > 0.1, na.rm = TRUE)) & try == 11) cat("Model didn't converge")
-
-    # predict phenotypes
-    cat("    running predictions...\n")
-    if (!env_weights) {
-      pred <- predict(model, classify = "trait:genotype", pworkspace = "128mb", trace = FALSE)
-      pred <- data.frame(pred$pvals)
-      pred <- pred[, c("genotype", "trait", "predicted.value")]
-      pred <- pivot_wider(pred, names_from = trait, values_from = predicted.value)
-    } else {
-      pred <- predict(model, classify = "environment:genotype", pworkspace = "128mb", trace = FALSE)
-      pred <- data.frame(pred$pvals)
-      pred <- pred[, c("genotype", "environment", "predicted.value")]
-      pred <- pivot_wider(pred, names_from = environment, values_from = predicted.value)
-    }
-
-    # return predicted phenotypes for that fold according to CV scheme
-    if (cv_type == "CV1") {
-      if (all(k_folds[[j]][[i]] == pred[k_folds[[j]][[i]], "genotype"])) {
-        # cv1 table will be in wide format
-        pred_fold <- pred[k_folds[[j]][[i]], ]
+      if (cv_type == "CV2") {
+        for (env in 1:total_envs) {
+          means_test[which(means[, "genotype"] %in% k_folds[[j+extra_cv_iter]][[paste0("fold", i, "_env", env)]]), 1 + env] <- NA
+        }
+      }
+      
+      # run mixed model
+      cat("    fitting model...\n")
+      
+      if (!env_weights) {
+        # if not using weights, data can be used in the wide format
+        envs_data <- as.matrix(means_test[, 2:NCOL(means)])
+        initial_values <- asreml(fixed = envs_data ~ trait,
+                                 random = ~ diag(trait):vm(genotype, source = ginv),
+                                 residual = ~ id(units):us(trait),
+                                 workspace = "128mb",
+                                 maxit = 100,
+                                 trace = FALSE,
+                                 data = means_test,
+                                 start.values = TRUE)
+        initial_values <- initial_values$vparameters.table
+        model <- asreml(fixed = envs_data ~ trait,
+                        random = ~ diag(trait):vm(genotype, source = ginv),
+                        residual = ~ id(units):us(trait),
+                        workspace = "128mb",
+                        maxit = 100,
+                        trace = FALSE,
+                        data = means_test,
+                        G.param = initial_values,
+                        R.param = initial_values)
       } else {
-        stop("genotypes don't match")
+        # if using weights, data need to be in long format
+        means_test <- pivot_longer(means_test, -genotype, names_to = "environment", values_to = "sim_trait")
+        means_test <- means_test[order(means_test$genotype, means_test$environment), ]
+        means_test$environment <- as.factor(means_test$environment)
+        # add weights back to data frame with simulated phenotypes
+        means_test$weight <- weights[match(means_test$environment, weights$environment), "weight"]
+        initial_values <- asreml(fixed = sim_trait ~ environment,
+                                 random = ~ diag(environment):vm(genotype, source = ginv),
+                                 residual = ~ id(units):us(environment),
+                                 weights = weight,
+                                 asmv = environment,
+                                 family = asr_gaussian(dispersion = 1),
+                                 workspace = "128mb",
+                                 maxit = 100,
+                                 trace = FALSE,
+                                 data = means_test,
+                                 start.values = TRUE)
+        initial_values <- initial_values$vparameters.table
+        model <- asreml(fixed = sim_trait ~ environment,
+                        random = ~ diag(environment):vm(genotype, source = ginv),
+                        residual = ~ id(units):us(environment),
+                        weights = weight,
+                        asmv = environment,
+                        family = asr_gaussian(dispersion = 1),
+                        workspace = "128mb",
+                        maxit = 100,
+                        trace = FALSE,
+                        data = means_test,
+                        G.param = initial_values,
+                        R.param = initial_values)
       }
-    }
-    if (cv_type == "CV2") {
-      pred_fold <- data.frame()
-      for (env in 1:total_envs) {
-        fold_env <- names(k_folds[[j]])[grep(paste0("fold", i, "_env", env), names(k_folds[[j]]))]
-        fold_values <- pred[k_folds[[j]][[fold_env]], c("genotype", paste0("env", env))]
-        colnames(fold_values) <- c("genotype", "pred_values")
-        # cv2 table will be in long format to keep track of genotypes masked in each env
-        pred_fold <- rbind(pred_fold, cbind(fold = paste0("fold", i), environment = paste0("env", env), fold_values))
+      
+      # update model until converge and % change in parameters is lower than 0.1 -- do it max 10 times
+      try <- 1
+      while ((!model$converge | any(summary(model)$varcomp$`%ch` > 0.1, na.rm = TRUE)) & try <= 10) {
+        cat("    updating model until converge...\n")
+        model <- update.asreml(model)
+        try <- try + 1
       }
+      if ((!model$converge | any(summary(model)$varcomp$`%ch` > 0.1, na.rm = TRUE)) & try == 11) stop("Model didn't converge")
+      
+      # predict phenotypes
+      cat("    running predictions...\n")
+      if (!env_weights) {
+        pred <- predict(model, classify = "trait:genotype", pworkspace = "128mb", trace = FALSE)
+        pred <- data.frame(pred$pvals)
+        pred <- pred[, c("genotype", "trait", "predicted.value")]
+        pred <- pivot_wider(pred, names_from = trait, values_from = predicted.value)
+      } else {
+        pred <- predict(model, classify = "environment:genotype", pworkspace = "128mb", trace = FALSE)
+        pred <- data.frame(pred$pvals)
+        pred <- pred[, c("genotype", "environment", "predicted.value")]
+        pred <- pivot_wider(pred, names_from = environment, values_from = predicted.value)
+      }
+      
+      # return predicted phenotypes for that fold according to CV scheme
+      if (cv_type == "CV1") {
+        if (all(k_folds[[j+extra_cv_iter]][[i]] == pred[k_folds[[j+extra_cv_iter]][[i]], "genotype"])) {
+          # cv1 table will be in wide format
+          pred_fold <- pred[k_folds[[j+extra_cv_iter]][[i]], ]
+        } else {
+          stop("genotypes don't match")
+        }
+      }
+      if (cv_type == "CV2") {
+        pred_fold <- data.frame()
+        for (env in 1:total_envs) {
+          fold_env <- names(k_folds[[j+extra_cv_iter]])[grep(paste0("fold", i, "_env", env), names(k_folds[[j+extra_cv_iter]]))]
+          fold_values <- pred[k_folds[[j+extra_cv_iter]][[fold_env]], c("genotype", paste0("env", env))]
+          colnames(fold_values) <- c("genotype", "pred_values")
+          # cv2 table will be in long format to keep track of genotypes masked in each env
+          pred_fold <- rbind(pred_fold, cbind(fold = paste0("fold", i), environment = paste0("env", env), fold_values))
+        }
+      }
+      
+      cat("    done!\n\n")
+      
+      return(list(pred_fold))
+      
+    })
+    stopImplicitCluster()
+    
+    # if any of the folds had singularity/convergence issues, try again with
+    # an another set of folds (i.e. another CV iteration)
+    if (class(results_folds) == "try-error") {
+      
+      models_converged <- FALSE
+      extra_cv_iter <- extra_cv_iter + cv_iter
+      if (extra_cv_iter >= cv_iter * 3) stop("ASREML couldn't converge models after 3 extra CV iterations")
+      
+    } else {
+      
+      # if there was no issue, proceed to calculate accuracy across folds
+      models_converged <- TRUE
+      
     }
-
-    cat("    done!\n\n")
-
-    return(list(pred_fold))
-
   }
-  stopImplicitCluster()
-
+  
   # combine predicted phenotypes from all folds
   pred_pheno <- do.call(rbind, results_folds)
   if (cv_type == "CV1") {
@@ -476,7 +525,7 @@ fwrite(gebv_ranks, file = paste0(output_folder, "/GEBVs_ranks.", cv_type, ".txt"
 # cv_iter <- 3
 # total_envs <- 5
 # seed <- 2021
-# cv_type <- "CV2"
+# cv_type <- "CV1"
 # env_weights <- FALSE
 
 # # CV1
