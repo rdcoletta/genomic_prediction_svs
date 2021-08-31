@@ -233,9 +233,11 @@ simulateTraits <- function(geno_data = NULL,
         set.seed(gxe_seed)
         gxe_effect <- rnorm(n = add_QTN_num, mean = 0, sd = 0.3)
         # if requested, draw GxE effects for SVs from a different distribution
-        if (diff_dist_gxe & SV_effect != marker_effect & length(sv_qtns) > 0) {
-          set.seed(gxe_seed)
-          gxe_effect[sv_qtns] <- rnorm(n = length(sv_qtns), mean = 0, sd = (SV_effect / marker_effect) * 0.3)
+        if (diff_dist_gxe & !is.null(SV_effect)) {
+          if (SV_effect != marker_effect & length(sv_qtns) > 0) {
+            set.seed(gxe_seed)
+            gxe_effect[sv_qtns] <- rnorm(n = length(sv_qtns), mean = 0, sd = (SV_effect / marker_effect) * 0.3)
+          }
         }
         gxe_effect <- round(gxe_effect, digits = 4)
         # remove gxe effects for qtns with zero or constant effects
@@ -590,10 +592,11 @@ for (pop_number in 1:pops) {
 # h2 <- 0.2
 # model <- "A"
 # add_QTN_num <- 100
-# add_effect <- "equal"
+# add_effect_type <- "equal"
 # # add_effect_type <- "geometric"
 # marker_effect <- 0.1
-# SV_effect <- 0.2
+# # SV_effect <- 0.2
+# SV_effect <- NULL
 # architecture <- "pleiotropic"
 # seed <- 2020
 # set.seed(seed); res_cor_matrix <- apply(randcorr(envs), MARGIN = c(1,2), function(x) as.numeric(as.character(x)))
