@@ -10,7 +10,7 @@ library(gtools)
 if(!require("GAPIT3")) {
   source("http://zzlab.net/GAPIT/GAPIT.library.R")
   source("http://zzlab.net/GAPIT/gapit_functions.txt")
-} 
+}
 suppressWarnings(suppressMessages(library(doParallel)))
 
 
@@ -62,7 +62,7 @@ n_folds <- "5"
 cv_iter <- "3"
 total_envs <- NULL
 seed <- NULL
-env_weights <- FALSE
+envs_weight <- FALSE
 
 args <- commandArgs(trailingOnly = TRUE)
 if ("--help" %in% args) usage() & q(save = "no")
@@ -150,7 +150,7 @@ rm(hapmap)
 # load and format phenotypic data
 means <- fread(blups_file, header = TRUE, data.table = FALSE)
 
-if (env_weights) {
+if (envs_weight) {
   # create a separate data frame with environmental weights
   weights <- aggregate(weight ~ environment, FUN = mean, data = means)
   weights <- weights[mixedorder(weights$environment), ]
@@ -165,7 +165,7 @@ means <- data.frame(means)
 # filter total number of environments
 if (is.null(total_envs)) total_envs <- NCOL(means) - 1
 means <- means[, c(1:(total_envs + 1))]
-if (env_weights) weights <- weights[1:total_envs, ]
+if (envs_weight) weights <- weights[1:total_envs, ]
 
 
 # using only phenotypes with snp information
@@ -260,12 +260,12 @@ for(j in 1:cv_iter) {
   extra_cv_iter <- 0
   models_converged <- FALSE
   while (models_converged == FALSE) {
-    
+
     registerDoParallel(cores = n_folds)
     results_folds <- try(foreach(i = 1:n_folds, .combine = c) %dopar% {
-      
+
       cat("  fold ", i, ":\n", sep = "")
-      
+
       # get pheno data
       means_test <- means
       # mask genotypes in test population according to CV scheme
@@ -277,22 +277,28 @@ for(j in 1:cv_iter) {
           means_test[which(means[, "genotype"] %in% k_folds[[j+extra_cv_iter]][[paste0("fold", i, "_env", env)]]), 1 + env] <- NA
         }
       }
-      
+
       # run mixed model
       cat("    fitting model...\n")
-      
-      if (!env_weights) {
+
+      if (!envs_weight) {
         # if not using weights, data can be used in the wide format
         envs_data <- as.matrix(means_test[, 2:NCOL(means)])
-        initial_values <- asreml(fixed = envs_data ~ trait,
-                                 random = ~ diag(trait):vm(genotype, source = ginv),
-                                 residual = ~ id(units):us(trait),
-                                 workspace = "128mb",
-                                 maxit = 100,
-                                 trace = FALSE,
-                                 data = means_test,
-                                 start.values = TRUE)
-        initial_values <- initial_values$vparameters.table
+        # get initial values from a simpler model
+        model_init <- asreml(fixed = envs_data ~ trait,
+                             random = ~ diag(trait):vm(genotype, source = ginv),
+                             residual = ~ id(units):diag(trait),
+                             workspace = "128mb",
+                             maxit = 100,
+                             trace = FALSE,
+                             data = means_test)
+        G_init <- data.frame(Component = names(model_init$G.param$`trait:vm(genotype, source = ginv)`$trait$initial),
+                             Value = as.numeric(model_init$G.param$`trait:vm(genotype, source = ginv)`$trait$initial),
+                             Constraint = model_init$G.param$`trait:vm(genotype, source = ginv)`$trait$con)
+        R_init <- data.frame(Component = names(model_init$R.param$`units:trait`$trait$initial),
+                             Value = as.numeric(model_init$R.param$`units:trait`$trait$initial),
+                             Constraint = model_init$R.param$`units:trait`$trait$con)
+        # run more complex model with initial values
         model <- asreml(fixed = envs_data ~ trait,
                         random = ~ diag(trait):vm(genotype, source = ginv),
                         residual = ~ id(units):us(trait),
@@ -300,8 +306,8 @@ for(j in 1:cv_iter) {
                         maxit = 100,
                         trace = FALSE,
                         data = means_test,
-                        G.param = initial_values,
-                        R.param = initial_values)
+                        G.param = G_init,
+                        R.param = R_init)
       } else {
         # if using weights, data need to be in long format
         means_test <- pivot_longer(means_test, -genotype, names_to = "environment", values_to = "sim_trait")
@@ -309,18 +315,24 @@ for(j in 1:cv_iter) {
         means_test$environment <- as.factor(means_test$environment)
         # add weights back to data frame with simulated phenotypes
         means_test$weight <- weights[match(means_test$environment, weights$environment), "weight"]
-        initial_values <- asreml(fixed = sim_trait ~ environment,
-                                 random = ~ diag(environment):vm(genotype, source = ginv),
-                                 residual = ~ id(units):us(environment),
-                                 weights = weight,
-                                 asmv = environment,
-                                 family = asr_gaussian(dispersion = 1),
-                                 workspace = "128mb",
-                                 maxit = 100,
-                                 trace = FALSE,
-                                 data = means_test,
-                                 start.values = TRUE)
-        initial_values <- initial_values$vparameters.table
+        # get initial values from a simpler model
+        model_init <- asreml(fixed = sim_trait ~ environment,
+                             random = ~ diag(environment):vm(genotype, source = ginv),
+                             residual = ~ id(units):diag(environment),
+                             weights = weight,
+                             asmv = environment,
+                             family = asr_gaussian(dispersion = 1),
+                             workspace = "128mb",
+                             maxit = 100,
+                             trace = FALSE,
+                             data = means_test)
+        G_init <- data.frame(Component = names(model_init$G.param$`environment:vm(genotype, source = ginv)`$environment$initial),
+                             Value = as.numeric(model_init$G.param$`environment:vm(genotype, source = ginv)`$environment$initial),
+                             Constraint = model_init$G.param$`environment:vm(genotype, source = ginv)`$environment$con)
+        R_init <- data.frame(Component = names(model_init$R.param$`units:environment`$environment$initial),
+                             Value = as.numeric(model_init$R.param$`units:environment`$environment$initial),
+                             Constraint = model_init$R.param$`units:environment`$environment$con)
+        # run more complex model with initial values
         model <- asreml(fixed = sim_trait ~ environment,
                         random = ~ diag(environment):vm(genotype, source = ginv),
                         residual = ~ id(units):us(environment),
@@ -331,22 +343,22 @@ for(j in 1:cv_iter) {
                         maxit = 100,
                         trace = FALSE,
                         data = means_test,
-                        G.param = initial_values,
-                        R.param = initial_values)
+                        G.param = G_init,
+                        R.param = R_init)
       }
-      
-      # update model until converge and % change in parameters is lower than 0.1 -- do it max 10 times
+
+      # update model until converge -- do it max 5 times
       try <- 1
-      while ((!model$converge | any(summary(model)$varcomp$`%ch` > 0.1, na.rm = TRUE)) & try <= 10) {
+      while (!model$converge & try <= 5) {
         cat("    updating model until converge...\n")
         model <- update.asreml(model)
         try <- try + 1
       }
-      if ((!model$converge | any(summary(model)$varcomp$`%ch` > 0.1, na.rm = TRUE)) & try == 11) stop("Model didn't converge")
-      
+      if (!model$converge & try == 6) stop("Model didn't converge")
+
       # predict phenotypes
       cat("    running predictions...\n")
-      if (!env_weights) {
+      if (!envs_weight) {
         pred <- predict(model, classify = "trait:genotype", pworkspace = "128mb", trace = FALSE)
         pred <- data.frame(pred$pvals)
         pred <- pred[, c("genotype", "trait", "predicted.value")]
@@ -357,7 +369,7 @@ for(j in 1:cv_iter) {
         pred <- pred[, c("genotype", "environment", "predicted.value")]
         pred <- pivot_wider(pred, names_from = environment, values_from = predicted.value)
       }
-      
+
       # return predicted phenotypes for that fold according to CV scheme
       if (cv_type == "CV1") {
         if (all(k_folds[[j+extra_cv_iter]][[i]] == pred[k_folds[[j+extra_cv_iter]][[i]], "genotype"])) {
@@ -377,30 +389,30 @@ for(j in 1:cv_iter) {
           pred_fold <- rbind(pred_fold, cbind(fold = paste0("fold", i), environment = paste0("env", env), fold_values))
         }
       }
-      
+
       cat("    done!\n\n")
-      
+
       return(list(pred_fold))
-      
+
     })
     stopImplicitCluster()
-    
+
     # if any of the folds had singularity/convergence issues, try again with
     # an another set of folds (i.e. another CV iteration)
     if (class(results_folds) == "try-error") {
-      
+
       models_converged <- FALSE
       extra_cv_iter <- extra_cv_iter + cv_iter
       if (extra_cv_iter >= cv_iter * 3) stop("ASREML couldn't converge models after 3 extra CV iterations")
-      
+
     } else {
-      
+
       # if there was no issue, proceed to calculate accuracy across folds
       models_converged <- TRUE
-      
+
     }
   }
-  
+
   # combine predicted phenotypes from all folds
   pred_pheno <- do.call(rbind, results_folds)
   if (cv_type == "CV1") {
@@ -512,7 +524,8 @@ fwrite(gebv_ranks, file = paste0(output_folder, "/GEBVs_ranks.", cv_type, ".txt"
 
 # markers_file <- "analysis/test_prediction/linux/usda_rils.all_markers.adjusted-n-markers.iter1.hmp.txt"
 # # blups_file <- "analysis/test_prediction/linux/blups_1st_stage.h2-0.5.txt"
-# blups_file <- "analysis/test_prediction/linux/blups_1st_stage.h2-0.9.txt"
+# # blups_file <- "analysis/test_prediction/linux/blups_1st_stage.h2-0.9.txt"
+# blups_file <- "analysis/test_prediction/linux/blups_1st_stage.qtns200.h2-0.3.txt"
 # output_folder <- "analysis/test_prediction/linux/prediction_all_markers"
 # # markers_file <- "analysis/trait_sim/datasets/usda_rils.all_markers.adjusted-n-markers.hmp.txt"
 # # blups_file <- "analysis/test_prediction/multi_env/with_gxe/100qtns_SVs_equal_0.5h2_pop1/blups_1st_stage.txt"
@@ -526,7 +539,7 @@ fwrite(gebv_ranks, file = paste0(output_folder, "/GEBVs_ranks.", cv_type, ".txt"
 # total_envs <- 5
 # seed <- 2021
 # cv_type <- "CV1"
-# env_weights <- FALSE
+# envs_weight <- FALSE
 
 # # CV1
 #                 env1        env2      env3        env4        env5
@@ -561,5 +574,5 @@ fwrite(gebv_ranks, file = paste0(output_folder, "/GEBVs_ranks.", cv_type, ".txt"
 # upper_CI 0.800844894 0.792774347 0.7869342072 0.816411123 0.800930559
 
 # accuracy pheno iter 1 h2 0.9 (cv 1 diag): -0.06422884 -0.06739743 -0.07900174 -0.07144830 -0.06569532
-# accuracy pheno iter 1 h2 0.9 (cv 2 diag): 
+# accuracy pheno iter 1 h2 0.9 (cv 2 diag):
 # accuracy pheno iter 1 h2 0.9 (cv 1 fa1): singularity...
