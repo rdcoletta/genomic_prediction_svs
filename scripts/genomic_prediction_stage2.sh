@@ -78,11 +78,8 @@ fi
 # go to project folder
 cd /home/candy/rafa/genomic_prediction/simulation
 
-echo "job started"
-
-echo "--- Part 1 @ $(date) ---"
 for PREDICTOR in all_markers snp_ld_markers sv_markers snp_markers snp_not_ld_markers; do
-  echo "  ${PREDICTOR}"
+  # echo "  ${PREDICTOR}"
   for H2 in 0.3 0.7; do
     for QTN in 10 100; do
       for VAR in SNP SV; do
@@ -106,12 +103,11 @@ for PREDICTOR in all_markers snp_ld_markers sv_markers snp_markers snp_not_ld_ma
               LOG=${FOLDER}/prediction_iter${NDATASET}_weighted/genomic_prediction_from_blups_weighted.${PREDICTOR}.log
               mkdir -p ${FOLDER}/prediction_iter${NDATASET}_weighted
             fi
-            echo "    ${FOLDER}"
+            # echo "    ${FOLDER}"
             # run prediction with cv1
-            Rscript scripts/genomic_prediction_from_blups.R ${GDATA} ${PDATA} ${OUT} --cv-type=CV1 --n-folds=${NFOLDS} --cv-iter=${NITER} --total-envs=${NENVS} --seed=${SEED} ${WEIGHT} > ${LOG%.log}.CV1.log 2>&1 &
+            echo "Rscript scripts/genomic_prediction_from_blups.R ${GDATA} ${PDATA} ${OUT} --cv-type=CV1 --n-folds=${NFOLDS} --cv-iter=${NITER} --total-envs=${NENVS} --seed=${SEED} ${WEIGHT} > ${LOG%.log}.CV1.log" >> scripts/commands_genomic_prediction_stage2.txt
             # run prediction with cv2
-            Rscript scripts/genomic_prediction_from_blups.R ${GDATA} ${PDATA} ${OUT} --cv-type=CV2 --n-folds=${NFOLDS} --cv-iter=${NITER} --total-envs=${NENVS} --seed=${SEED} ${WEIGHT} > ${LOG%.log}.CV2.log 2>&1 &
-            wait
+            echo "Rscript scripts/genomic_prediction_from_blups.R ${GDATA} ${PDATA} ${OUT} --cv-type=CV2 --n-folds=${NFOLDS} --cv-iter=${NITER} --total-envs=${NENVS} --seed=${SEED} ${WEIGHT} > ${LOG%.log}.CV2.log" >> scripts/commands_genomic_prediction_stage2.txt
           done
         done
       done
@@ -119,11 +115,11 @@ for PREDICTOR in all_markers snp_ld_markers sv_markers snp_markers snp_not_ld_ma
   done
 done
 
-echo "--- Part 2 @ $(date) ---"
+
 VAR=both
 EFFECTSIZE=0.1
 for PREDICTOR in all_markers snp_ld_markers sv_markers snp_markers snp_not_ld_markers; do
-  echo "  ${PREDICTOR}"
+  # echo "  ${PREDICTOR}"
   for H2 in 0.3 0.7; do
     for QTN in 10 100; do
       for GXE in with; do
@@ -148,12 +144,11 @@ for PREDICTOR in all_markers snp_ld_markers sv_markers snp_markers snp_not_ld_ma
                 LOG=${FOLDER}/prediction_iter${NDATASET}_weighted/genomic_prediction_from_blups_weighted.${PREDICTOR}.log
                 mkdir -p ${FOLDER}/prediction_iter${NDATASET}_weighted
               fi
-              echo "    ${FOLDER}"
+              # echo "    ${FOLDER}"
               # run prediction with cv1
-              Rscript scripts/genomic_prediction_from_blups.R ${GDATA} ${PDATA} ${OUT} --cv-type=CV1 --n-folds=${NFOLDS} --cv-iter=${NITER} --total-envs=${NENVS} --seed=${SEED} ${WEIGHT} > ${LOG%.log}.CV1.log 2>&1 &
+              echo "Rscript scripts/genomic_prediction_from_blups.R ${GDATA} ${PDATA} ${OUT} --cv-type=CV1 --n-folds=${NFOLDS} --cv-iter=${NITER} --total-envs=${NENVS} --seed=${SEED} ${WEIGHT} > ${LOG%.log}.CV1.log" >> scripts/commands_genomic_prediction_stage2.txt
               # run prediction with cv2
-              Rscript scripts/genomic_prediction_from_blups.R ${GDATA} ${PDATA} ${OUT} --cv-type=CV2 --n-folds=${NFOLDS} --cv-iter=${NITER} --total-envs=${NENVS} --seed=${SEED} ${WEIGHT} > ${LOG%.log}.CV2.log 2>&1 &
-              wait
+              echo "Rscript scripts/genomic_prediction_from_blups.R ${GDATA} ${PDATA} ${OUT} --cv-type=CV2 --n-folds=${NFOLDS} --cv-iter=${NITER} --total-envs=${NENVS} --seed=${SEED} ${WEIGHT} > ${LOG%.log}.CV2.log" >> scripts/commands_genomic_prediction_stage2.txt
             done
           done
         done
@@ -162,11 +157,11 @@ for PREDICTOR in all_markers snp_ld_markers sv_markers snp_markers snp_not_ld_ma
   done
 done
 
-echo "--- Part 3 @ $(date) ---"
+
 VAR=both
 EFFECTSIZE=0.1
 for PREDICTOR in all_markers snp_ld_markers sv_markers snp_markers snp_not_ld_markers; do
-  echo "  ${PREDICTOR}"
+  # echo "  ${PREDICTOR}"
   for H2 in 0.3 0.7; do
     for QTN in 10 100; do
       for GXE in with; do
@@ -191,12 +186,11 @@ for PREDICTOR in all_markers snp_ld_markers sv_markers snp_markers snp_not_ld_ma
                 LOG=${FOLDER}/prediction_iter${NDATASET}_weighted/genomic_prediction_from_blups_weighted.${PREDICTOR}.log
                 mkdir -p ${FOLDER}/prediction_iter${NDATASET}_weighted
               fi
-              echo "    ${FOLDER}"
+              # echo "    ${FOLDER}"
               # run prediction with cv1
-              Rscript scripts/genomic_prediction_from_blups.R ${GDATA} ${PDATA} ${OUT} --cv-type=CV1 --n-folds=${NFOLDS} --cv-iter=${NITER} --total-envs=${NENVS} --seed=${SEED} ${WEIGHT} > ${LOG%.log}.CV1.log 2>&1 &
+              echo "Rscript scripts/genomic_prediction_from_blups.R ${GDATA} ${PDATA} ${OUT} --cv-type=CV1 --n-folds=${NFOLDS} --cv-iter=${NITER} --total-envs=${NENVS} --seed=${SEED} ${WEIGHT} > ${LOG%.log}.CV1.log" >> scripts/commands_genomic_prediction_stage2.txt
               # run prediction with cv2
-              Rscript scripts/genomic_prediction_from_blups.R ${GDATA} ${PDATA} ${OUT} --cv-type=CV2 --n-folds=${NFOLDS} --cv-iter=${NITER} --total-envs=${NENVS} --seed=${SEED} ${WEIGHT} > ${LOG%.log}.CV2.log 2>&1 &
-              wait
+              echo "Rscript scripts/genomic_prediction_from_blups.R ${GDATA} ${PDATA} ${OUT} --cv-type=CV2 --n-folds=${NFOLDS} --cv-iter=${NITER} --total-envs=${NENVS} --seed=${SEED} ${WEIGHT} > ${LOG%.log}.CV2.log" >> scripts/commands_genomic_prediction_stage2.txt
             done
           done
         done
@@ -204,5 +198,3 @@ for PREDICTOR in all_markers snp_ld_markers sv_markers snp_markers snp_not_ld_ma
     done
   done
 done
-
-echo "job finished @ $(date)"
