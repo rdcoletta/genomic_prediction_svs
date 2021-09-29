@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH --time=1:00:00
+#SBATCH --time=2:00:00
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=1
+#SBATCH --ntasks-per-node=4
 #SBATCH --mem=100gb
 #SBATCH -J trait_simulation
 #SBATCH -o /home/hirschc1/della028/projects/genomic_prediction/simulation/analysis/trait_sim/MSI_dump/%x_%j.out
 #SBATCH -e /home/hirschc1/della028/projects/genomic_prediction/simulation/analysis/trait_sim/MSI_dump/%x_%j.err
-#SBATCH --mail-type=ALL
+#SBATCH --mail-type=FAIL
 #SBATCH --mail-user=della028@umn.edu
 #SBATCH --no-requeue
 
