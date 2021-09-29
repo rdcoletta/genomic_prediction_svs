@@ -4,12 +4,7 @@ data/*
 .Rproj.user
 *.Rhistory
 tests/*
-tests/scripts/*
 GAPIT*
 *.pdf
 *.png
 notes/*
-scripts/distribution_avg-ld_sv-snps.R
-scripts/function_kfold-CV.R
-scripts/plot_maf_per_ld.R
-scripts/plot_prediction_accuracy_maize-meeting.R
