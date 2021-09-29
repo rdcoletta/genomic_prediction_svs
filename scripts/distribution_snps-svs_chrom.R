@@ -28,6 +28,7 @@ plot_name <- args[2]
 
 # file wiht format NAME CHR POS
 # marker_info_file = "analysis/ld/window-100kb_filter-0.25/marker_info_highest-ld.txt"
+# marker_info_file = "data/positions_projected_snps-svs.txt"
 # plot_name <- "analysis/ld/window-100kb_filter-0.25/distribution_snps-svs_chrom.png"
 
 
@@ -53,7 +54,8 @@ if(!require("ggplot2")) install.packages("ggplot2")
 # marker_data_chr <- NULL
 
 # get the correct genotypic data
-marker_data <- fread(marker_info_file, header = FALSE, data.table = FALSE)
+# marker_data <- fread(marker_info_file, header = FALSE, data.table = FALSE)
+marker_data <- fread(marker_info_file, header = TRUE, data.table = FALSE)
 
 
 # add type of markers into main df
@@ -84,12 +86,15 @@ ggsave(plot = dist_hist, filename = gsub("png", "marker.hist.png", plot_name), d
 
 dist_densi <- ggplot(marker_data, aes(x = pos, fill = marker)) +
   geom_density(alpha = 0.5, position = "identity") +
-  facet_wrap(~chr, scales = "free_x") +
+  facet_wrap(~chr, scales = "free_x", nrow = 2) +
   scale_x_continuous(labels = function(x) x/1000000) +
+  scale_y_continuous(labels = function(y) y*1000000) +
   scale_color_manual(values = c("firebrick", "black"), aesthetics = "fill") +
   labs(x = "Position (Mb)",
-       y = "Count",
-       fill = "Marker type")
+       y = expression(paste("Density (x", 10^{6}, ")")),
+       fill = "Marker type") +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
 
 ggsave(plot = dist_densi, filename = gsub("png", "marker.densi.png", plot_name), device = "png")
 
