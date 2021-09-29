@@ -311,7 +311,10 @@ if (unequal_windows) {
   
   out_plot <- plotLDdecayBoxplot(data = df_plot, x = "bp_stop", y = "R2") +
     scale_x_discrete(labels = new_levels) +
-    stat_summary(fun.data = n_per_bin, geom = "text", size = 2)
+    stat_summary(fun.data = n_per_bin, geom = "text", size = 2) +
+    geom_boxplot(fill = "gray60") +
+    theme_bw() +
+    theme(panel.grid.minor.y = element_blank())
 
 } else if (avg_ld) {
 
