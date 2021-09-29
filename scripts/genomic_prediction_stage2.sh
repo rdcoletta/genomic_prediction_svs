@@ -188,7 +188,7 @@ for PREDICTOR in all_markers snp_ld_markers sv_markers snp_markers snp_not_ld_ma
               fi
               # echo "    ${FOLDER}"
               # run prediction with cv1
-              echo "Rscript scripts/genomic_prediction_from_blups.R ${GDATA} ${PDATA} ${OUT} --cv-type=CV1 --n-folds=${NFOLDS} --cv-iter=${NITER} --total-envs=${NENVS} --seed=${SEED} ${WEIGHT} > ${LOG%.log}.CV1.log" >> scripts/commands_genomic_prediction_stage2.txt
+              echo "Rscript scripts/genomic_prediction_from_blups.R ${GDATA} ${PDATA} ${OUT} --cv-type=CV1 --n-folds=${NFOLDS} --cv-iter=${NITER} --total-envs=${NENVS} --seed=${SEED} ${WEIGHT} > ${LOG%.log}.CV1.log" >>  scripts/commands_genomic_prediction_stage2.txt
               # run prediction with cv2
               echo "Rscript scripts/genomic_prediction_from_blups.R ${GDATA} ${PDATA} ${OUT} --cv-type=CV2 --n-folds=${NFOLDS} --cv-iter=${NITER} --total-envs=${NENVS} --seed=${SEED} ${WEIGHT} > ${LOG%.log}.CV2.log" >> scripts/commands_genomic_prediction_stage2.txt
             done
