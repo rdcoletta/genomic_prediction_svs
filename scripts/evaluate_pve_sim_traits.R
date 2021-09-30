@@ -11,7 +11,7 @@ gxe_results <- data.frame(gxe = as.character(),
                           ratio = as.numeric(),
                           sv_effect = as.numeric(),
                           diff_dist = as.logical(),
-                          pop = as.numeric(), 
+                          pop = as.numeric(),
                           gxe_pve = as.numeric(),
                           gxe_pval = as.numeric())
 
@@ -21,30 +21,30 @@ for (gxe in c("no", "with")) {
   for (qtn in c(10, 100)) {
     for (var in c("SNP", "SV", "both")) {
       for (h2 in c(0.3, 0.7)) {
-        for (pop in 1:10) {
-          
+        for (pop in 1:20) {
+
           # begin var both
           if (var == "both") {
-            
+
             for (ratio in c(0.5, 0.8)) {
               for (sv_effect in c(0.1, 0.2, 0.5)) {
-                
+
                 if (gxe == "with") {
-                  
+
                   if (sv_effect %in% c(0.2, 0.5)) {
                     for (diff_dist in c(FALSE, TRUE)) {
                       if (!diff_dist) {
                         # with gxe, same distribution
                         folder_traits <- paste0(folder_base, "/", gxe, "_gxe/additive_model/equal_effects/", qtn,
-                                                "-QTNs_from_", var, "/SNP-SV-ratio_", ratio, "/effects_SNP-0.1_SV-", 
+                                                "-QTNs_from_", var, "/SNP-SV-ratio_", ratio, "/effects_SNP-0.1_SV-",
                                                 sv_effect, "/", h2, "-heritability/pop", pop)
-                        
+
                         trait_pve <- fread(paste0(folder_traits, "/simulated_traits_pve.txt"),
                                            header = TRUE, data.table = FALSE)
-                        
+
                         pve <- trait_pve[trait_pve$source == "genotype:environment", "pve"]
                         pval <- trait_pve[trait_pve$source == "genotype:environment", "pval"]
-                        
+
                         gxe_results <- rbind(gxe_results,
                                              data.frame(gxe = gxe,
                                                         h2 = h2,
@@ -53,22 +53,22 @@ for (gxe in c("no", "with")) {
                                                         ratio = ratio,
                                                         sv_effect = sv_effect,
                                                         diff_dist = diff_dist,
-                                                        pop = pop, 
+                                                        pop = pop,
                                                         gxe_pve = pve,
                                                         gxe_pval = pval))
-                        
+
                       } else {
                         # with gxe, different distribution
                         folder_traits <- paste0(folder_base, "/", gxe, "_gxe/additive_model/equal_effects/", qtn,
-                                                "-QTNs_from_", var, "/SNP-SV-ratio_", ratio, "/effects_SNP-0.1_SV-", 
+                                                "-QTNs_from_", var, "/SNP-SV-ratio_", ratio, "/effects_SNP-0.1_SV-",
                                                 sv_effect, "_diff-dist-gxe/", h2, "-heritability/pop", pop)
-                        
+
                         trait_pve <- fread(paste0(folder_traits, "/simulated_traits_pve.txt"),
                                            header = TRUE, data.table = FALSE)
-                        
+
                         pve <- trait_pve[trait_pve$source == "genotype:environment", "pve"]
                         pval <- trait_pve[trait_pve$source == "genotype:environment", "pval"]
-                        
+
                         gxe_results <- rbind(gxe_results,
                                              data.frame(gxe = gxe,
                                                         h2 = h2,
@@ -77,7 +77,7 @@ for (gxe in c("no", "with")) {
                                                         ratio = ratio,
                                                         sv_effect = sv_effect,
                                                         diff_dist = diff_dist,
-                                                        pop = pop, 
+                                                        pop = pop,
                                                         gxe_pve = pve,
                                                         gxe_pval = pval))
                       }
@@ -85,15 +85,15 @@ for (gxe in c("no", "with")) {
                   } else {
                     # with gxe, same distribution
                     folder_traits <- paste0(folder_base, "/", gxe, "_gxe/additive_model/equal_effects/", qtn,
-                                            "-QTNs_from_", var, "/SNP-SV-ratio_", ratio, "/effects_SNP-0.1_SV-", 
+                                            "-QTNs_from_", var, "/SNP-SV-ratio_", ratio, "/effects_SNP-0.1_SV-",
                                             sv_effect, "/", h2, "-heritability/pop", pop)
-                    
+
                     trait_pve <- fread(paste0(folder_traits, "/simulated_traits_pve.txt"),
                                        header = TRUE, data.table = FALSE)
-                    
+
                     pve <- trait_pve[trait_pve$source == "genotype:environment", "pve"]
                     pval <- trait_pve[trait_pve$source == "genotype:environment", "pval"]
-                    
+
                     gxe_results <- rbind(gxe_results,
                                          data.frame(gxe = gxe,
                                                     h2 = h2,
@@ -102,7 +102,7 @@ for (gxe in c("no", "with")) {
                                                     ratio = ratio,
                                                     sv_effect = sv_effect,
                                                     diff_dist = FALSE,
-                                                    pop = pop, 
+                                                    pop = pop,
                                                     gxe_pve = pve,
                                                     gxe_pval = pval))
                   }
@@ -110,15 +110,15 @@ for (gxe in c("no", "with")) {
                 } else {
                   # no gxe
                   folder_traits <- paste0(folder_base, "/", gxe, "_gxe/additive_model/equal_effects/", qtn,
-                                          "-QTNs_from_", var, "/SNP-SV-ratio_", ratio, "/effects_SNP-0.1_SV-", 
+                                          "-QTNs_from_", var, "/SNP-SV-ratio_", ratio, "/effects_SNP-0.1_SV-",
                                           sv_effect, "/", h2, "-heritability/pop", pop)
-                  
+
                   trait_pve <- fread(paste0(folder_traits, "/simulated_traits_pve.txt"),
                                      header = TRUE, data.table = FALSE)
-                  
+
                   pve <- trait_pve[trait_pve$source == "genotype:environment", "pve"]
                   pval <- trait_pve[trait_pve$source == "genotype:environment", "pval"]
-                  
+
                   gxe_results <- rbind(gxe_results,
                                        data.frame(gxe = gxe,
                                                   h2 = h2,
@@ -127,11 +127,11 @@ for (gxe in c("no", "with")) {
                                                   ratio = ratio,
                                                   sv_effect = sv_effect,
                                                   diff_dist = FALSE,
-                                                  pop = pop, 
+                                                  pop = pop,
                                                   gxe_pve = pve,
                                                   gxe_pval = pval))
                 }
-                
+
               }
             }
             # end of var both
@@ -139,13 +139,13 @@ for (gxe in c("no", "with")) {
             # begin var snp or sv
             folder_traits <- paste0(folder_base, "/", gxe, "_gxe/additive_model/equal_effects/", qtn,
                                     "-QTNs_from_", var, "/", h2, "-heritability/pop", pop)
-            
+
             trait_pve <- fread(paste0(folder_traits, "/simulated_traits_pve.txt"),
                             header = TRUE, data.table = FALSE)
-            
+
             pve <- trait_pve[trait_pve$source == "genotype:environment", "pve"]
             pval <- trait_pve[trait_pve$source == "genotype:environment", "pval"]
-            
+
             gxe_results <- rbind(gxe_results,
                                  data.frame(gxe = gxe,
                                             h2 = h2,
@@ -154,26 +154,26 @@ for (gxe in c("no", "with")) {
                                             ratio = NA,
                                             sv_effect = NA,
                                             diff_dist = FALSE,
-                                            pop = pop, 
+                                            pop = pop,
                                             gxe_pve = pve,
                                             gxe_pval = pval))
           }
-          
+
         }
       }
     }
   }
 }
 
-# gxe_pve_summary <- gxe_results %>% 
-#   group_by(gxe, h2, qtn, var) %>% 
+# gxe_pve_summary <- gxe_results %>%
+#   group_by(gxe, h2, qtn, var) %>%
 #   summarize(gxe_pve_mean = mean(gxe_pve),
 #             gxe_pve_se = sd(gxe_pve)/sqrt(n()),
 #             gxe_pval_mean = mean(gxe_pval),
 #             gxe_pval_se = sd(gxe_pval)/sqrt(n()))
 
-gxe_pve_summary <- gxe_results %>% 
-  group_by(gxe) %>% 
+gxe_pve_summary <- gxe_results %>%
+  group_by(gxe) %>%
   summarize(gxe_pve_mean = mean(gxe_pve),
             gxe_pve_se = sd(gxe_pve)/sqrt(n()),
             gxe_pval_mean = mean(gxe_pval),
