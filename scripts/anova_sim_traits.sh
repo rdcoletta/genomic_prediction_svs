@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH --time=1:00:00
+#SBATCH --time=1:30:00
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=1
-#SBATCH --mem=5gb
+#SBATCH --ntasks-per-node=2
+#SBATCH --mem=10gb
 #SBATCH -J anova_sim_traits
 #SBATCH -o /home/hirschc1/della028/projects/genomic_prediction/simulation/analysis/trait_sim/MSI_dump/%x_%j.out
 #SBATCH -e /home/hirschc1/della028/projects/genomic_prediction/simulation/analysis/trait_sim/MSI_dump/%x_%j.err
-#SBATCH --mail-type=FAIL
+#SBATCH --mail-type=END,FAIL
 #SBATCH --mail-user=della028@umn.edu
 #SBATCH --no-requeue
 
@@ -19,7 +19,8 @@ echo ${FOLDER}
 
 for POP in $(seq 1 ${POPS}); do
   # run anova
-  Rscript scripts/anova_sim_traits.R ${FOLDER}/pop${POP}
+  Rscript scripts/anova_sim_traits.R ${FOLDER}/pop${POP} &
   # plot pve
-  Rscript scripts/plot_sim_pve_qtns.R ${FOLDER}/pop${POP} ${SVS}
+  Rscript scripts/plot_sim_pve_qtns.R ${FOLDER}/pop${POP} ${SVS} &
+  wait
 done

@@ -34,17 +34,6 @@ if (length(args) != 2) stop(usage(), "missing positional argument(s)")
 # get positional arguments
 sim_folder <- args[1]
 sv_list <- args[2]
-# sim_folder <- "analysis/trait_sim_mult-env/additive_model/test/script_test/25-QTNs_from_SNP/0.2-heritability/marker-effect0.1/mean-gen-cor_0.35/pop1"
-# sim_folder <- "analysis/trait_sim_mult-env/additive_model/test/script_test/100-QTNs_from_both/0.2-heritability/marker-effect0.1_SV-effect0.7/SNP-SV-ratio0.8/mean-gen-cor_0.35/pop1"
-# sim_folder <- "analysis/trait_sim_mult-env/additive_model/test/correct_reps_gxe/100-QTNs_from_SNP/0.2-heritability/effect0.1/with-gxe/norm-dist_mean-0_sd-0.3/pop1"
-# sim_folder <- "analysis/trait_sim_mult-env/additive_model/test/correct_reps_gxe/100-QTNs_from_both/0.2-heritability/marker-effect0.1_SV-effect0.2/SNP-SV-ratio0.5/with-gxe/norm-dist_mean-0_sd-0.3/pop1"
-# sim_folder <- "analysis/trait_sim/multi_env/with_gxe/additive_model/equal_effects/100-QTNs_from_both/SNP-SV-ratio_0.5/effects_SNP-0.1_SV-0.2/0.5-heritability/pop1"
-# sim_folder <- "analysis/trait_sim/multi_env/with_gxe/additive_model/equal_effects/10-QTNs_from_SV/0.9-heritability/pop1"
-# sim_folder <- "analysis/trait_sim_mult-env/gxe_20envs"
-
-
-# sv_list <- "data/test_SVs_IDs.txt"
-# sv_list <- "data/SVs_IDs_poly.txt"
 
 
 
@@ -112,8 +101,8 @@ for (env in 1:length(files_var_qtn)) {
 }
 
 # calculate correlation of initial qtn effects and final variance explained
-pearson <- round(cor(pve_qtns$qtn_effect, pve_qtns$var, method = "pearson"), digits = 2)
-spearman <- round(cor(pve_qtns$qtn_effect, pve_qtns$var, method = "spearman"), digits = 2)
+pearson <- round(cor(pve_qtns$qtn_effect, pve_qtns$var, method = "pearson", use = "complete.obs"), digits = 2)
+spearman <- round(cor(pve_qtns$qtn_effect, pve_qtns$var, method = "spearman", use = "complete.obs"), digits = 2)
 
 # reorder envs to plot
 pve_qtns$env <- factor(pve_qtns$env, levels = mixedsort(unique(pve_qtns$env)))
@@ -153,3 +142,22 @@ ggsave(filename = paste0(sim_folder, "/var_explained_all_qtns.pdf"),
 #   labs(x = "MAF", y = "PVE")
 # ggsave(filename = paste0(sim_folder, "/var_explained_by_qtn_maf_v2.pdf"),
 #        plot = plot_pve_maf, device = "pdf", width = 10)
+
+# get average variance across reps
+pve_qtns_avg <- pve_qtns %>% 
+  group_by(env, qtn_name, qtn_type, qtn_maf, qtn_effect, qtn_number) %>% 
+  summarize(var_exp_mean = mean(var), var_exp_se = sd(var)/sqrt(n())) %>% 
+  ungroup() %>% 
+  arrange(env, qtn_number)
+
+# write summary of PVE per QTNs (averaged across reps)
+fwrite(x = pve_qtns_avg, file = paste0(sim_folder, "/summary_var_explained_per_qtn.txt"),
+       quote = FALSE, sep = "\t", na = NA, row.names = FALSE)
+
+
+
+
+#### debug ----
+
+# sim_folder <- "analysis/test_prediction/multi_env/with_gxe/100qtns_SVs_equal_0.5h2_pop1"
+# sv_list <- "data/SVs_IDs_poly.txt"
