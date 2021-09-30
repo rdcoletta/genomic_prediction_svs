@@ -1,6 +1,6 @@
 # Structural variation and genomic prediction: a simulation approach
 
-by Rafael Della Coletta, Alex Lipka, Martin Bohn, and Candice Hirsch (June 2019 - February 2020).
+by Rafael Della Coletta, Alex Lipka, Martin Bohn, and Candice Hirsch
 
 > The objective of this project is to simulate traits in one or more environments and analyze the effects of structural variants in genome prediction accuracy. The overall workflow for the simulations involves simulating traits, running genomic prediction models and validating results.
 
@@ -42,6 +42,8 @@ by Rafael Della Coletta, Alex Lipka, Martin Bohn, and Candice Hirsch (June 2019 
     - [LD between polymorphic SNPs and polymorphic SVs](#ld-between-polymorphic-snps-and-polymorphic-svs)
     - [Create datasets](#create-datasets)
     - [Predict simulated traits](#predict-simulated-traits)
+  - [Trait simulation for hybrids](#trait-simulation-for-hybrids)
+    - [Hybrid genotypes](#hybrid-genotypes)
 <!-- TOC END -->
 
 
@@ -919,14 +921,14 @@ cd ~/projects/genomic_prediction/simulation
 
 ### Sliding window approach
 
-Given the high amount of SNPs projected, I will run the sliding window approach to reduce the possible wrong projections using a bigger `--window-size`, and then plot the karyotypes after this approach to see if it was helpful or not.
+Given the high amount of markers projected, I will run the sliding window approach to reduce the possible wrong projections using a bigger `--window-size`, and then plot the karyotypes after this approach to see if it was helpful or not.
 
 ```bash
 # sliding window
 crosses=$(ls data/hapmap_by_cross/usda_22kSNPs_rils.sorted.diploid.filtered.v4.*.hmp.txt | xargs -n 1 basename |  cut -d '.' -f 6 | uniq)
 
 for cross in $crosses; do
-  qsub -v CROSS=$cross scripts/sliding_window_reseq-snps.sh
+  qsub -v CROSS=$cross scripts/sliding_window_svs-snps.sh
 done
 
 # make sure the number of SNPs match before and after sliding window
@@ -940,7 +942,7 @@ done
 
 To summarize the results of both SV and SNP projections for each family after the sliding window approach, I wrote `scripts/count_projected_SVs.R` and `scripts/count_projected_reseq-snps.R`, respectively. The average **SV projection was 93.2%** and the average **SNP projection was 94%**, with average accuracy of 94.7%% across all families.
 
-Details about projections for each family were written into `analysis/projection_svs-snps/projection_svs_summary.txt` for SVs and `analysis/projection_svs-snps/projection_svs_summary.txt` for SNPs, but can also be visualized in different plots saved at `analysis/projection_svs-snps`.
+Details about projections for each family were written into `analysis/projection_svs-snps/projection_svs_summary.txt` for SVs and `analysis/projection_svs-snps/projection_reseq-snps_summary.txt` for SNPs, but can also be visualized in different plots saved at `analysis/projection_svs-snps`.
 
 ```bash
 # count svs
@@ -958,8 +960,8 @@ Rscript scripts/count_projected_reseq-snps.R data/reseq_snps \
                                              data/usda_biparental-crosses.txt
 
 # get average SNP projection and accuracy -- use (NR - 1) to avoid counting header as a row
-awk -v N=5 '{ sum += $N } END { if (NR > 1) print sum / (NR - 1) }' analysis/projection_svs-snps/projection_reseq-snps_summary.txt
-awk -v N=7 '{ sum += $N } END { if (NR > 1) print sum / (NR - 1) }' analysis/projection_svs-snps/projection_reseq-snps_summary.txt
+awk -v N=3 '{ sum += $N } END { if (NR > 1) print sum / (NR - 1) }' analysis/projection_svs-snps/projection_reseq-snps_summary.txt
+awk -v N=4 '{ sum += $N } END { if (NR > 1) print sum / (NR - 1) }' analysis/projection_svs-snps/projection_reseq-snps_summary.txt
 ```
 
 I also ploted the karyotypes from RILs before and after SNP projection with `scripts/plot_ril_karyotypes_reseq-SNPs.R`. After running it, I don't see any major disagreements between parental and RIL data, meaning that projections seem to be very accurate indeed.
@@ -1126,6 +1128,20 @@ for filter in 0.25; do
   done
 done
 
+# get some quick stats
+low_ld=0
+total_markers=0
+for chr in {1..10}; do
+  low_ld_chr=$(awk -v chr=${chr} '$9 < 0.8' analysis/ld/window-1kb_filter-0.25/ld_usda_rils_snp-sv_only.chr${chr}.window-1kb.filter-0.25.highest-ld.ld | wc -l)
+  total_markers_chr=$(sed 1d analysis/ld/window-1kb_filter-0.25/ld_usda_rils_snp-sv_only.chr${chr}.window-1kb.filter-0.25.highest-ld.ld | wc -l)
+  # echo ${low_ld_chr}
+  low_ld=$(( ${low_ld} + ${low_ld_chr} ))
+  total_markers=$(( ${total_markers} + ${total_markers_chr} ))
+done
+echo "SVs in highest LD with SNPs but with r2 < 0.8: ${low_ld}"
+echo "Total number of SNPs in highest LD to SVs: ${total_markers}"
+# So about 24% (1312/5476 = 0.2396) of SNPs in highest LD to a SV has a r2 value lower than 0.8
+
 # plot extra stats for markers in high ld
 for filter in 0.25; do
   for window in 1 10 100 1000; do
@@ -1135,7 +1151,7 @@ for filter in 0.25; do
 done
 ```
 
-> Most of SNPs in high LD with SVs have r2 > 0.8, and the number increases as window size increses (probably due to population structure).
+> Most of SNPs in high LD with SVs have r2 > 0.8 (76% for 1kb window), and the number increases as window size increses (probably due to population structure).
 
 Second, I will plot the distribution of each marker type (SNP or SV) along the chromosome to see if there's enrichment of a particular marker for certain parts of the chromosomes:
 
@@ -1215,7 +1231,7 @@ done
 
 ### Decay
 
-Visualizing LD decay will be import to define which LD window should be used in prediction, i.e. to find SNPs that are close enough to SVs to avoid SNPs in LD due to population structure but also far enough so there's enough recombination happening between SNPs and SVs. Thus, I will plot LD decay of SNP-SV and SNP-SNP for markers up to 100kb and/or 1Mb up or downstream a SV. Additionally, I will compare these LD decay plots with LD decay patterns from SNPs of SNP chip only and from the 282 diversity panel.
+Visualizing LD decay will be important to define which LD window should be used in prediction, i.e. to find SNPs that are close enough to SVs to avoid LD due to population structure but also far enough so there's enough recombination happening between SNPs and SVs. Thus, I will plot LD decay of SNP-SV and SNP-SNP for markers up to 100kb and/or 1Mb up or downstream a SV. Additionally, I will compare these LD decay plots with LD decay patterns from SNPs of SNP chip only and from the 282 diversity panel.
 
 
 
@@ -1272,7 +1288,6 @@ for chr in {1..10}; do
   qsub -l walltime=2:00:00,nodes=1:ppn=1,mem=120gb -v IN=/scratch.global/della028/hirsch_lab/genomic_prediction/ld/ld_usda_rils_snp-snp_only.chr${chr}.window-100kb.filter-0.25.ld.gz,OUT=analysis/ld/decay/ld_decay_usda_snps-snps_chr${chr}_100kb,OPT="--unequal-windows" scripts/plot_ld_decay.sh
 done
 ```
-
 
 
 #### SNP chip
@@ -1690,9 +1705,9 @@ QTNs' effect sizes are all the same:
 # set variables
 HMP=data/usda_rils_projected-SVs-SNPs.poly.hmp.txt
 SVS=data/SVs_IDs_poly.txt
-POPS=10
+POPS=20
 REPS=3
-ENVS=20
+ENVS=5
 MODEL=A
 EFFECTTYPE=equal
 EFFECTSIZE=0.1
@@ -1701,12 +1716,14 @@ SEED=2020
 QTNVAR=QTN-variance
 RESCOR=data/usda_envs_cor_matrix.txt
 
-for H2 in 0.2 0.5 0.9; do
-  for QTN in 10 100 200; do
+for H2 in 0.3 0.7; do
+  for QTN in 10 100; do
     for VAR in SNP SV; do
       FOLDER=analysis/trait_sim/multi_env/no_gxe/additive_model/${EFFECTTYPE}_effects/${QTN}-QTNs_from_${VAR}/${H2}-heritability
       # simulate trait for multiple environments
       sbatch --export=HMP=${HMP},SVS=${SVS},FOLDER=${FOLDER},VAR=${VAR},POPS=${POPS},REPS=${REPS},ENVS=${ENVS},H2=${H2},MODEL=${MODEL},QTN=${QTN},EFFECTTYPE=${EFFECTTYPE},EFFECTSIZE=${EFFECTSIZE},SEED=${SEED},QTNVAR=${QTNVAR},RESCOR=${RESCOR} scripts/trait_simulation.sh
+      # wait 10 seconds to avoid accessing the same file at the same time
+      sleep 10
     done
   done
 done
@@ -1715,12 +1732,14 @@ done
 VAR=both
 SVEFFECT=${EFFECTSIZE}
 
-for H2 in 0.2 0.5 0.9; do
-  for QTN in 10 100 200; do
+for H2 in 0.3 0.7; do
+  for QTN in 10 100; do
     for RATIO in 0.5 0.8; do
       FOLDER=analysis/trait_sim/multi_env/no_gxe/additive_model/${EFFECTTYPE}_effects/${QTN}-QTNs_from_${VAR}/SNP-SV-ratio_${RATIO}/effects_SNP-${EFFECTSIZE}_SV-${SVEFFECT}/${H2}-heritability
       # simulate trait for multiple environments
       sbatch --export=HMP=${HMP},SVS=${SVS},FOLDER=${FOLDER},VAR=${VAR},POPS=${POPS},REPS=${REPS},ENVS=${ENVS},H2=${H2},MODEL=${MODEL},QTN=${QTN},EFFECTTYPE=${EFFECTTYPE},EFFECTSIZE=${EFFECTSIZE},SEED=${SEED},QTNVAR=${QTNVAR},RATIO=${RATIO},SVEFFECT=${SVEFFECT},RESCOR=${RESCOR} scripts/trait_simulation.sh
+      # wait 10 seconds to avoid accessing the same file at the same time
+      sleep 10
     done
   done
 done
@@ -1736,9 +1755,9 @@ QTNs' effect sizes are all the same (but if QTN is SV, it's effect size is bigge
 # set variables
 HMP=data/usda_rils_projected-SVs-SNPs.poly.hmp.txt
 SVS=data/SVs_IDs_poly.txt
-POPS=10
+POPS=20
 REPS=3
-ENVS=20
+ENVS=5
 MODEL=A
 VAR=both
 EFFECTTYPE=equal
@@ -1748,21 +1767,20 @@ SEED=2020
 QTNVAR=QTN-variance
 RESCOR=data/usda_envs_cor_matrix.txt
 
-for H2 in 0.2 0.5 0.9; do
-  for QTN in 10 100 200; do
+for H2 in 0.3 0.7; do
+  for QTN in 10 100; do
     for RATIO in 0.5 0.8; do
       for SVEFFECT in 0.2 0.5; do
         FOLDER=analysis/trait_sim/multi_env/no_gxe/additive_model/${EFFECTTYPE}_effects/${QTN}-QTNs_from_${VAR}/SNP-SV-ratio_${RATIO}/effects_SNP-${EFFECTSIZE}_SV-${SVEFFECT}/${H2}-heritability
         # simulate trait for multiple environments
         sbatch --export=HMP=${HMP},SVS=${SVS},FOLDER=${FOLDER},VAR=${VAR},POPS=${POPS},REPS=${REPS},ENVS=${ENVS},H2=${H2},MODEL=${MODEL},QTN=${QTN},EFFECTTYPE=${EFFECTTYPE},EFFECTSIZE=${EFFECTSIZE},SEED=${SEED},QTNVAR=${QTNVAR},RATIO=${RATIO},SVEFFECT=${SVEFFECT},RESCOR=${RESCOR} scripts/trait_simulation.sh
+        # wait 10 seconds to avoid accessing the same file at the same time
+        sleep 10
       done
     done
   done
 done
 ```
-
-
-
 
 
 #### With GxE
@@ -1775,9 +1793,9 @@ QTNs' effect sizes are all the same:
 # set variables
 HMP=data/usda_rils_projected-SVs-SNPs.poly.hmp.txt
 SVS=data/SVs_IDs_poly.txt
-POPS=10
+POPS=20
 REPS=3
-ENVS=20
+ENVS=5
 MODEL=A
 EFFECTTYPE=equal
 EFFECTSIZE=0.1
@@ -1787,12 +1805,14 @@ QTNVAR=QTN-variance
 RESCOR=data/usda_envs_cor_matrix.txt
 GXE=gxe
 
-for H2 in 0.2 0.5 0.9; do
-  for QTN in 10 100 200; do
+for H2 in 0.3 0.7; do
+  for QTN in 10 100; do
     for VAR in SNP SV; do
       FOLDER=analysis/trait_sim/multi_env/with_gxe/additive_model/${EFFECTTYPE}_effects/${QTN}-QTNs_from_${VAR}/${H2}-heritability
       # simulate trait for multiple environments
       sbatch --export=HMP=${HMP},SVS=${SVS},FOLDER=${FOLDER},VAR=${VAR},POPS=${POPS},REPS=${REPS},ENVS=${ENVS},H2=${H2},MODEL=${MODEL},QTN=${QTN},EFFECTTYPE=${EFFECTTYPE},EFFECTSIZE=${EFFECTSIZE},SEED=${SEED},QTNVAR=${QTNVAR},RESCOR=${RESCOR},GXE=${GXE} scripts/trait_simulation.sh
+      # wait 10 seconds to avoid accessing the same file at the same time
+      sleep 10
     done
   done
 done
@@ -1801,12 +1821,14 @@ done
 VAR=both
 SVEFFECT=${EFFECTSIZE}
 
-for H2 in 0.2 0.5 0.9; do
-  for QTN in 10 100 200; do
+for H2 in 0.3 0.7; do
+  for QTN in 10 100; do
     for RATIO in 0.5 0.8; do
       FOLDER=analysis/trait_sim/multi_env/with_gxe/additive_model/${EFFECTTYPE}_effects/${QTN}-QTNs_from_${VAR}/SNP-SV-ratio_${RATIO}/effects_SNP-${EFFECTSIZE}_SV-${SVEFFECT}/${H2}-heritability
       # simulate trait for multiple environments
       sbatch --export=HMP=${HMP},SVS=${SVS},FOLDER=${FOLDER},VAR=${VAR},POPS=${POPS},REPS=${REPS},ENVS=${ENVS},H2=${H2},MODEL=${MODEL},QTN=${QTN},EFFECTTYPE=${EFFECTTYPE},EFFECTSIZE=${EFFECTSIZE},SEED=${SEED},QTNVAR=${QTNVAR},RATIO=${RATIO},SVEFFECT=${SVEFFECT},RESCOR=${RESCOR},GXE=${GXE} scripts/trait_simulation.sh
+      # wait 10 seconds to avoid accessing the same file at the same time
+      sleep 10
     done
   done
 done
@@ -1824,9 +1846,9 @@ First, the random effects added per environment to simulate GxE will come from t
 # set variables
 HMP=data/usda_rils_projected-SVs-SNPs.poly.hmp.txt
 SVS=data/SVs_IDs_poly.txt
-POPS=10
+POPS=20
 REPS=3
-ENVS=20
+ENVS=5
 MODEL=A
 VAR=both
 EFFECTTYPE=equal
@@ -1837,13 +1859,15 @@ QTNVAR=QTN-variance
 RESCOR=data/usda_envs_cor_matrix.txt
 GXE=gxe
 
-for H2 in 0.2 0.5 0.9; do
-  for QTN in 10 100 200; do
+for H2 in 0.3 0.7; do
+  for QTN in 10 100; do
     for RATIO in 0.5 0.8; do
       for SVEFFECT in 0.2 0.5; do
         FOLDER=analysis/trait_sim/multi_env/with_gxe/additive_model/${EFFECTTYPE}_effects/${QTN}-QTNs_from_${VAR}/SNP-SV-ratio_${RATIO}/effects_SNP-${EFFECTSIZE}_SV-${SVEFFECT}/${H2}-heritability
         # simulate trait for multiple environments
         sbatch --export=HMP=${HMP},SVS=${SVS},FOLDER=${FOLDER},VAR=${VAR},POPS=${POPS},REPS=${REPS},ENVS=${ENVS},H2=${H2},MODEL=${MODEL},QTN=${QTN},EFFECTTYPE=${EFFECTTYPE},EFFECTSIZE=${EFFECTSIZE},SEED=${SEED},QTNVAR=${QTNVAR},RATIO=${RATIO},SVEFFECT=${SVEFFECT},RESCOR=${RESCOR},GXE=${GXE} scripts/trait_simulation.sh
+        # wait 10 seconds to avoid accessing the same file at the same time
+        sleep 10
       done
     done
   done
@@ -1856,9 +1880,9 @@ Second, the random effects added per environment to simulate GxE will come from 
 # set variables
 HMP=data/usda_rils_projected-SVs-SNPs.poly.hmp.txt
 SVS=data/SVs_IDs_poly.txt
-POPS=10
+POPS=20
 REPS=3
-ENVS=20
+ENVS=5
 MODEL=A
 VAR=both
 EFFECTTYPE=equal
@@ -1870,13 +1894,15 @@ RESCOR=data/usda_envs_cor_matrix.txt
 GXE=gxe
 DIFFDIST=diff-dist-gxe
 
-for H2 in 0.2 0.5 0.9; do
-  for QTN in 10 100 200; do
+for H2 in 0.3 0.7; do
+  for QTN in 10 100; do
     for RATIO in 0.5 0.8; do
       for SVEFFECT in 0.2 0.5; do
         FOLDER=analysis/trait_sim/multi_env/with_gxe/additive_model/${EFFECTTYPE}_effects/${QTN}-QTNs_from_${VAR}/SNP-SV-ratio_${RATIO}/effects_SNP-${EFFECTSIZE}_SV-${SVEFFECT}_${DIFFDIST}/${H2}-heritability
         # simulate trait for multiple environments
         sbatch --export=HMP=${HMP},SVS=${SVS},FOLDER=${FOLDER},VAR=${VAR},POPS=${POPS},REPS=${REPS},ENVS=${ENVS},H2=${H2},MODEL=${MODEL},QTN=${QTN},EFFECTTYPE=${EFFECTTYPE},EFFECTSIZE=${EFFECTSIZE},SEED=${SEED},QTNVAR=${QTNVAR},RATIO=${RATIO},SVEFFECT=${SVEFFECT},RESCOR=${RESCOR},GXE=${GXE},DIFFDIST=${DIFFDIST} scripts/trait_simulation.sh
+        # wait 10 seconds to avoid accessing the same file at the same time
+        sleep 10
       done
     done
   done
@@ -1892,19 +1918,18 @@ Run ANOVA and plot PVE of QTNs:
 ```bash
 # select variables
 SVS=data/SVs_IDs_poly.txt
-POPS=10
+POPS=20
+EFFECTTYPE=equal
 
 # SNPs and SVs with same effects
-for H2 in 0.2 0.5 0.9; do
-  for QTN in 10 100 200; do
+for H2 in 0.3 0.7; do
+  for QTN in 10 100; do
     for VAR in SNP SV; do
       for GXE in no with; do
-        for EFFECTTYPE in equal; do
-          # get folder name
-          FOLDER=analysis/trait_sim/multi_env/${GXE}_gxe/additive_model/${EFFECTTYPE}_effects/${QTN}-QTNs_from_${VAR}/${H2}-heritability
-          # run anova and plot pve
-          sbatch --export=FOLDER=${FOLDER},SVS=${SVS},POPS=${POPS} scripts/anova_sim_traits.sh
-        done
+        # get folder name
+        FOLDER=analysis/trait_sim/multi_env/${GXE}_gxe/additive_model/${EFFECTTYPE}_effects/${QTN}-QTNs_from_${VAR}/${H2}-heritability
+        # run anova and plot pve
+        sbatch --export=FOLDER=${FOLDER},SVS=${SVS},POPS=${POPS} scripts/anova_sim_traits.sh
       done
     done
   done
@@ -1912,11 +1937,10 @@ done
 
 # SNPs and SVs with different effects
 VAR=both
-EFFECTTYPE=equal
 EFFECTSIZE=0.1
 
-for H2 in 0.2 0.5 0.9; do
-  for QTN in 10 100 200; do
+for H2 in 0.3 0.7; do
+  for QTN in 10 100; do
     for GXE in no with; do
       for RATIO in 0.5 0.8; do
         for SVEFFECT in 0.1 0.2 0.5; do
@@ -1932,11 +1956,10 @@ done
 
 # SNPs and SVs with different effects -- GxE effects from different distributions
 VAR=both
-EFFECTTYPE=equal
 EFFECTSIZE=0.1
 
-for H2 in 0.2 0.5 0.9; do
-  for QTN in 10 100 200; do
+for H2 in 0.3 0.7; do
+  for QTN in 10 100; do
     for GXE in with; do
       for RATIO in 0.5 0.8; do
         for SVEFFECT in 0.2 0.5; do
@@ -1949,29 +1972,15 @@ for H2 in 0.2 0.5 0.9; do
     done
   done
 done
-
-
-
-#### check jobs that didn't run -- all from diff-dist-gxe
-#### retrieve all variance explained plots using scp
-#### TODO -- fix ssh keys before doing that
-# for H2 in 0.2 0.5 0.9; do
-#   for QTN in 10 100 200; do
-#     for VAR in SNP SV; do
-#       for GXE in no with; do
-#         for EFFECTTYPE in geometric equal; do
-#           for POP in {1..10}; do
-#             # get folder name with files
-#             FOLDER=analysis/trait_sim/multi_env/${GXE}_gxe/additive_model/${EFFECTTYPE}_effects/${QTN}-QTNs_from_${VAR}/${H2}-heritability/pop${POP}
-#             # copy files to my mac
-#             scp della028@mangi.msi.umn.edu:/home/hirschc1/della028/projects/genomic_prediction/simulation/${FOLDER}/var_explained*.pdf ${FOLDER}
-#           done
-#         done
-#       done
-#     done
-#   done
-# done
 ```
+
+After running ANOVAs and checking PVE by GxE in both "no GxE" and "with GxE" scenario, I ran `scripts/evaluate_pve_sim_traits.R` and noticed that although I had significant GxE terms in many simulated populations of the "no GxE" scenario, the PVE by GXE in these cases were lower than in a "with GxE" scenario.
+
+| gxe  | gxe_pve_mean | gxe_pve_se |
+| ---- | ------------ | ---------- |
+| no   | 0.041        | 0.001      |
+| with | 0.188        | 0.003      |
+
 
 
 
@@ -2062,38 +2071,7 @@ done
 
 
 
-
-#### LD between causative variants and predictors
-
-```bash
-
-# calculate ld
-for chr in {1..10}; do
-  sbatch --export=CHR=${chr} scripts/ld_poly-markers.sh
-done
-
-# get predictors (name, chr, pos)
-#   filter ld file to have only the predictors
-#   get causative variants (name, chr, pos) for a certain trait
-#     if causative variant is in the ld file -- get ld and distance
-#     if not -- assume not in ld (ld = 0) and get distance
-
-
-
-
-
-
-
-
-
-```
-
-
-
-
 ### Predict simulated traits
-
-I will run prediction models in both single and multiple environment scenarios.
 
 > Note: for the manuscript, I will focus only on multiple environment predictions.
 
@@ -2111,99 +2089,195 @@ scp -r analysis/trait_sim/multi_env/no_gxe/additive_model/equal_effects/ candy@1
 scp -r analysis/trait_sim/multi_env/with_gxe/additive_model/equal_effects/ candy@134.84.43.7:/home/candy/rafa/genomic_prediction/simulation/analysis/trait_sim/multi_env/with_gxe/additive_model/
 
 # datasets with marker data for prediction
-for iter in {1..10}; do
+for iter in {1..30}; do
   scp -r analysis/trait_sim/datasets/iter${iter}/ candy@134.84.43.7:/home/candy/rafa/genomic_prediction/simulation/analysis/trait_sim/datasets
 done
-#### TODO - I have 100 iterations for these datasets, but I'm transferring only 10 iterations for now.
 
 # also transfer scripts
 scp scripts/get_blups_per_env.R candy@134.84.43.7:/home/candy/rafa/genomic_prediction/simulation/scripts/
 scp scripts/genomic_prediction_from_blups.R candy@134.84.43.7:/home/candy/rafa/genomic_prediction/simulation/scripts/
 ```
 
-I'm doing a two-stage genomic prediction analysis, where in the first stage I extract BLUPs from each environment separately, and then use these BLUPs in a second-stage as the phenotypes for my genomic predictions across multiple environments.
-
+I'm doing a two-stage genomic prediction analysis, where in the first stage I extract BLUPs from each environment separately:
 
 ```bash
-# 1st stage -- get blups for each environment
+# get blups for each environment
 nohup bash scripts/genomic_prediction_stage1.sh > analysis/trait_sim/multi_env/genomic_prediction_stage1.log 2>&1 &
 echo $! > analysis/trait_sim/multi_env/nohup_pid_stage1.txt
 # # if need to kill process, run:
 # kill -9 `analysis/trait_sim/multi_env/nohup_pid_stage1.txt`
 # rm analysis/trait_sim/multi_env/nohup_pid_stage1.txt
 
-# 2nd stage -- run predictions across all environments using blups from previous stage
-nohup bash scripts/genomic_prediction_stage2.sh > analysis/trait_sim/multi_env/genomic_prediction_stage2.part1.log 2>&1 &
-echo $! > analysis/trait_sim/multi_env/nohup_pid_stage2.part1.txt
-# # if need to kill process, run:
-# kill -9 `analysis/trait_sim/multi_env/nohup_pid_stage2.part1.txt`
-# rm analysis/trait_sim/multi_env/nohup_pid_stage2.part1.txt
+```
+
+Then I use these BLUPs in a second-stage as the phenotypes for my genomic predictions across multiple environments:
+
+```bash
+# randomly select combinations of QTN populations and predictor iterations
+get_seeded_random()
+{
+  seed="$1"
+  openssl enc -aes-256-ctr -pass pass:"$seed" -nosalt < /dev/zero 2> /dev/null
+}
+iters=($(shuf -i 1-20 -n 20 --random-source=<(get_seeded_random 2021)))
+pops=($(shuf -i 1-20 -n 20 --random-source=<(get_seeded_random 615471)))
+# echo ${iters[@]}
+# # 5 19 10 7 16 4 17 9 1 3 18 11 15 6 2 12 20 13 8 14
+# echo ${pops[@]}
+# # 15 4 18 16 14 20 2 8 17 11 6 1 13 7 5 10 3 9 12 19
+
+# generate gnu parallel commands
+for i in {0..19}; do
+  bash scripts/genomic_prediction_stage2.sh -d ${iters[$i]} -p ${pops[$i]} -P ${pops[$i]}
+done
+
+# run predictions across all environments using blups from previous stage
+nohup parallel --jobs 2 --joblog analysis/trait_sim/multi_env/genomic_prediction_stage2.parallel.log < scripts/commands_genomic_prediction_stage2.txt 2> analysis/trait_sim/multi_env/genomic_prediction_stage2.log &
+```
+
+> To check progress of how many predictions were completed, I wrote this function:
+
+  ```bash
+  stage2_progress()
+  {
+    inode=$(ls -i analysis/trait_sim/multi_env/genomic_prediction_stage2.parallel.log | cut -f 1 -d " ")
+    crtime=$(sudo debugfs -R "stat <$inode>" /dev/sda3 | grep crtime | cut -d "-" -f 3 2> /dev/null)
+    mtime=$(sudo debugfs -R "stat <$inode>" /dev/sda3 | grep mtime | cut -d "-" -f 3 2> /dev/null)
+
+    jobs_done=$(sed 1d analysis/trait_sim/multi_env/genomic_prediction_stage2.parallel.log | wc -l | cut -f 1 -d " ")
+    jobs_total=$(wc -l scripts/commands_genomic_prediction_stage2.txt | cut -f 1 -d " ")
+    jobs_fail=$(cut -f 5-8 analysis/trait_sim/multi_env/genomic_prediction_stage2.parallel.log | grep -c 1)
+    avg_time=$(awk '{ total += $4 } END { print total/NR }' analysis/trait_sim/multi_env/genomic_prediction_stage2.parallel.log)
+
+    echo ""
+    echo Jobs completed: ${jobs_done} "($(( ${jobs_done} * 100 / ${jobs_total} ))%)"
+    echo Jobs failed: ${jobs_fail} "($(( ${jobs_fail} * 100 / ${jobs_total} ))%)"
+    echo Job started:${crtime}
+    echo Last modified:${mtime}
+    echo Average runtime per job: $(echo "scale=1; ${avg_time}/60" | bc -l) min
+  }
+
+  # check progress
+  stage2_progress
+
+  # # to kill job -- get PID then send TERM signal twice
+  # # use negative PID number to kill all processes
+  # ps xw | grep parallel
+  # kill -TERM -14673
+  # kill -TERM -14673
+  ```
+
+After predictions for all scenarios were done, I ran `scripts/summarize_prediction_accuracies.R`, `scripts/plot_prediction_accuracy.R` and `scripts/plot_prediction_accuracy_heatmap.R` to summarize the results.
+
+```bash
+
+#### TODO: prepare script to summarize prediction accuracy information
+# summarize_prediction_accuracies.R
+# plot_prediction_accuracy.R
+
+```
 
 
-# timing: diag() structure ~ 6 min per scenario
 
-# all_markers - H2 0.5 0.9 - QTN 100 - VAR SNP - GXE no - POP 1
+##### LD between causative variants and predictors
 
+Calculate LD between each causative variant and predictors used in the genomic prediction models above, and correlate that with the prediction accuracy results.
 
+> Calculated LD on MSI for speed, and then transferred files to local linux server (which has all the prediction results)
 
+```bash
+# get same pairs of QTN pop and predictor iteration as above
+get_seeded_random()
+{
+  seed="$1"
+  openssl enc -aes-256-ctr -pass pass:"$seed" -nosalt < /dev/zero 2> /dev/null
+}
+iters=($(shuf -i 1-20 -n 20 --random-source=<(get_seeded_random 2021)))
+pops=($(shuf -i 1-20 -n 20 --random-source=<(get_seeded_random 615471)))
+# echo ${iters[@]}
+# # 5 19 10 7 16 4 17 9 1 3 18 11 15 6 2 12 20 13 8 14
+# echo ${pops[@]}
+# # 15 4 18 16 14 20 2 8 17 11 6 1 13 7 5 10 3 9 12 19
 
+# get LD for each population
+for predictor in all_markers snp_ld_markers sv_markers snp_markers snp_not_ld_markers; do
+  for i in {0..19}; do
+    sbatch --export=PREDICTOR=${predictor},NDATASET=${iters[$i]},POP=${pops[$i]} scripts/ld_predictor_causal-vars.sh
+  done
+done
 
-
-
-
-#### DO ONE ITERATION AT A TIME
-#### FIRST DO WITHOUT WEIGHTS
-
-
-
-
-VAR=both
-EFFECTTYPE=equal
-EFFECTSIZE=0.1
-for DATASET in all_markers snp_ld_markers sv_markers snp_markers snp_not_ld_markers; do
-  for H2 in 0.2 0.5 0.9; do
-    for QTN in 10 100 200; do
-      for GXE in no with; do
-        for RATIO in 0.5 0.8; do
-          for SVEFFECT in 0.1 0.2 0.5; do
-            for POP in $(seq 1 10); do
-              # get folder name
-              FOLDER=analysis/trait_sim/multi_env/${GXE}_gxe/additive_model/${EFFECTTYPE}_effects/${QTN}-QTNs_from_${VAR}/SNP-SV-ratio_${RATIO}/effects_SNP-${EFFECTSIZE}_SV-${SVEFFECT}/${H2}-heritability/pop${POP}
-              # copy file from msi
-              Rscript scripts/genomic_prediction.R analysis/trait_sim/datasets/iter1/usda_rils.${DATASET}.adjusted-n-markers.hmp.txt \
-                                                   ${FOLDER}/blups_1st_stage.txt \
-                                                   ${FOLDER}/prediction_${DATASET} \
-                                                   5 5 5
-            done
-          done
-        done
+# send files to local linux server
+for predictor in all_markers snp_ld_markers sv_markers snp_markers snp_not_ld_markers; do
+  for qtn in 10 100; do
+    for var in SNP SV; do
+      for i in $(seq 0 19); do
+        # get folder name
+        FOLDER=analysis/trait_sim/multi_env/with_gxe/additive_model/equal_effects/${qtn}-QTNs_from_${var}/ld_causative-vars_predictors/pop${pops[$i]}
+        # get ld file name
+        LDFILE=ld_summary.${predictor}.pred-iter${iters[$i]}.causal-pop${pops[$i]}.txt
+        # create folder on local server and transfer file
+        ssh candy@134.84.43.7 "mkdir -p /home/candy/rafa/genomic_prediction/simulation/${FOLDER}"
+        scp -r ${FOLDER}/${LDFILE} candy@134.84.43.7:/home/candy/rafa/genomic_prediction/simulation/${FOLDER}
       done
     done
   done
 done
 
-VAR=both
-EFFECTTYPE=equal
-EFFECTSIZE=0.1
-for DATASET in all_markers snp_ld_markers sv_markers snp_markers snp_not_ld_markers; do
-  for H2 in 0.2 0.5 0.9; do
-    for QTN in 10 100 200; do
-      for GXE in with; do
-        for RATIO in 0.5 0.8; do
-          for SVEFFECT in 0.2 0.5; do
-            for POP in $(seq 1 10); do
-              # get folder name
-              FOLDER=analysis/trait_sim/multi_env/${GXE}_gxe/additive_model/${EFFECTTYPE}_effects/${QTN}-QTNs_from_${VAR}/SNP-SV-ratio_${RATIO}/effects_SNP-${EFFECTSIZE}_SV-${SVEFFECT}_diff-dist-gxe/${H2}-heritability/pop${POP}
-              # copy file from msi
-              Rscript scripts/genomic_prediction.R analysis/trait_sim/datasets/iter1/usda_rils.${DATASET}.adjusted-n-markers.hmp.txt \
-                                                   ${FOLDER}/blups_1st_stage.txt \
-                                                   ${FOLDER}/prediction_${DATASET} \
-                                                   5 5 5
-            done
-          done
-        done
+for predictor in all_markers snp_ld_markers sv_markers snp_markers snp_not_ld_markers; do
+  for qtn in 10 100; do
+    for ratio in 0.5 0.8; do
+      for i in $(seq 0 19); do
+        # get folder name
+        FOLDER=analysis/trait_sim/multi_env/with_gxe/additive_model/equal_effects/${qtn}-QTNs_from_both/SNP-SV-ratio_${ratio}/ld_causative-vars_predictors/pop${pops[$i]}
+        # get ld file name
+        LDFILE=ld_summary.${predictor}.pred-iter${iters[$i]}.causal-pop${pops[$i]}.txt
+        # create folder on local server and transfer file
+        ssh candy@134.84.43.7 "mkdir -p /home/candy/rafa/genomic_prediction/simulation/${FOLDER}"
+        scp -r ${FOLDER}/${LDFILE} candy@134.84.43.7:/home/candy/rafa/genomic_prediction/simulation/${FOLDER}
       done
     done
   done
 done
+
+
+#### TODO: correlate LD with prediction accuracy
+
+
+
+
+```
+
+> Note: all LD summary files will be saved in the "no GxE" scenario folders ("with GxE" scenarios use the same QTNs)
+
+
+
+## Trait simulation for hybrids
+
+TODO: add brief explanation...
+
+```bash
+mkdir -p analysis/trait_sim_hybrids
+```
+
+### Hybrid genotypes
+
+Use information available on "NIFA2020_CombinedData.xlsx" (sent by Sharon and transferred to MSI via Filezilla) to get pedigree of hybrids planted in 2020 USDA trials, and then create hybrid genotypes based on genotypes of parental (RIL) data.
+
+```bash
+# create hybrid genotypes chr by chr
+for chr in {1..10}; do
+  # define arguments for shell script
+  HYBINFO=data/NIFA2020_CombinedData.xlsx
+  RILGENO=data/usda_rils_projected-SVs-SNPs.chr${chr}.poly.hmp.txt
+  OUT=data/usda_hybrids_projected-SVs-SNPs.chr${chr}.poly.hmp.txt
+  # create hybrids
+  sbatch --export=HYBINFO=${HYBINFO},RILGENO=${RILGENO},OUT=${OUT} scripts/create_hybrid_genotypes.sh
+done
+
+# merge chromosomes
+cat data/usda_hybrids_projected-SVs-SNPs.chr1.poly.hmp.txt > data/usda_hybrids_projected-SVs-SNPs.poly.hmp.txt
+for chr in {2..10}; do
+  sed 1d data/usda_hybrids_projected-SVs-SNPs.chr${chr}.poly.hmp.txt >> data/usda_hybrids_projected-SVs-SNPs.poly.hmp.txt
+done
+
 ```
