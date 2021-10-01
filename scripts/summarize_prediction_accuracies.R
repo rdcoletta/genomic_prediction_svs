@@ -66,17 +66,32 @@ getAccuracy <- function(folder_accuracy, h2, qtn, var, ratio, sv_effect,
       
       # add metadata
       df_results <- rbind(df_results,
-                          data.frame(h2 = h2, qtn = qtn, var = var,
-                                     ratio = ratio, sv_effect = sv_effect,
-                                     diff_dist = diff_dist, pop = pop,
-                                     predictor = predictor, pred_iter = pred_iter,
-                                     cv = cv, pred_accuracy_means, pred_accuracy_envs))
+                          data.frame(h2 = h2, qtn = qtn, var = var, ratio = ratio,
+                                     sv_effect = sv_effect, diff_dist = diff_dist,
+                                     pop = pop, predictor = predictor,
+                                     pred_iter = pred_iter, cv = cv,
+                                     pred_accuracy_means, pred_accuracy_envs))
       
     }
   }
   
   # only return values if both CV1 and CV2 results exist
-  if (NROW(df_results) == 2) return(df_results)
+  if (NROW(df_results) == 2) {
+    return(df_results)
+  } else {
+    # if model didn't converge in at least one of the CVs, add NAs
+    df_results <- data.frame(h2 = h2, qtn = qtn, var = var, ratio = ratio,
+                             sv_effect = sv_effect, diff_dist = diff_dist,
+                             pop = pop, predictor = predictor,
+                             pred_iter = pred_iter, cv = cv,
+                             mean_accuracy_envs = c(NA, NA), mean_se = c(NA, NA), mean_lowerCI = c(NA, NA), mean_upperCI = c(NA, NA),
+                             env1_mean = c(NA, NA), env1_se = c(NA, NA), env1_lowerCI = c(NA, NA), env1_upperCI = c(NA, NA), 
+                             env2_mean = c(NA, NA), env2_se = c(NA, NA), env2_lowerCI = c(NA, NA), env2_upperCI = c(NA, NA),
+                             env3_mean = c(NA, NA), env3_se = c(NA, NA), env3_lowerCI = c(NA, NA), env3_upperCI = c(NA, NA),
+                             env4_mean = c(NA, NA), env4_se = c(NA, NA), env4_lowerCI = c(NA, NA), env4_upperCI = c(NA, NA), 
+                             env5_mean = c(NA, NA), env5_se = c(NA, NA), env5_lowerCI = c(NA, NA), env5_upperCI = c(NA, NA))
+    return(df_results)
+  }
   
 }
 
