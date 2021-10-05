@@ -526,8 +526,8 @@ markers_file <- "analysis/test_prediction/linux/usda_rils.all_markers.adjusted-n
 # blups_file <- "analysis/test_prediction/linux/blups_1st_stage.h2-0.5.txt"
 # blups_file <- "analysis/test_prediction/linux/blups_1st_stage.h2-0.9.txt"
 # blups_file <- "analysis/test_prediction/linux/blups_1st_stage.qtns200.h2-0.3.txt"
-# blups_file <- "analysis/test_prediction/linux/blups_1st_stage.no-gxe.qtns-10.h2-0.7.txt"
-blups_file <- "analysis/test_prediction/linux/blups_1st_stage_weighted.no-gxe.qtns-10.h2-0.7.txt"
+blups_file <- "analysis/test_prediction/linux/blups_1st_stage.no-gxe.qtns-10.h2-0.7.txt"
+# blups_file <- "analysis/test_prediction/linux/blups_1st_stage_weighted.no-gxe.qtns-10.h2-0.7.txt"
 output_folder <- "analysis/test_prediction/linux/prediction_all_markers"
 # markers_file <- "analysis/trait_sim/datasets/usda_rils.all_markers.adjusted-n-markers.hmp.txt"
 # blups_file <- "analysis/test_prediction/multi_env/with_gxe/100qtns_SVs_equal_0.5h2_pop1/blups_1st_stage.txt"
@@ -542,7 +542,7 @@ total_envs <- 5
 seed <- 2021
 cv_type <- "CV1"
 envs_weight <- FALSE
-envs_weight <- TRUE
+# envs_weight <- TRUE
 
 # # CV1
 #                 env1        env2      env3        env4        env5
