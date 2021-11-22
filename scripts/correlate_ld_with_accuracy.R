@@ -4,6 +4,37 @@ library(dplyr)
 library(tidyr)
 library(RColorBrewer)
 
+usage <- function() {
+  cat("
+description: summarize and correlate LD between causative variants and prediction accuracy.
+
+usage: Rscript correlate_ld_with_accuracy.R [folder_results] [pred_accuracy_file] [outfile] [...]
+
+positional arguments:
+  folder_results                path to folder with results of cross validation
+  pred_accuracy_file            path to file with summary of prediction accuracy
+  outfile                       name of output file
+
+optional argument:
+  --help                        show this helpful message
+  --trait-pops=[LIST]           comma-separated list of pop_ns of QTNs used for simulating traits
+  --pred-iters=[LIST]           comma-separated list of predictors iterations used in genomic prediction
+  
+note: make sure that to provide the same number of `--trait-pops` and `--pred-iters`
+
+"
+  )
+}
+
+getArgValue <- function(arg) {
+  
+  # get value from command-line arguments
+  arg <- unlist(strsplit(arg, "="))
+  if (length(arg) == 1) return(TRUE)
+  if (length(arg) > 1) return(arg[2])
+  
+}
+
 getMarkersHighestLD <- function(ld_summary) {
   
   # create empty df to store results
@@ -42,94 +73,123 @@ getMarkersHighestLD <- function(ld_summary) {
 
 
 
+#### command line options ----
 
-pred_accuracy_file <- "analysis/trait_sim/multi_env/full_prediction_results.iter1.pops1-5.txt"
-folder_results <- "analysis/trait_sim/multi_env/no_gxe/additive_model/equal_effects"
-trait_qtn_number <- c("10", "100")
-trait_var_source <- c("SNP", "SV")
-trait_pops <- 1:5
-prediction_marker_type <- c("all", "sv", "snp", "snp_ld", "snp_not_ld")
-predictor_datasets <- 1
+# set default
+qtn_opts <- c(10, 100)
+h2_opts <- c(0.3, 0.7)
+predictor_opts <- c("all", "sv", "snp", "snp_ld", "snp_not_ld")
+ratio_opts <- c(0.5, 0.8)
+sv_effect_opts <- c(0.1, 0.5)
+trait_pops <- "1,2,3"
+pred_iters <- "1,2,3"
 
-# pred_accuracy_file <- "tests/test_full_prediction_results.txt"
-# folder_results <- "tests"
-# trait_qtn_number <- 100
-# trait_var_source <-"SNP"
-# trait_pops <- 1
-# prediction_marker_type <- "all"
-# predictor_datasets <- 1
+args <- commandArgs(trailingOnly = TRUE)
+if ("--help" %in% args) usage() & q(save = "no")
+
+# assert to have the correct optional arguments
+if (length(args) < 3) stop(usage(), "missing positional argument(s)")
+
+if (length(args) > 3) {
+  
+  opt_args <- args[-1:-3]
+  opt_args_allowed <- c("--trait-pops", "--pred-iters")
+  opt_args_requested <- as.character(sapply(opt_args, function(x) unlist(strsplit(x, split = "="))[1]))
+  if (any(!opt_args_requested %in% opt_args_allowed)) stop(usage(), "wrong optional argument(s)")
+  
+  # change default based on the argument provided
+  for (argument in opt_args_allowed) {
+    if (any(grepl(argument, opt_args_requested))) {
+      arg_name <- gsub("-", "_", gsub("--", "", argument))
+      arg_value <- getArgValue(opt_args[grep(argument, opt_args)])
+      assign(arg_name, arg_value)
+    }
+  }
+  
+}
+
+# adjust format from optional arguments
+trait_pops <- unlist(strsplit(trait_pops, split = ","))
+pred_iters <- unlist(strsplit(pred_iters, split = ","))
+
+if (length(trait_pops) != length(pred_iters)) stop("Number of QTN pops and marker iterations doesn't match")
+
+# get positional arguments
+folder_results <- args[1]
+pred_accuracy_file <- args[2]
+outfile <- args[3]
 
 
 
+#### summarize LD between causative variants and predictors ----
 
 # load prediction accuracy results
 pred_accuracy <- fread(pred_accuracy_file, header = TRUE, data.table = FALSE)
 
 # create empty df to store results
-pred_accuracy_ld_summary <- data.frame()
+ld_summary_all_scenarios <- data.frame(stringsAsFactors = FALSE)
+results_accuracy_ld_pve <- data.frame(stringsAsFactors = FALSE)
 
-for (qtns in trait_qtn_number) {
-  for (causal_var_type in trait_var_source) {
-    for (population in trait_pops) {
-      for (predictors in prediction_marker_type) {
-        for (n_dataset in predictor_datasets) {
+# get results for traits controlled by SNPs only or SVs only
+trait_ratio <- NA
+trait_sv_effect <- NA
+trait_diff_dist <- NA
+for (trait_var in c("SNP", "SV")) {
+  for (trait_qtn in qtn_opts) {
+    for (pred_type in predictor_opts) {
+      for (i in 1:length(trait_pops)) {
+        
+        # get qtn pops and pred iters
+        trait_pop <- trait_pops[i]
+        pred_n <- pred_iters[i]
+        
+        # load ld summary file
+        ld_summary_file <- paste0(folder_results, "/", trait_qtn, "-QTNs_from_",
+                                  trait_var, "/ld_causative-vars_predictors/pop",
+                                  trait_pop, "/ld_summary.", pred_type,
+                                  "_markers.pred-iter", pred_n, ".causal-pop",
+                                  trait_pop, ".txt")
+        ld_summary <- fread(ld_summary_file, header = TRUE, data.table = FALSE)
+        
+        # combine all ld summaries into one data frame
+        ld_summary_all_scenarios <- rbind(ld_summary_all_scenarios,
+                                          cbind(data.frame(qtn = trait_qtn, var = trait_var,
+                                                           ratio = trait_ratio, pop = trait_pop,
+                                                           pred_type = pred_type, pred_iter = pred_n),
+                                                ld_summary))
+        
+        for (trait_h2 in h2_opts) {
           
-          # get ld summary file
-          ld_summary_file <- paste0(folder_results, "/", qtns, "-QTNs_from_",
-                                    causal_var_type, "/ld_causative-vars_predictors/pop",
-                                    population, "/ld_summary.", predictors,
-                                    "_markers.pred-iter", n_dataset, ".causal-pop",
-                                    population, ".txt")
-          # load ld file
-          ld_summary <- fread(ld_summary_file, header = TRUE, data.table = FALSE)
+          # get accuracy for each particular simulated and predicted scenario
+          pred_accuracy_scenario <- pred_accuracy %>% 
+            filter(h2 == trait_h2, qtn == trait_qtn, var == trait_var, is.na(ratio),
+                   is.na(sv_effect), is.na(diff_dist), pop == trait_pop,
+                   predictor == pred_type, pred_iter == pred_n) %>% 
+            pivot_longer(!(h2:mean_upperCI), names_to = "stat", values_to = "vals") %>% 
+            select(!(mean_accuracy_envs:mean_upperCI)) %>% 
+            separate(stat, into = c("env", "stat"), sep = "_") %>%
+            pivot_wider(names_from = "stat", values_from = "vals") %>%
+            as.data.frame()
+          
+          # load pve per qtn summary file
+          pve_qtn_summary_file <- paste0(folder_results, "/", trait_qtn, "-QTNs_from_",
+                                         trait_var, "/", trait_h2, "-heritability/pop",
+                                         trait_pop, "/summary_var_explained_per_qtn.txt")
+          pve_qtn_summary <- fread(pve_qtn_summary_file, header = TRUE, data.table = FALSE)
           
           # get predictors in highest ld to causative variants
           highest_ld_results <- getMarkersHighestLD(ld_summary)
           
-          
-          # # write results
-          # outfile_highest_ld <- paste0(folder_results, "/", qtns, "-QTNs_from_",
-          #                              causal_var_type, "/ld_causative-vars_predictors/pop",
-          #                              population, "/pred_highest_ld_causal-vars.txt")
-          # outfile_highest_ld <- "analysis/trait_sim/multi_env/pred_highest_ld_causal-vars.example.txt"
-          # fwrite(highest_ld_results, outfile_highest_ld, quote = FALSE, sep = "\t", na = NA, row.names = FALSE)
-          # highest_ld_results <- fread("tests/pred_highest_ld_causal-vars.example.txt", header = TRUE, data.table = FALSE)
-
-          
-          
-          ############# SHOULD I COUNT HOW MANY IN HIGH LD?
-         
-          # count how many predictors in high ld (>0.8) or moderate ld (0.5-0.8) and
-          # causative variants, and get the mean/median distance between them
-          ld_high <- highest_ld_results$r2 >= 0.8
-          ld_moderate <- highest_ld_results$r2 >= 0.5 & highest_ld_results$r2 < 0.8
-
-          highest_ld_results_summary <- data.frame(high_ld_n = sum(ld_high, na.rm = TRUE),
-                                                   high_ld_perc = round(sum(ld_high, na.rm = TRUE) / NROW(highest_ld_results), 2),
-                                                   high_ld_bp_mean = mean(abs(highest_ld_results[which(ld_high), "bp_distance"])),
-                                                   high_ld_bp_median = median(abs(highest_ld_results[which(ld_high), "bp_distance"])),
-                                                   moderate_ld_n = sum(ld_moderate, na.rm = TRUE),
-                                                   moderate_ld_perc = round(sum(ld_moderate, na.rm = TRUE) / NROW(highest_ld_results), 2),
-                                                   moderate_ld_bp_mean = mean(abs(highest_ld_results[which(ld_moderate), "bp_distance"])),
-                                                   moderate_ld_bp_median = median(abs(highest_ld_results[which(ld_moderate), "bp_distance"])))
-          
-          ############# OR SHOULD I USE THE ACTUAL R2 VALUES?
-          
-          # highest_ld_results_filtered <- highest_ld_results[!is.na(highest_ld_results$r2), ]
-          # highest_ld_results_summary <- data.frame(r2 = paste0(highest_ld_results_filtered$r2, collapse = ";"),
-          #                                          bp_distance = paste0(highest_ld_results_filtered$bp_distance, collapse = ";"))
-          
-          
-          
-          
-          # keep only trait combination of interest
-          pred_accuracy_subset <- subset(pred_accuracy, qtn == qtns & var == causal_var_type
-                                         & pop == population & predictor == predictors)
-          
-          # append to prediction accuracy results
-          pred_accuracy_ld_summary <- rbind(pred_accuracy_ld_summary,
-                                            cbind(pred_accuracy_subset, highest_ld_results_summary))
-          
+          # change column name to facilitate merging
+          colnames(pve_qtn_summary)[2] <- "causal_var"
+          # merge ld results with qtn effects
+          qtn_pred_ld_pve <- merge(x = pve_qtn_summary, y = highest_ld_results, by = "causal_var", all = TRUE)
+          # sort columns
+          qtn_pred_ld_pve <- qtn_pred_ld_pve[order(qtn_pred_ld_pve$qtn_number, qtn_pred_ld_pve$env), ]
+          # merge pred accuracy with ld results and qtn effects
+          accuracy_ld_pve_scenario <- merge(pred_accuracy_scenario, qtn_pred_ld_pve, by = "env", all = TRUE)
+          # append to final df
+          results_accuracy_ld_pve <- rbind(results_accuracy_ld_pve, accuracy_ld_pve_scenario)
           
         }
       }
@@ -137,131 +197,97 @@ for (qtns in trait_qtn_number) {
   }
 }
 
-# # write final summary
-# outfile <- paste0(folder_results, "/pred_accuracy_ld_summary.txt")
-# outfile <- paste0("analysis/trait_sim/multi_env/pred_accuracy_ld_summary.iter1.pops1-5.txt")
-# fwrite(pred_accuracy_ld_summary, outfile, quote = FALSE, sep = "\t", na = NA, row.names = FALSE)
+# get results for traits controlled by both SNPs and SVs
+trait_var <- "both"
+for (trait_qtn in qtn_opts) {
+  for (pred_type in predictor_opts) {
+    for (trait_ratio in ratio_opts) {
+      for (i in 1:length(trait_pops)) {
+        
+        # get qtn pops and pred iters
+        trait_pop <- trait_pops[i]
+        pred_n <- pred_iters[i]
+        
+        # load ld filename
+        ld_summary_file <- paste0(folder_results, "/", trait_qtn, "-QTNs_from_",
+                                  trait_var, "/SNP-SV-ratio_", trait_ratio,
+                                  "/ld_causative-vars_predictors/pop", trait_pop,
+                                  "/ld_summary.", pred_type, "_markers.pred-iter", pred_n,
+                                  ".causal-pop", trait_pop, ".txt")
+        ld_summary <- fread(ld_summary_file, header = TRUE, data.table = FALSE)
+        
+        # combine all ld summaries into one data frame
+        ld_summary_all_scenarios <- rbind(ld_summary_all_scenarios,
+                                          cbind(data.frame(qtn = trait_qtn, var = trait_var,
+                                                           ratio = trait_ratio, pop = trait_pop,
+                                                           pred_type = pred_type, pred_iter = pred_n),
+                                                ld_summary))
+        
+        for (trait_h2 in h2_opts) {
+          for (trait_sv_effect in sv_effect_opts) {
+            for (trait_diff_dist in c(FALSE, TRUE)) {
+              
+              # get accuracy for each particular simulated and predicted scenario
+              pred_accuracy_scenario <- pred_accuracy %>% 
+                filter(h2 == trait_h2, qtn == trait_qtn, var == trait_var, ratio == trait_ratio,
+                       sv_effect == trait_sv_effect, diff_dist == trait_diff_dist,
+                       pop == trait_pop, predictor == pred_type, pred_iter == pred_n) %>% 
+                pivot_longer(!(h2:mean_upperCI), names_to = "stat", values_to = "vals") %>% 
+                select(!(mean_accuracy_envs:mean_upperCI)) %>% 
+                separate(stat, into = c("env", "stat"), sep = "_") %>%
+                pivot_wider(names_from = "stat", values_from = "vals") %>%
+                as.data.frame()
+              
+              # load pve per qtn summary file
+              pve_qtn_summary_file <- paste0(folder_results, "/", trait_qtn, "-QTNs_from_",
+                                             trait_var, "/SNP-SV-ratio_", trait_ratio,
+                                             "/effects_SNP-0.1_SV-",  trait_sv_effect, "/",
+                                             trait_h2, "-heritability/pop", trait_pop,
+                                             "/summary_var_explained_per_qtn.txt")
+              pve_qtn_summary <- fread(pve_qtn_summary_file, header = TRUE, data.table = FALSE)
+              
+              # get predictors in highest ld to causative variants
+              highest_ld_results <- getMarkersHighestLD(ld_summary)
+              
+              # change column name to facilitate merging
+              colnames(pve_qtn_summary)[2] <- "causal_var"
+              # merge ld results with qtn effects
+              qtn_pred_ld_pve <- merge(x = pve_qtn_summary, y = highest_ld_results, by = "causal_var", all = TRUE)
+              # sort columns
+              qtn_pred_ld_pve <- qtn_pred_ld_pve[order(qtn_pred_ld_pve$qtn_number, qtn_pred_ld_pve$env), ]
+              # merge pred accuracy with ld results and qtn effects
+              accuracy_ld_pve_scenario <- merge(pred_accuracy_scenario, qtn_pred_ld_pve, by = "env", all = TRUE)
+              # append to final df
+              results_accuracy_ld_pve <- rbind(results_accuracy_ld_pve, accuracy_ld_pve_scenario)
+              
+            }
+          }
+        }
+      }
+    }
+  }
+}
 
-#### for testing...
-# pred_accuracy_ld_summary <- fread("tests/pred_accuracy_ld_summary.iter1.pops1-5.txt", header = TRUE, data.table = FALSE)
-####
+# sort columns
+ld_summary_all_scenarios <- ld_summary_all_scenarios %>% 
+  arrange(qtn, var, ratio, pop, pred_type, pred_iter, chr)
 
-# pred_accuracy_ld_summary <- separate_rows(pred_accuracy_ld_summary, r2, bp_distance, sep = ";")
-# pred_accuracy_ld_summary$r2 <- as.numeric(pred_accuracy_ld_summary$r2)
-# pred_accuracy_ld_summary$bp_distance <- as.numeric(pred_accuracy_ld_summary$bp_distance)
-# pred_accuracy_ld_summary$pop <- as.factor(pred_accuracy_ld_summary$pop)
+results_accuracy_ld_pve <- results_accuracy_ld_pve %>% 
+  arrange(env, h2, qtn, desc(var), ratio, sv_effect, diff_dist, pop, predictor, pred_iter, cv, qtn_number)
 
+# write final results
+outfile_ld_summary <- gsub(".txt", ".ld-summary.txt", outfile)
+fwrite(ld_summary_all_scenarios, outfile_ld_summary, quote = FALSE, sep = "\t", na = NA, row.names = FALSE)
 
-
-pred_accuracy_ld_summary %>% 
-  filter(predictor == "all") %>%
-  ggplot(aes(x = high_ld_perc, y = mean_accuracy_envs)) + 
-  facet_grid(cv + var ~ qtn + h2) +
-  geom_point(aes(color = predictor)) +
-  coord_cartesian(xlim = c(0, 1), ylim = c(0, 1))
-
-
-pred_accuracy_ld_summary %>% 
-  ggplot(aes(x = high_ld_perc, y = mean_accuracy_envs)) + 
-  facet_grid(cv + var ~ qtn + h2) +
-  geom_point(aes(color = predictor)) +
-  coord_cartesian(xlim = c(0, 1), ylim = c(0, 1))
-
-pred_accuracy_ld_summary %>% 
-  ggplot(aes(x = high_ld_perc, y = mean_accuracy_envs, color = as.factor(h2), shape = as.factor(qtn))) +
-  geom_point() +
-  coord_cartesian(xlim = c(0, 1), ylim = c(0, 1)) +
-  # geom_smooth(method = "lm")
-  geom_smooth()
-
-pred_accuracy_ld_summary %>% 
-  ggplot(aes(x = high_ld_perc, y = mean_accuracy_envs)) +
-  facet_grid(qtn ~ h2) +
-  geom_point() +
-  coord_cartesian(xlim = c(0, 1), ylim = c(0, 1)) +
-  # geom_smooth(method = "lm")
-  geom_smooth()
-
-
-# figure: perhaps a heatmap with all possible combinations (x axis is trait combinations, y axis is predictor type)
-
-#### correlation accounting for causative variant
-cor_pred_accuracy_ld <- pred_accuracy_ld_summary %>%
-  group_by(gxe, h2, qtn, var, ratio, sv_effect, diff_dist, predictor, cv) %>%
-  summarize(pops = n(),
-            cor_accuracy_high_ld = cor(mean_accuracy_envs, high_ld_perc,
-                                       method = "pearson", use = "complete.obs")) %>% 
-  ungroup()
-
-heatmap_data <- cor_pred_accuracy_ld  %>% 
-  select(-c(pops, ratio, sv_effect, diff_dist)) %>%
-  mutate_at(vars(-cor_accuracy_high_ld), as.character) %>% 
-  mutate(gxe = paste0(gxe, "_GxE"),
-         h2 = paste0("h2_", h2),
-         qtn = paste0(qtn, "_QTNs"),
-         var = paste0(var, "_as_causal")) 
-
-ggplot(heatmap_data, aes(x = var, y = predictor, fill = cor_accuracy_high_ld)) + 
-  facet_grid(cv ~ gxe + qtn + h2) +
-  geom_tile() +
-  scale_fill_gradientn(colours = brewer.pal(7, "RdBu"), limits = c(-1, 1),
-                       na.value = "grey50", aesthetics = "fill")
-
-ggplot(heatmap_data, aes(x = var, y = predictor, fill = cor_accuracy_high_ld)) + 
-  facet_grid(cv ~ qtn + h2) +
-  geom_tile() +
-  scale_fill_gradientn(colours = brewer.pal(7, "RdBu"), limits = c(-1, 1),
-                       na.value = "grey50", aesthetics = "fill")
-
-#### correlation not accounting for causative variant
-cor_pred_accuracy_ld <- pred_accuracy_ld_summary %>%
-  group_by(gxe, h2, qtn, ratio, sv_effect, diff_dist, predictor, cv) %>%
-  summarize(cor_accuracy_high_ld = cor(mean_accuracy_envs, high_ld_perc,
-                                       method = "pearson", use = "complete.obs")) %>% 
-  ungroup()
-
-heatmap_data <- cor_pred_accuracy_ld  %>% 
-  select(-c(ratio, sv_effect, diff_dist)) %>%
-  mutate_at(vars(-cor_accuracy_high_ld), as.character) %>% 
-  mutate(gxe = paste0(gxe, "_GxE"),
-         h2 = paste0("h2_", h2),
-         qtn = paste0(qtn, "_QTNs")) 
-
-ggplot(heatmap_data, aes(x = cv, y = predictor, fill = cor_accuracy_high_ld)) + 
-  facet_grid(gxe ~ qtn + h2) +
-  geom_tile() +
-  scale_fill_gradientn(colours = brewer.pal(7, "RdBu"), limits = c(-1, 1),
-                       na.value = "grey50", aesthetics = "fill")
-
-ggplot(heatmap_data, aes(x = cv, y = predictor, fill = cor_accuracy_high_ld)) + 
-  facet_grid(qtn ~ h2) +
-  geom_tile() +
-  scale_fill_gradientn(colours = brewer.pal(7, "RdBu"), limits = c(-1, 1),
-                       na.value = "grey50", aesthetics = "fill")
+outfile_cor <- gsub(".txt", ".results.txt", outfile)
+fwrite(results_accuracy_ld_pve, outfile_cor, quote = FALSE, sep = "\t", na = NA, row.names = FALSE)
 
 
-#### correlation not accounting for causative variant nor predictor type
-cor_pred_accuracy_ld <- pred_accuracy_ld_summary %>%
-  group_by(gxe, h2, qtn, ratio, sv_effect, diff_dist, cv) %>%
-  summarize(cor_accuracy_high_ld = cor(mean_accuracy_envs, high_ld_perc,
-                                       method = "pearson", use = "complete.obs")) %>% 
-  ungroup()
 
-heatmap_data <- cor_pred_accuracy_ld  %>% 
-  select(-c(ratio, sv_effect, diff_dist)) %>%
-  mutate_at(vars(-cor_accuracy_high_ld), as.character) %>% 
-  mutate(gxe = paste0(gxe, "_GxE"),
-         h2 = paste0("h2_", h2),
-         qtn = paste0(qtn, "_QTNs")) 
+#### debug ----
 
-ggplot(heatmap_data, aes(x = qtn, y = h2, fill = cor_accuracy_high_ld)) +
-  facet_grid(cv ~ gxe) +
-  geom_tile() +
-  scale_fill_gradientn(colours = brewer.pal(7, "RdBu"), limits = c(-1, 1),
-                       na.value = "grey50", aesthetics = "fill")
-
-ggplot(heatmap_data, aes(x = qtn, y = h2, fill = cor_accuracy_high_ld)) +
-  facet_grid(~ cv) +
-  geom_tile() +
-  scale_fill_gradientn(colours = brewer.pal(7, "RdBu"), limits = c(-1, 1),
-                       na.value = "grey50", aesthetics = "fill")
+# folder_results <- "analysis/trait_sim/multi_env/with_gxe/additive_model/equal_effects"
+# pred_accuracy_file <- "analysis/trait_sim/multi_env/prediction_results.full.txt"
+# outfile <- "analysis/trait_sim/multi_env/pred-accuracy_qtn-effect_ld-pred-qtn.txt"
+# trait_pops <- c(15, 4, 18, 16, 14, 20, 2, 8, 17, 11, 6, 1, 13, 7, 5, 10, 3, 9, 12, 19)
+# pred_iters <- c(5, 19, 10, 7, 16, 4, 17, 9, 1, 3, 18, 11, 15, 6, 2, 12, 20, 13, 8, 14)

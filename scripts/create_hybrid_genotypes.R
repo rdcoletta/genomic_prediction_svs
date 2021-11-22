@@ -143,6 +143,30 @@ for (hybrid in hybrid_info$Hybrid) {
   
 }
 
+# keep consistent allele order in het markers (i.e. major allele first, then minor)
+corrected_markers <- apply(X = hmp_hybrids[, 12:NCOL(hmp_hybrids)], MARGIN = 1, FUN = function(marker) {
+  
+  # get number of alleles
+  alleles <- unlist(strsplit(paste0(marker[marker != "NN"], collapse = ""), split = ""))
+  alleles <- sort(table(alleles), decreasing = TRUE)
+  
+  # define major and minor alleles
+  major <- names(alleles)[1]
+  minor <- names(alleles)[2]
+  
+  # define hets
+  het_correct <- paste0(major, minor)
+  het_wrong <- paste0(minor, major)
+  
+  # correct wrong hets
+  marker[marker == het_wrong] <- het_correct
+  
+  return(marker)
+  
+})
+corrected_markers <- data.frame(t(corrected_markers))
+hmp_hybrids[, 12:NCOL(hmp_hybrids)] <- corrected_markers
+
 # write file
 fwrite(hmp_hybrids, outfile, quote = FALSE, sep = "\t", na = "NA", row.names = FALSE)
 

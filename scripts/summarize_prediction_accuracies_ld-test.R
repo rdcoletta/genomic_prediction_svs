@@ -4,9 +4,9 @@ library(tidyr)
 
 usage <- function() {
   cat("
-description: summarize prediction accuracy results after k-fold cross validation of simulated traits.
+description: summarize prediction accuracy results after k-fold cross validation of simulated traits with different LD levels.
 
-usage: Rscript summarize_prediction_accuracies.R [folder_base] [outfile_name] [...]
+usage: Rscript summarize_prediction_accuracies_ld-test.R [folder_base] [outfile_name] [...]
 
 positional arguments:
   folder_base                   path to folder with results of cross validation
@@ -32,12 +32,7 @@ getArgValue <- function(arg) {
 
 }
 
-getAccuracy <- function(folder_accuracy, h2, qtn, var, ratio, sv_effect,
-                        diff_dist, pop, predictor, pred_iter) {
-  
-  if (is.null(ratio)) ratio <- NA
-  if (is.null(sv_effect)) sv_effect <- NA
-  if (is.null(diff_dist)) diff_dist <- NA
+getAccuracy <- function(folder_accuracy, h2, qtn, var, pop, predictor, pred_iter) {
   
   # create empty df to store results of CVs
   df_results <- data.frame(stringsAsFactors = FALSE)
@@ -66,8 +61,7 @@ getAccuracy <- function(folder_accuracy, h2, qtn, var, ratio, sv_effect,
       
       # add metadata
       df_results <- rbind(df_results,
-                          data.frame(h2 = h2, qtn = qtn, var = var, ratio = ratio,
-                                     sv_effect = sv_effect, diff_dist = diff_dist,
+                          data.frame(h2 = h2, qtn = qtn, var = var,
                                      pop = pop, predictor = predictor,
                                      pred_iter = pred_iter, cv = cv,
                                      pred_accuracy_means, pred_accuracy_envs))
@@ -80,8 +74,7 @@ getAccuracy <- function(folder_accuracy, h2, qtn, var, ratio, sv_effect,
     return(df_results)
   } else {
     # if model didn't converge in at least one of the CVs, add NAs
-    df_results <- data.frame(h2 = h2, qtn = qtn, var = var, ratio = ratio,
-                             sv_effect = sv_effect, diff_dist = diff_dist,
+    df_results <- data.frame(h2 = h2, qtn = qtn, var = var,
                              pop = pop, predictor = predictor,
                              pred_iter = pred_iter, cv = c("CV1", "CV2"),
                              mean_accuracy_envs = c(NA, NA), mean_se = c(NA, NA), mean_lowerCI = c(NA, NA), mean_upperCI = c(NA, NA),
@@ -102,9 +95,7 @@ getAccuracy <- function(folder_accuracy, h2, qtn, var, ratio, sv_effect,
 # set default
 qtn_opts <- c(10, 100)
 h2_opts <- c(0.3, 0.7)
-predictor_opts <- c("all", "sv", "snp", "snp_ld", "snp_not_ld")
-ratio_opts <- c(0.5, 0.8)
-sv_effect_opts <- c(0.1, 0.5)
+predictor_opts <- c("low", "moderate", "high")
 trait_pops <- "1,2,3"
 pred_iters <- "1,2,3"
 
@@ -136,8 +127,6 @@ if (length(args) > 2) {
 trait_pops <- unlist(strsplit(trait_pops, split = ","))
 pred_iters <- unlist(strsplit(pred_iters, split = ","))
 
-if (length(trait_pops) != length(pred_iters)) stop("Number of QTN pops and marker iterations doesn't match")
-
 # get positional arguments
 folder_base <- args[1]
 outfile_name <- args[2]
@@ -150,63 +139,24 @@ outfile_name <- args[2]
 prediction_results <- data.frame(stringsAsFactors = FALSE)
 
 # get results for traits controlled by SNPs only or SVs only
-ratio <- NULL
-sv_effect <- NULL
-diff_dist <- NULL
 for (var in c("SNP", "SV")) {
   for (qtn in qtn_opts) {
     for (h2 in h2_opts) {
       for (predictor in predictor_opts) {
-        for (i in 1:length(trait_pops)) {
-          
-          pop <- trait_pops[i]
-          pred_iter <- pred_iters[i]
-          
-          # get folder with prediction accuracy results
-          folder_accuracy <- paste0(folder_base, "/with_gxe/additive_model/equal_effects/",
-                                    qtn, "-QTNs_from_", var, "/", h2, "-heritability/pop", pop,
-                                    "/prediction_iter", pred_iter, "/", predictor, "_markers")
-          
-          # get accuracy results
-          prediction_results <- rbind(prediction_results,
-                                      getAccuracy(folder_accuracy, h2 = h2, qtn = qtn,
-                                                  var = var, ratio = ratio, sv_effect = sv_effect,
-                                                  diff_dist = diff_dist, pop = pop,
-                                                  predictor = predictor, pred_iter = pred_iter))
-          
-        }
-      }
-    }
-  }
-}
-
-# get results for traits controlled by both SNPs and SVs
-var <- "both"
-for (qtn in qtn_opts) {
-  for (h2 in h2_opts) {
-    for (predictor in predictor_opts) {
-      for (ratio in ratio_opts) {
-        for (sv_effect in sv_effect_opts) {
-          for (diff_dist in c(FALSE, TRUE)) {
-            for (i in 1:length(trait_pops)) {
-              
-              pop <- trait_pops[i]
-              pred_iter <- pred_iters[i]
-              
-              # get folder with prediction accuracy results
-              folder_accuracy <- paste0(folder_base, "/with_gxe/additive_model/equal_effects/", qtn,
-                                        "-QTNs_from_", var, "/SNP-SV-ratio_", ratio, "/effects_SNP-0.1_SV-", 
-                                        sv_effect, "/", h2, "-heritability/pop", pop,
-                                        "/prediction_iter", pred_iter, "/", predictor, "_markers")
-              
-              # get accuracy results
-              prediction_results <- rbind(prediction_results,
-                                          getAccuracy(folder_accuracy, h2 = h2, qtn = qtn,
-                                                      var = var, ratio = ratio, sv_effect = sv_effect,
-                                                      diff_dist = diff_dist, pop = pop, predictor = predictor,
-                                                      pred_iter = pred_iter))
-              
-            }
+        for (pop in trait_pops) {
+          for (pred_iter in pred_iters) {
+            
+            # get folder with prediction accuracy results
+            folder_accuracy <- paste0(folder_base, "/rep", pred_iter, "/", qtn,
+                                      "-QTNs_from_", var, "/", h2, "-heritability/pop",
+                                      pop, "/pred_", predictor, "_ld")
+            
+            # get accuracy results
+            prediction_results <- rbind(prediction_results,
+                                        getAccuracy(folder_accuracy, h2 = h2, qtn = qtn,
+                                                    var = var, pop = pop, predictor = predictor,
+                                                    pred_iter = pred_iter))
+            
           }
         }
       }
@@ -216,7 +166,8 @@ for (qtn in qtn_opts) {
 
 # summarize results
 prediction_summary <- prediction_results %>%
-  group_by(h2, qtn, var, ratio, sv_effect, diff_dist, predictor, cv) %>%
+  filter(!is.na(mean_accuracy_envs)) %>% 
+  group_by(h2, qtn, var, predictor, cv) %>%
   summarize(pops = n(),
             across(mean_accuracy_envs:env5_upperCI, ~ mean(.x, na.rm = TRUE)),
             accuracy_se = sd(c(env1_mean, env2_mean, env3_mean, env4_mean, env5_mean)) / sqrt(pops * 5),
@@ -240,7 +191,7 @@ fwrite(prediction_summary, file = gsub(".txt", ".summary.txt", outfile_name),
 
 #### debug ----
 
-# folder_base <- "analysis/trait_sim/multi_env"
-# outfile_name <- "analysis/trait_sim/multi_env/test_prediction_results.pops15-4-18.txt"
-# trait_pops <- c(15, 4, 18) #, 16, 14, 20, 2, 8, 17, 11, 6, 1, 13, 7, 5, 10, 3, 9, 12, 19)
-# pred_iters <- c(5, 19, 10) #, 7, 16, 4, 17, 9, 1, 3, 18, 11, 15, 6, 2, 12, 20, 13, 8, 14)
+# folder_base <- "analysis/ld_downsample/sim_traits"
+# outfile_name <- "analysis/ld_downsample/sim_traits/test_prediction_results.reps1-10.pops1-3.txt"
+# trait_pops <- c(1, 2, 3, 4, 5)
+# pred_iters <- c(1, 2, 3)

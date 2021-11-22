@@ -15,74 +15,82 @@ positional arguments:
   out_folder                path to folder to save plots
 
 optional argument:
-  --help                    show this helpful message
-  --causal-variant=VALUE    marker type controlling trait variation ('SNP', 'SV' or 'both')
-  --SNP-SV-ratio=VALUE      if both SNPs and SVs can be the causal variants, this option controls
-                            the SNP/SV ratio to be sampled (default: 0.5)
-  --pops=VALUE              number of populations to be simulated with different QTNs (default: 10)
-  --reps=VALUE              number of reps (default: 3)
-  --envs=VALUE              number of environments to simulate (default: 1)
-  --h2=VALUE                heritability (default: 0.5; comma-separated list of values also allowed)
-  --model=VALUE             additive, dominant or epistatic genetic model ('A', 'D' or 'E'), or any
-                            combination of these models ('AE', 'DE' or 'ADE')
-  --add-QTN-num=VALUE       number of additive loci controlling the trait (default: 10)
-  --add-effect-type=VALUE   type of additive effect among QTNs. If 'equal' is provided (default),
-                            additive effects across all loci will be '--marker-effect'. If 'geometric'
-                            is provided, a geometric series of effects starting at '--marker-effect'
-                            is applied to the loci
-  --marker-effect=VALUE     size of marker effect (default: 0.1)
-  --SV-effect=VALUE         if both SNPs and SVs can be the causal variants, this option allows
-                            providing a different effect size for SVs (default: NULL; same as
-                            '--marker-effect')
-  --architecture=VALUE      genetic architecture to be simulated ('pleiotropic' for traits being
-                            controlled by the same QTNs, 'partially' for traits being controlled by
-                            pleiotropic and trait-specific QTNs, 'LD' for traits being exclusively
-                            controlled by different QTNs)
-  --gen-cor-matrix=VALUE    if option is not provided, no genetic correlation matrix will be used.
-                            If '/path/to/file', then the file should contain a genetic correlation
-                            matrix among environments to be simulated (no column or row names). The
-                            lower the genetic correlation among environments, higher the chance of
-                            having GxE interactions. If '1', a perfect positive correlation matrix
-                            (i.e. all environments have correlation = 1) will be generated with
-                            'number of rows' = 'number of envs'
-  --res-cor-matrix=VALUE    if option is not provided, a random residual correlation matrix will be
-                            generated with 'number of rows' = 'number of envs'.  If '/path/to/file',
-                            then the file should contain a residual correlation matrix among
-                            environments to be simulated (no column or row names)
-  --gxe                     add this option to simulate GxE by adding random effects (drawn from a
-                            normal distribution) to the marker effects in each environment. This
-                            option also overrides any genetic correlation matrix provided
-  --diff-dist-gxe           add this option to draw random GxE effects from different normal
-                            distributions depending on marker type (SNP or SV). The normal distribution
-                            used to sample effects will have mean 0 for both SNPs and SVs, but the
-                            standard deviation for SVs will be multiplied by the value of '--SV-effect'
-                            option.
-  --diff-env-mean           add this option to force simulated traits to have different means in
-                            each environment
-  --QTN-variance            add this option to write files with percent variance explained per QTN
-  --seed=VALUE              value for set.seed (default: NULL; random number is selected)
+  --help                      show this helpful message
+  --causal-variant=VALUE      marker type controlling trait variation ('SNP', 'SV' or 'both')
+  --SNP-SV-ratio=VALUE        if both SNPs and SVs can be the causal variants, this option controls
+                              the SNP/SV ratio to be sampled (default: 0.5)
+  --pops=VALUE                number of populations to be simulated with different QTNs (default: 10)
+  --reps=VALUE                number of reps (default: 3)
+  --envs=VALUE                number of environments to simulate (default: 1)
+  --h2=VALUE                  heritability (default: 0.5; comma-separated list of values also allowed)
+  --impute-effect             the marker effect ('Add' or 'Dom') when imputing missing data at the hapmap
+                              numericalization step (default: 'Add')
+  --impute-type               the marker type ('Major', 'Middle' or 'Minor') when imputing missing data at 
+                              the hapmap numericalization step (default: 'Major')
+  --model=VALUE               additive, dominant or epistatic genetic model ('A', 'D' or 'E'), or any
+                              combination of these models ('AE', 'DE' or 'ADE')
+  --add-QTN-num=VALUE         number of additive loci controlling the trait (default: 10)
+  --dom-QTN-num=VALUE         number of additive loci controlling the trait (default: 10)
+  --effect-type=VALUE         type of effect among QTNs. If 'equal' is provided (default), effects across
+                              all loci will be '--marker-effect'. If 'geometric' is provided, a geometric
+                              series of effects starting at '--marker-effect' is applied to the loci
+  --marker-effect-add=VALUE   size of additive marker effect (default: 0.1)
+  --marker-effect-dom=VALUE   size of dominant marker effect (default: 0.1)
+  --SV-effect-add=VALUE       if both SNPs and SVs can be the causal variants, this option allows
+                              providing a different effect size for additive SVs (default: NULL; same as
+                              '--marker-effect-add')
+  --SV-effect-dom=VALUE       if both SNPs and SVs can be the causal variants, this option allows
+                              providing a different effect size for dominant SVs (default: NULL; same as
+                              '--marker-effect-dom')
+  --architecture=VALUE        genetic architecture to be simulated ('pleiotropic' for traits being
+                              controlled by the same QTNs, 'partially' for traits being controlled by
+                              pleiotropic and trait-specific QTNs, 'LD' for traits being exclusively
+                              controlled by different QTNs)
+  --gen-cor-matrix=VALUE      if option is not provided, no genetic correlation matrix will be used.
+                              If '/path/to/file', then the file should contain a genetic correlation
+                              matrix among environments to be simulated (no column or row names). The
+                              lower the genetic correlation among environments, higher the chance of
+                              having GxE interactions. If '1', a perfect positive correlation matrix
+                              (i.e. all environments have correlation = 1) will be generated with
+                              'number of rows' = 'number of envs'
+  --res-cor-matrix=VALUE      if option is not provided, a random residual correlation matrix will be
+                              generated with 'number of rows' = 'number of envs'.  If '/path/to/file',
+                              then the file should contain a residual correlation matrix among
+                              environments to be simulated (no column or row names)
+  --gxe                       add this option to simulate GxE by adding random effects (drawn from a
+                              normal distribution) to the marker effects in each environment. This
+                              option also overrides any genetic correlation matrix provided
+  --diff-dist-gxe             add this option to draw random GxE effects from different normal
+                              distributions depending on marker type (SNP or SV). The normal distribution
+                              used to sample effects will have mean 0 for both SNPs and SVs, but the
+                              standard deviation for SVs will be multiplied by the value of '--SV-effect'
+                              option.
+  --diff-env-mean             add this option to force simulated traits to have different means in
+                              each environment
+  --QTN-variance              add this option to write files with percent variance explained per QTN
+  --seed=VALUE                value for set.seed (default: NULL; random number is selected)
 
 "
   )
 }
 
 getArgValue <- function(arg) {
-  
+
   # get value from command-line arguments
   arg <- unlist(strsplit(arg, "="))
   if (length(arg) == 1) return(TRUE)
   if (length(arg) > 1) return(arg[2])
-  
+
 }
 
 createGeomSeries <- function(qtn_number, largest_effect) {
-  
+
   list_effects <- rep(largest_effect, times = qtn_number)
   order_effects <- 1:qtn_number
   geom_series <- list(list_effects ^ order_effects)
-  
+
   return(geom_series)
-  
+
 }
 
 simulateTraits <- function(geno_data = NULL,
@@ -95,7 +103,7 @@ simulateTraits <- function(geno_data = NULL,
                            # architecture
                            envs = 1,
                            h2 = 0.5,
-                           model = c("A", "D", "E", "AE", "DE", "ADE"),
+                           model = c("A", "D", "E", "AD", "AE", "DE", "ADE"),
                            add_QTN_num = 3,
                            dom_QTN_num = 3,
                            effect_type = c("geometric", "equal"),
@@ -112,22 +120,25 @@ simulateTraits <- function(geno_data = NULL,
                            seed = 2020,
                            # ouput
                            QTN_variance = QTN_variance,
-                           out_folder = getwd()) {
-  
+                           out_folder = getwd(),
+                           # numericalization
+                           SNP_effect = "Add",
+                           SNP_impute = "Major") {
+
   # make sure list of SVs is provided
   if (is.null(list_of_SV_IDs)) stop("No list of SV IDs provided!")
-  
+
   # separate data into SNPs and SVs
   geno_data_SVs <- geno_data[which(geno_data[, 1] %in% list_of_SV_IDs), ]
   geno_data_SNPs <- geno_data[which(!geno_data[, 1] %in% list_of_SV_IDs), ]
-  
+
   # filter data based on sorce of which marker type is the causative variant
   if (source_trait_variation == "SV") geno2trait_sim <- geno_data_SVs
   if (source_trait_variation == "SNP") geno2trait_sim <- geno_data_SNPs
   if (source_trait_variation == "both") {
-    
+
     splitCausalVars <- function(geno_data_SVs, geno_data_SNPs, QTN_num, SNP_SV_ratio, seed) {
-      
+
       # get how many additive SNPs and SVs will be selected
       n_SNPs_to_sample <- ceiling(QTN_num * SNP_SV_ratio)
       n_SVs_to_sample <- ceiling(QTN_num * (1 - SNP_SV_ratio))
@@ -139,11 +150,11 @@ simulateTraits <- function(geno_data = NULL,
       # filter datasets for each marker type separately
       geno_data_SVs <- geno_data_SVs[SVs_to_keep, ]
       geno_data_SNPs <- geno_data_SNPs[SNPs_to_keep, ]
-      
+
       return(list(SVs = geno_data_SVs, SNPs = geno_data_SNPs))
-      
+
     }
-    
+
     # get additive SNPs and SVs
     geno_data_add <- splitCausalVars(geno_data_SVs, geno_data_SNPs, add_QTN_num, SNP_SV_ratio, seed)
     causal_vars_add <- c(geno_data_add$SVs[, 1], geno_data_add$SNPs[, 1])
@@ -153,36 +164,36 @@ simulateTraits <- function(geno_data = NULL,
     # get dominant SNPs and SVs
     geno_data_dom <- splitCausalVars(geno_data_SVs, geno_data_SNPs, dom_QTN_num, SNP_SV_ratio, seed + seed)
     causal_vars_dom <- c(geno_data_dom$SVs[, 1], geno_data_dom$SNPs[, 1])
-    
+
     # combine and order dataset
     geno2trait_sim <- rbind(do.call(rbind, geno_data_add), do.call(rbind, geno_data_dom))
     geno2trait_sim <- geno2trait_sim[order(geno2trait_sim$chr, geno2trait_sim$pos), ]
-    
+
   }
-  
+
   # select QTNs
   set.seed(seed)
   marker_qtns <- sort(sample(1:NROW(geno2trait_sim), size = add_QTN_num + dom_QTN_num, replace = FALSE))
   geno2trait_sim <- geno2trait_sim[marker_qtns, ]
-  
+
   # check which type of effect will be used
   if (effect_type == "geometric") {
-    
+
     # create a geometric series where first QTN effect is 'marker_effect_add"
     add_effect_value <- createGeomSeries(qtn_number = add_QTN_num, largest_effect = marker_effect_add)
     dom_effect_value <- createGeomSeries(qtn_number = dom_QTN_num, largest_effect = marker_effect_dom)
-    
+
   }
-  
+
   if (effect_type == "equal") {
-    
+
     # make sure all QTNs have the same 'marker_effect_add' value
     add_effect_value <- rep(marker_effect_add, times = add_QTN_num)
     dom_effect_value <- rep(marker_effect_dom, times = dom_QTN_num)
     # transform to list for compatibility to simplePHENOTYPES
     add_effect_value <- list(add_effect_value)
     dom_effect_value <- list(dom_effect_value)
-    
+
     # adjust additive effect size if SVs have different effects than SNPs
     if (!is.null(SV_effect_add)) {
       # find which qtns are SVs
@@ -194,7 +205,7 @@ simulateTraits <- function(geno_data = NULL,
       # modify effect size of svs
       if (length(sv_qtns_add) > 0) add_effect_value[[1]][sv_qtns_add] <- SV_effect_add
     }
-    
+
     # adjust dominant effect size if SVs have different effects than SNPs
     if (!is.null(SV_effect_dom)) {
       # find which qtns are SVs
@@ -206,20 +217,20 @@ simulateTraits <- function(geno_data = NULL,
       # modify effect size of svs
       if (length(sv_qtns_dom) > 0) dom_effect_value[[1]][sv_qtns_dom] <- SV_effect_dom
     }
-    
+
   }
-  
+
   # adjust some parameters if multiple traits
   if (envs > 1) {
-    
+
     # make sure architecture option is provided if number of traits is bigger than 1
     if(is.null(architecture)) stop("Provide genetic architecture (pleiotropic, partially, or LD) when more than 1 trait is simulated")
     # set the same additive effects for all traits
     add_effect_value <- rep(add_effect_value, envs)
     dom_effect_value <- rep(dom_effect_value, envs)
-    
+
     if (diff_env_mean) {
-      
+
       # scale effect sizes among environments so they have different means
       for (env in 1:envs) {
         # use the absolute mean correlation among environments as the scaling factor
@@ -227,38 +238,38 @@ simulateTraits <- function(geno_data = NULL,
         add_effect_value[[env]] <- round(add_effect_value[[env]] * mean_cor_env, digits = 4)
         dom_effect_value[[env]] <- round(dom_effect_value[[env]] * mean_cor_env, digits = 4)
       }
-      
+
     }
-    
+
     # set the same heritability for all traits
     h2 <- rep(h2, envs)
-    
+
     # if GxE, change effect sizes for each environment
     if (gxe) {
-      
+
       addGxEeffects <- function(envs, QTN_num, effect_value, marker_effect, sv_qtns,
                                 SV_effect, diff_dist_gxe = FALSE, seed) {
-        
+
         # select QTNs to have constant effects across envs -- 10% QTNs without GxE
         n_constant_qtns <- ceiling(0.1 * QTN_num)
         constant_seed <- seed + seed
         set.seed(constant_seed)
         constant_qtns <- sort(sample(1:QTN_num, size = n_constant_qtns, replace = FALSE))
-        
+
         # select QTNs that can change signs across environments -- 10% QTNs can change signs
         n_diff_sign_qtns <- ceiling(0.1 * QTN_num)
         diff_sign_seed <- seed * envs
         set.seed(diff_sign_seed)
         diff_sign_qtns <- sort(sample((1:QTN_num)[-constant_qtns], size = n_diff_sign_qtns, replace = FALSE))
-        
+
         for (env in 1:length(effect_value)) {
-          
+
           # select QTNs to have no effect in this env -- 10% QTNs with no effect at all
           n_zero_qtns <- ceiling(0.1 * QTN_num)
           zero_seed <- (seed + seed) * env
           set.seed(zero_seed)
           zero_qtns <- sort(sample((1:QTN_num)[-constant_qtns], size = n_zero_qtns, replace = FALSE))
-          
+
           # draw specific effects from a normal distribution
           gxe_seed <- seed + env
           set.seed(gxe_seed)
@@ -281,60 +292,52 @@ simulateTraits <- function(geno_data = NULL,
             if (i < -1) i = -1
             return(i)
           })
-          
+
         }
-        
+
         # make sure only selected QTNs are allowed to change signs
         for (env in 1:length(effect_value)) {
-          
+
           effect_value[[env]][-diff_sign_qtns] <- sapply(effect_value[[env]][-diff_sign_qtns], function(qtn, effect) {
             # change signs according to initial 'marker_effect' provided
             if (effect > 0) if (qtn < 0) qtn = qtn * (-1)
             if (effect < 0) if (qtn > 0) qtn = qtn * (-1)
             return(qtn)
           }, effect = marker_effect)
-          
+
         }
-        
+
         return(effect_value)
-        
+
       }
-      
+
       if (source_trait_variation != "both") {
         sv_qtns_add <- NULL
         sv_qtns_dom <- NULL
       }
-      
+
       add_effect_value <- addGxEeffects(envs, add_QTN_num, add_effect_value, marker_effect_add, sv_qtns_add,
                                         SV_effect_add, diff_dist_gxe = diff_dist_gxe, seed)
       dom_effect_value <- addGxEeffects(envs, dom_QTN_num, dom_effect_value, marker_effect_dom, sv_qtns_dom,
-                                        SV_effect_dom, diff_dist_gxe = diff_dist_gxe, seed)
-      
+                                        SV_effect_dom, diff_dist_gxe = diff_dist_gxe, seed + seed)
+
       # make sure to disable the use of any genetic correlation among environments
       gen_cor_matrix <- NULL
-      
+
     }
-    
+
   }
-  
-  cat("--- Simulating traits with ", add_QTN_num, " QTNs and ", h2[1], " heritability (seed number: ", seed, ") ---\n", sep = "")
-  
-  if (envs == 1) {
-    cat("QTN effects: ", paste0(add_effect_value[[1]], collapse = " "), "\n", sep = "")
-  } else {
-    cat("QTN effects: env1 - ", paste0(add_effect_value[[1]], collapse = " "), "\n", sep = "")
-    for (i in 2:length(add_effect_value)) {
-      cat("             env", i, " - ", paste0(add_effect_value[[i]], collapse = " "), "\n", sep = "")
-    }
-  }
-  
+
+  cat("--- Simulating traits with ", add_QTN_num, " add QTNs, ", dom_QTN_num, " dom QTNs, and ",
+      h2[1], " heritability (seed number: ", seed, ") ---\n", sep = "")
+
   if (source_trait_variation == "both") {
     QTN_list <- list(add = list(causal_vars_add), dom = list(causal_vars_dom))
   } else {
     QTN_list <- NULL
   }
-  
-  # simulate trait for single environment
+
+  # simulate trait
   create_phenotypes(geno_obj = geno2trait_sim,
                     QTN_list = QTN_list,
                     rep = reps,
@@ -360,9 +363,9 @@ simulateTraits <- function(geno_data = NULL,
                     QTN_variance = QTN_variance,
                     quiet = TRUE,
                     # numericalization
-                    SNP_effect = "Add",
-                    SNP_impute = "Major")
-  
+                    SNP_effect = SNP_effect,
+                    SNP_impute = SNP_impute)
+
 }
 
 
@@ -377,6 +380,8 @@ reps <- "3"
 envs <- "1"
 h2 <- "0.5"
 model <- "AD"
+impute_effect <- "Add"
+impute_type <- "Major"
 add_QTN_num <- "10"
 dom_QTN_num <- "10"
 effect_type <- "equal"
@@ -400,15 +405,16 @@ if ("--help" %in% args) usage() & q(save = "no")
 if (length(args) < 3) stop(usage(), "missing positional argument(s)")
 
 if (length(args) > 3) {
-  
+
   opt_args <- args[-1:-3]
   opt_args_allowed <- c("--causal-variant", "--SNP-SV-ratio", "--pops", "--reps", "--envs", "--h2",
-                        "--model", "--add-QTN-num", "--add-effect-type", "--marker-effect",
-                        "--SV-effect", "--architecture", "--gen-cor-matrix", "--res-cor-matrix",
+                        "--impute-effect", "--impute-type", "--model", "--add-QTN-num", "--dom-QTN-num",
+                        "--effect-type", "--marker-effect-add", "--marker-effect-dom", "--SV-effect-add",
+                        "--SV-effect-dom", "--architecture", "--gen-cor-matrix", "--res-cor-matrix",
                         "--gxe", "--diff-dist-gxe", "--diff-env-mean", "--QTN-variance", "--seed")
   opt_args_requested <- as.character(sapply(opt_args, function(x) unlist(strsplit(x, split = "="))[1]))
   if (any(!opt_args_requested %in% opt_args_allowed)) stop(usage(), "wrong optional argument(s)")
-  
+
   # change default based on the argument provided
   for (argument in opt_args_allowed) {
     if (any(grepl(argument, opt_args_requested))) {
@@ -417,7 +423,7 @@ if (length(args) > 3) {
       assign(arg_name, arg_value)
     }
   }
-  
+
 }
 
 # make sure optional arguments are valid
@@ -461,7 +467,7 @@ if (suppressWarnings(!any(is.na(as.numeric(h2))))) {
   stop("Optional argument '--h2' should be a number or a comma-separated list of numbers")
 }
 
-if (!model %in% c("A", "D", "E", "AE", "DE", "ADE")) {
+if (!model %in% c("A", "D", "E", "AD", "AE", "DE", "ADE")) {
   stop("Optional argument '--model' should be 'A', 'D', 'E', 'AE', 'DE' or 'ADE'")
 }
 
@@ -471,21 +477,41 @@ if (suppressWarnings(!any(is.na(as.integer(add_QTN_num))))) {
   stop("Optional argument '--add-QTN-num' should be an integer")
 }
 
+if (suppressWarnings(!any(is.na(as.integer(dom_QTN_num))))) {
+  dom_QTN_num <- as.integer(dom_QTN_num)
+} else {
+  stop("Optional argument '--dom-QTN-num' should be an integer")
+}
+
 if (!effect_type %in% c("equal", "geometric")) {
-  stop("Optional argument '--add-effect-type' should be a either 'equal' or 'geometric'")
+  stop("Optional argument '--effect-type' should be a either 'equal' or 'geometric'")
 }
 
 if (suppressWarnings(!is.na(as.numeric(marker_effect_add)))) {
   marker_effect_add <- as.numeric(marker_effect_add)
 } else {
-  stop("Optional argument '--marker-effect' should be an integer")
+  stop("Optional argument '--marker-effect-add' should be an integer")
+}
+
+if (suppressWarnings(!is.na(as.numeric(marker_effect_dom)))) {
+  marker_effect_dom <- as.numeric(marker_effect_dom)
+} else {
+  stop("Optional argument '--marker-effect-dom' should be an integer")
 }
 
 if (!is.null(SV_effect_add)) {
   if (suppressWarnings(!is.na(as.numeric(SV_effect_add)))) {
     SV_effect_add <- as.numeric(SV_effect_add)
   } else {
-    stop("Optional argument '--SV-effect' should be a number")
+    stop("Optional argument '--SV-effect-add' should be a number")
+  }
+}
+
+if (!is.null(SV_effect_dom)) {
+  if (suppressWarnings(!is.na(as.numeric(SV_effect_dom)))) {
+    SV_effect_dom <- as.numeric(SV_effect_dom)
+  } else {
+    stop("Optional argument '--SV-effect-dom' should be a number")
   }
 }
 
@@ -534,12 +560,15 @@ if (gxe & envs == 1) {
 
 # print conditions selected
 cat("\nNumber of environments to be simulated: ", envs, "\n", sep = "")
-cat("Number of QTNs per environment: ", add_QTN_num, "\n", sep = "")
+cat("Number of additive QTNs per environment: ", add_QTN_num, "\n", sep = "")
+cat("Number of dominant QTNs per environment: ", dom_QTN_num, "\n", sep = "")
 cat("Causal variant: ", ifelse(causal_variant == "both", paste0("SNPs and SVs (SNP/SV ratio: ", SNP_SV_ratio, ")"), causal_variant), "\n", sep = "")
 if (causal_variant != "both") {
-  cat("QTNs effect size: ", marker_effect_add, ifelse(effect_type == "geometric", " (geometric series)\n", "\n"), sep = "")
+  cat("Additive QTNs effect size: ", marker_effect_add, ifelse(effect_type == "geometric", " (geometric series)\n", "\n"), sep = "")
+  cat("Dominant QTNs effect size: ", marker_effect_dom, ifelse(effect_type == "geometric", " (geometric series)\n", "\n"), sep = "")
 } else {
-  cat("QTNs effect size: ", marker_effect_add, " (SNPs) and ", SV_effect_add, " (SVs)\n", sep = "")
+  cat("Additive QTNs effect size: ", marker_effect_add, " (SNPs) and ", SV_effect_add, " (SVs)\n", sep = "")
+  cat("Dominant QTNs effect size: ", marker_effect_dom, " (SNPs) and ", SV_effect_dom, " (SVs)\n", sep = "")
 }
 cat("Genetic model: ", model, "\n", sep = "")
 cat("Architecture: ", architecture, "\n", sep = "")
@@ -576,12 +605,12 @@ SVs <- SVs[, 1]
 if (!dir.exists(out_folder)) dir.create(out_folder, recursive = TRUE)
 
 for (pop_number in 1:pops) {
-  
+
   # create folder for rep
   out_folder_pop <- paste0(out_folder, "/pop", pop_number)
   # get rep specific seed number
   seed_pop <- seed + pop_number
-  
+
   cat ("population #", pop_number, "\n", sep = "")
   
   # simulate traits with different QTNs per experiment
@@ -612,7 +641,10 @@ for (pop_number in 1:pops) {
                  seed = seed_pop,
                  # ouput
                  QTN_variance = QTN_variance,
-                 out_folder = out_folder_pop)
+                 out_folder = out_folder_pop,
+                 # numericalization
+                 SNP_effect = impute_effect,
+                 SNP_impute = impute_type)
   
 }
 
@@ -621,98 +653,63 @@ for (pop_number in 1:pops) {
 
 #### debug ----
 
-infile_name <- "data/usda_rils.all_markers.adjusted-n-markers.hmp.txt"
-sv_list <- "data/test_SVs_IDs.txt"
+# infile_name <- "data/usda_hybrids_projected-SVs-SNPs.chr10.poly.low-missing.hmp.txt"
+# sv_list <- "data/SVs_IDs_poly.txt"
 # causal_variant <- "SNP"
-causal_variant <- "both"
-SNP_SV_ratio <- 0.5
-pops <- 10
-reps <- 3
-envs <- 5
-# envs <- 1
-h2 <- 0.2
-model <- "AD"
-add_QTN_num <- 50
-dom_QTN_num <- 50
-effect_type <- "equal"
-# effect_type <- "geometric"
-marker_effect_add <- 0.1
-marker_effect_dom <- 0.1
-SV_effect_add <- 0.1
-# SV_effect_add <- NULL
-SV_effect_dom <- 0.1
-# SV_effect_dom <- NULL
-architecture <- "pleiotropic"
-seed <- 2020
-set.seed(seed); res_cor_matrix <- apply(randcorr(envs), MARGIN = c(1,2), function(x) as.numeric(as.character(x)))
-
-# gen_cor_matrix <- matrix(data = c(1, 0, 0, 0, 0,
-#                                   0, 1, 0, 0, 0,
-#                                   0, 0, 1, 0, 0,
-#                                   0, 0, 0, 1, 0,
-#                                   0, 0, 0, 0, 1),
-#                          nrow = 5, ncol = 5)
-# gen_cor_matrix <- matrix(data = c(1.0000000, 0.22824442, 0.4448667, 0.30036742, 0.5593773,
-#                                   0.2282444, 1.00000000, 0.2018070, 0.08436789, 0.4605805,
-#                                   0.4448667, 0.20180704, 1.0000000, 0.42500602, 0.2990179,
-#                                   0.3003674, 0.08436789, 0.4250060, 1.00000000, 0.4699402,
-#                                   0.5593773, 0.46058052, 0.2990179, 0.46994025, 1.0000000),
-#                          nrow = 5, ncol = 5)
-# gen_cor_matrix <- matrix(data = c(1.0000000, 0.8734700, 0.8893981, 0.5617946, 0.8260930,
-#                                   0.8734700, 1.0000000, 0.9116455, 0.6904279, 0.9076674,
-#                                   0.8893981, 0.9116455, 1.0000000, 0.6772922, 0.9060776,
-#                                   0.5617946, 0.6904279, 0.6772922, 1.0000000, 0.7586979,
-#                                   0.8260930, 0.9076674, 0.9060776, 0.7586979, 1.0000000),
-#                          nrow = 5, ncol = 5)
-# gen_cor_matrix <- matrix(data = c(1, 1, 1, 1, 1,
-#                                   1, 1, 1, 1, 1,
-#                                   1, 1, 1, 1, 1,
-#                                   1, 1, 1, 1, 1,
-#                                   1, 1, 1, 1, 1),
-#                          nrow = 5, ncol = 5)
-
-# mean_gen_cor <- round(mean(gen_cor_matrix[upper.tri(gen_cor_matrix)]), digits = 2)
-
-QTN_variance <- TRUE
-
-
-# out_folder <- paste0("analysis/trait_sim_mult-env/additive_model/test/correct_reps/",
-#                      add_QTN_num, "-QTNs_from_", causal_variant, "/",
-#                      h2, "-heritability/",
-#                      "effect0.1/",
-#                      "mean-gen-cor_", mean_gen_cor)
-# out_folder <- paste0("analysis/trait_sim_mult-env/additive_model/test/correct_reps/",
-#                      add_QTN_num, "-QTNs_from_", causal_variant, "/",
-#                      h2, "-heritability/",
-#                      "effect0.1-0.4-0.7/",
-#                      "mean-gen-cor_", mean_gen_cor)
-
-
-gxe <- TRUE
-gen_cor_matrix <- NULL
-diff_dist_gxe <- TRUE
-
-# out_folder <- paste0("analysis/trait_sim_mult-env/additive_model/test/correct_reps_gxe/",
-#                      add_QTN_num, "-QTNs_from_", causal_variant, "/",
-#                      h2, "-heritability/",
-#                      "effect0.1/",
-#                      "with-gxe_new-rules/",
-#                      "norm-dist_mean-0_sd-0.3")
-
-# out_folder <- paste0("analysis/trait_sim_mult-env/additive_model/test/correct_reps_gxe/",
-#                      add_QTN_num, "-QTNs_from_", causal_variant, "/",
-#                      h2, "-heritability/",
-#                      "effect0.1/",
-#                      "no-gxe/",
-#                      "norm-dist_mean-0_sd-0.3")
-
-# out_folder <- paste0("analysis/trait_sim/additive_model/test/correct_reps/",
-#                      add_QTN_num, "-QTNs_from_", causal_variant, "/",
-#                      h2, "-heritability/",
-#                      "effect0.1/")
-
-out_folder <- paste0("analysis/trait_sim_mult-env/additive_model/test/trait_sim_hybrids/",
-                     add_QTN_num, "-add-QTNs_from_", causal_variant, "/",
-                     dom_QTN_num, "-dom-QTNs/",
-                     h2, "-heritability/")
-
+# # causal_variant <- "both"
+# # SNP_SV_ratio <- 0.5
+# impute_effect <- "Add"
+# impute_type <- "Major"
+# pops <- "2"
+# reps <- "3"
+# envs <- "5"
+# # envs <- 1
+# h2 <- "0.3"
+# effect_type <- "equal"
+# # effect_type <- "geometric"
+# marker_effect_add <- "0.1"
+# marker_effect_dom <- "0.1"
+# # SV_effect_add <- 0.1
+# # SV_effect_add <- 0.5
+# # SV_effect_add <- NULL
+# # SV_effect_dom <- 0.1
+# # SV_effect_dom <- 0.5
+# # SV_effect_dom <- NULL
+# architecture <- "pleiotropic"
+# 
+# # {
+# #   model <- "AD"
+# #   add_QTN_num <- 50
+# #   dom_QTN_num <- 50
+# # }
+# 
+# {
+#   model <- "A"
+#   add_QTN_num <- "10"
+#   dom_QTN_num <- "0"
+# 
+# }
+# 
+# # out_folder <- paste0("tests/trait_sim_hybrids/",
+# #                      add_QTN_num, "-add-QTNs_from_", causal_variant, "/",
+# #                      dom_QTN_num, "-dom-QTNs_from_", causal_variant, "/",
+# #                      h2, "-heritability/")
+# 
+# # out_folder <- paste0("tests/trait_sim_hybrids/",
+# #                      add_QTN_num, "-add-QTNs_from_both/",
+# #                      dom_QTN_num, "-dom-QTNs_from_both/",
+# #                      "SNP-SV-ratio_", SNP_SV_ratio, "/effects_SNP-",
+# #                      marker_effect_add, "_SV-", SV_effect_add, "/",
+# #                      h2, "-heritability/")
+# 
+# out_folder <- "analysis/trait_sim_hybrids/multi_env/with_gxe/A_model/10-add-QTNs_0-dom-QTNs_from_SNP/0.3-heritability"
+# 
+# seed <- "75486"
+# # set.seed(seed); res_cor_matrix <- apply(randcorr(envs), MARGIN = c(1,2), function(x) as.numeric(as.character(x)))
+# res_cor_matrix <- "data/usda_envs_cor_matrix.txt"
+# 
+# QTN_variance <- TRUE
+# gxe <- TRUE
+# gen_cor_matrix <- NULL
+# diff_dist_gxe <- FALSE
+# # diff_dist_gxe <- TRUE

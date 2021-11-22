@@ -5,9 +5,9 @@ library(RColorBrewer)
 
 usage <- function() {
   cat("
-description: plot prediction accuracy results after k-fold cross validation of simulated traits.
+description: plot prediction accuracy results after k-fold cross validation of simulated traits with different LD levels.
 
-usage: Rscript plot_prediction_accuracy.R [prediction_summary_file] [...]
+usage: Rscript plot_prediction_accuracy_ld-test.R [prediction_summary_file] [...]
 
 positional arguments:
   prediction_summary_file       path to file with prediction summary
@@ -76,9 +76,8 @@ prediction_summary <- fread(prediction_summary_file, header = TRUE, data.table =
 
 # reorder levels of marker type for better visualization
 prediction_summary$predictor <- factor(prediction_summary$predictor,
-                                       levels = c("all", "snp", "sv", "snp_ld", "snp_not_ld"),
-                                       labels = c("SNPs\nand SVs", "Only\nSNPs", "Only\nSVs",
-                                                  "SNPs\nin LD", "SNPs\nnot in LD"))
+                                       levels = c("low", "moderate", "high"),
+                                       labels = c("Low", "Moderate", "High"))
 
 # create output folder
 outfolder <- unlist(strsplit(prediction_summary_file, "/"))
@@ -92,8 +91,10 @@ if (!dir.exists(outfolder)) dir.create(outfolder)
 #### plot SNP only or SV only as causative variants ----
 
 # set default
-trait_var_source <- c("SNP", "SV")
-trait_qtn_number <- c(10, 100)
+trait_var_source <- "SNP"
+trait_qtn_number <- 100
+# trait_var_source <- c("SNP", "SV")
+# trait_qtn_number <- c(10, 100)
 trait_heritability <- c(0.3 ,0.7)
 
 # create plots for each scenario
@@ -109,12 +110,12 @@ for (qtn_number in trait_qtn_number) {
     results_plot <- ggplot(data = prediction_summary_plot,
                            aes(x = predictor, y = mean_accuracy_envs, fill = cv)) +
       geom_bar(stat = "identity", position = "dodge") +
-      annotate("text", label = "(causative variant)", x = 3, y = 1.0, vjust = -0.5, size = 7) +
+      # annotate("text", label = "(causative variant)", x = 3, y = 1.0, vjust = -0.5, size = 7) +
       facet_grid(cols = vars(var)) +
       coord_cartesian(ylim = c(0, 1)) +
       scale_x_discrete(drop = FALSE) +
-      labs(title = paste0(qtn_number, " QTNs, ", heritability, " heritability"),
-           x = "Marker type used in prediciton",
+      labs(title = paste0(qtn_number, " QTLs, ", heritability, " heritability"),
+           x = "LD level of marker to QTL",
            y = "Prediction accuracy") +
       scale_fill_manual(values = c("#DE8282FF", "#AD0000FF")) +
       guides(fill = guide_legend("Cross-Validation")) +
@@ -433,5 +434,4 @@ for (qtn_number in trait_qtn_number) {
 
 #### debug ----
 
-# prediction_summary_file <- "tests/test_prediction_results.pops15-4-18.summary.txt"
-# prediction_summary_file <- "tests/test_prediction_results.15pops.summary.txt"
+# prediction_summary_file <- "analysis/ld_downsample/test_prediction_results.reps1-10.pops1-3.summary.txt"

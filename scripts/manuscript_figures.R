@@ -1,21 +1,21 @@
 library(data.table)
 library(ggplot2)
 library(grid)
+library(dplyr)
 
 
-#### fig X ----
+#### fig 1 ----
 
-# ld decay
-
+##### a) ld decay ----
 script <- "scripts/plot_ld_decay.R"
 arg1 <- "analysis/snp-chip_ld/usda_22kSNPs_rils.sorted.diploid.filtered.v4.window-1000kb.filter-0.25.ld.gz"
-arg2 <- "analysis/ld/decay/manuscript_ld_decay_usda_snps-chip-only_1000kb"
+arg2 <- "../../../publications/2021_simulations/fig1a"
 opts <- "--unequal-windows"
 
 system(paste("Rscript", script, arg1, arg2, opts))
 
-# ld distribution SNP-SV
 
+##### b) ld distribution SNP-SV -----
 ld_results <- data.frame()
 for (chr in 1:10) {
   ld_file_chr <- paste0("analysis/ld/window-1kb_filter-0.25/ld_usda_rils_snp-sv_only.chr", chr, ".window-1kb.filter-0.25.highest-ld.ld")
@@ -41,27 +41,95 @@ plot_data <- rbind(plot_data, data.frame(x = plot_data[NROW(plot_data), "x"], ym
 plot_data[plot_data$ymin > 100, "y_axis_break"] <- "above"
 plot_data[plot_data$ymin <= 100, "y_axis_break"] <- "below"
 
-ggplot(plot_data, aes(x = x, y = ymin, xend = x, yend = ymax)) +
+dist_plot <- ggplot(plot_data, aes(x = x, y = ymin, xend = x, yend = ymax)) +
   geom_segment(size = 5) +
   facet_grid(y_axis_break ~ ., scales = "free_y") +
   coord_cartesian(xlim = c(0, 1)) +
   labs(x = bquote("LD"~(r^2)),
        y = "Count") +
   theme_minimal() +
-  theme(axis.title = element_text(size = 20),
-        axis.text = element_text(size = 15),
+  theme(axis.title = element_text(size = 30),
+        axis.text = element_text(size = 30),
         strip.text.y = element_blank(),
-        # panel.grid.major.x = element_blank(),
-        # panel.grid.minor.x = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.minor.y = element_blank(),
         axis.ticks = element_line()) + 
   annotation_custom(grob = linesGrob(gp = gpar(lwd = 2)), xmin = -Inf, xmax = -Inf, ymin = -Inf, ymax = +Inf) +
   annotation_custom(grob = linesGrob(gp = gpar(lwd = 2)), xmin = +Inf, xmax = +Inf, ymin = -Inf, ymax = +Inf) +
   annotation_custom(grob = linesGrob(gp = gpar(lwd = 2)), xmin = -Inf, xmax = +Inf, ymin = -5, ymax = -5) +
   annotation_custom(grob = linesGrob(gp = gpar(lwd = 2)), xmin = -Inf, xmax = +Inf, ymin = 4231, ymax = 4231)
 
+ggsave(filename = "../../../publications/2021_simulations/fig1b.png", dist_plot, device = "png")
+
 # inspired by:
 #   https://stackoverflow.com/a/65242880
 #   https://www.j4s8.de/post/2018-01-15-broken-axis-with-ggplot2/
+
+
+# plot MAF per LD -- way 1
+ld_results %>%
+  mutate(sv_maf = if_else(grepl("^del|ins|inv|dup|tra", SNP_A, perl = TRUE),
+                          true = MAF_A, false = MAF_B),
+         ld_category = case_when(R2 >= 0.8 ~ "High LD",
+                                 R2 < 0.8 & R2 >= 0.5 ~ "Moderate LD",
+                                 R2 < 0.5 ~ "Low LD")) %>%
+  ggplot(aes(x = sv_maf)) +
+  geom_density(aes(color = ld_category))
+
+# plot MAF per LD -- way 2 (rils)
+site_summary <- fread("analysis/ld/window-1kb_filter-0.25/SVs_with_LD_info_SiteSummary.txt",
+                      header = TRUE, data.table = FALSE)
+site_summary <- site_summary %>% 
+  select(`Site Name`, `Major Allele`, `Major Allele Frequency`, `Minor Allele Frequency`) %>%
+  mutate(sv_frequency = if_else(condition = `Major Allele` == "T", 
+                                true = `Major Allele Frequency`,
+                                false = `Minor Allele Frequency`))
+
+ld_summary <- ld_results %>% 
+  mutate(sv = if_else(grepl("^del|ins|inv|dup|tra", SNP_A, perl = TRUE),
+                      true = SNP_A, false = SNP_B),
+         ld_category = case_when(R2 >= 0.8 ~ "High LD",
+                                 R2 < 0.8 & R2 >= 0.5 ~ "Moderate LD",
+                                 R2 < 0.5 ~ "Low LD")) %>% 
+  select(sv, R2, ld_category)
+ld_summary <- ld_summary[!duplicated(ld_summary$sv), ]
+
+if (all(ld_summary$sv == site_summary$`Site Name`)) {
+  ld_summary <- cbind(ld_summary, sv_frequency = site_summary$sv_frequency)
+  # plot
+  ld_summary %>%
+    ggplot(aes(x = sv_frequency, color = ld_category)) +
+    geom_density()
+}
+
+# plot MAF per LD -- way 3 (parents)
+site_summary <- fread("analysis/ld/window-1kb_filter-0.25/SVs_with_LD_info_SiteSummary.parents-only.txt",
+                      header = TRUE, data.table = FALSE)
+site_summary <- site_summary %>% 
+  select(`Site Name`, `Major Allele`, `Major Allele Frequency`, `Minor Allele Frequency`) %>%
+  mutate(sv_frequency = if_else(condition = `Major Allele` == "T", 
+                                true = `Major Allele Frequency`,
+                                false = `Minor Allele Frequency`))
+
+ld_summary <- ld_results %>% 
+  mutate(sv = if_else(grepl("^del|ins|inv|dup|tra", SNP_A, perl = TRUE),
+                      true = SNP_A, false = SNP_B),
+         ld_category = case_when(R2 >= 0.8 ~ "High LD",
+                                 R2 < 0.8 & R2 >= 0.5 ~ "Moderate LD",
+                                 R2 < 0.5 ~ "Low LD")) %>% 
+  select(sv, R2, ld_category)
+ld_summary <- ld_summary[!duplicated(ld_summary$sv), ]
+
+if (all(ld_summary$sv == site_summary$`Site Name`)) {
+  ld_summary <- cbind(ld_summary, sv_frequency = site_summary$sv_frequency)
+  # plot
+  ld_summary %>%
+    ggplot(aes(x = sv_frequency, color = ld_category)) +
+    geom_density()
+}
+
+
+
 
 
 
