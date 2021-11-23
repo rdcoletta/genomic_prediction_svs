@@ -38,8 +38,8 @@ if (length(args) != 3) stop(usage(), "missing positional argument(s)")
 
 # get positional arguments
 ld_pred_accuracy_file <- args[1]
-ld_summary_file <- args[1]
-folder_results <- args[2]
+ld_summary_file <- args[2]
+folder_results <- args[3]
 
 
 
@@ -48,9 +48,9 @@ folder_results <- args[2]
 # load files
 results_accuracy_ld_pve <- fread(ld_pred_accuracy_file, header = TRUE, data.table = FALSE)
 ld_summary_all_scenarios <- fread(ld_summary_file, header = TRUE, data.table = FALSE)
-# results_accuracy_ld_pve <- results_accuracy_ld_pve %>% 
+# results_accuracy_ld_pve <- results_accuracy_ld_pve %>%
 #   select(!c(se, lowerCI, upperCI, causal_var, qtn_type, qtn_number, var_exp_se, chr, predictor_highest_ld))
-results_accuracy_ld_pve <- results_accuracy_ld_pve %>% 
+results_accuracy_ld_pve <- results_accuracy_ld_pve %>%
   select(!c(se, lowerCI, upperCI, qtn_type, var_exp_se, chr))
 
 # results_accuracy_ld_pve <- separate_rows(results_accuracy_ld_pve, r2, bp_distance, sep = ";")
@@ -59,11 +59,12 @@ results_accuracy_ld_pve <- results_accuracy_ld_pve %>%
 # results_accuracy_ld_pve$pop <- as.factor(results_accuracy_ld_pve$pop)
 
 
+
 ##### 1) overview ----
 
-plot1 <- results_accuracy_ld_pve %>% 
+plot1 <- results_accuracy_ld_pve %>%
   filter(var %in% c("SNP", "SV")) %>%
-  ggplot(aes(x = mean, y = r2)) + 
+  ggplot(aes(x = mean, y = r2)) +
   facet_grid(cv + predictor ~ qtn + h2 + var) +
   geom_point() +
   geom_smooth() +
@@ -71,18 +72,18 @@ plot1 <- results_accuracy_ld_pve %>%
 
 ggsave(plot = plot1, filename = paste0(folder_results, "/overview1.pdf"), device = "pdf")
 
-plot2 <- results_accuracy_ld_pve %>% 
+plot2 <- results_accuracy_ld_pve %>%
   filter(var %in% c("SNP", "SV")) %>%
-  ggplot(aes(x = r2, y = mean)) + 
+  ggplot(aes(x = r2, y = mean)) +
   facet_grid(cv + predictor ~ qtn + h2 + var) +
   geom_point(aes(color = var_exp_mean), size = 1) +
   coord_cartesian(xlim = c(0, 1), ylim = c(0, 1))
 
 ggsave(plot = plot2, filename = paste0(folder_results, "/overview2.pdf"), device = "pdf")
 
-plot3 <- results_accuracy_ld_pve %>% 
+plot3 <- results_accuracy_ld_pve %>%
   filter(var %in% c("SNP", "SV")) %>%
-  ggplot(aes(x = r2, y = var_exp_mean)) + 
+  ggplot(aes(x = r2, y = var_exp_mean)) +
   facet_grid(cv + predictor ~ qtn + h2 + var) +
   geom_point(aes(color = mean), size = 1) +
   coord_cartesian(xlim = c(0, 1), ylim = c(0, 1))
@@ -95,18 +96,18 @@ ggsave(plot = plot3, filename = paste0(folder_results, "/overview3.pdf"), device
 
 ##### 2) closer look with less variables ----
 
-plot4 <- results_accuracy_ld_pve %>% 
+plot4 <- results_accuracy_ld_pve %>%
   filter(predictor == "all", var %in% c("SNP", "SV"), qtn == 100) %>%
-  ggplot(aes(x = r2, y = mean)) + 
+  ggplot(aes(x = r2, y = mean)) +
   facet_grid(cv ~ h2 + var) +
   geom_point(aes(color = var_exp_mean), size = 1) +
   coord_cartesian(xlim = c(0, 1), ylim = c(0, 1))
 
 ggsave(plot = plot4, filename = paste0(folder_results, "/focused1.pdf"), device = "pdf")
 
-plot5 <- results_accuracy_ld_pve %>% 
+plot5 <- results_accuracy_ld_pve %>%
   filter(predictor == "all", var %in% c("SNP", "SV"), qtn == 100) %>%
-  ggplot(aes(x = r2, y = var_exp_mean)) + 
+  ggplot(aes(x = r2, y = var_exp_mean)) +
   facet_grid(cv ~ h2 + var) +
   geom_point(aes(color = mean), size = 1) +
   coord_cartesian(xlim = c(0, 1))
@@ -117,22 +118,21 @@ ggsave(plot = plot5, filename = paste0(folder_results, "/focused2.pdf"), device 
 
 
 
-
 ##### 3) transforming continuous variables to discrete----
 
-plot6 <- results_accuracy_ld_pve %>% 
+plot6 <- results_accuracy_ld_pve %>%
   mutate(accuracy_bins = cut_width(mean, width = 0.1, boundary = 0, closed = "right")) %>%
   # filter(predictor == "all", var %in% c("SNP", "SV"), qtn == 100) %>%
-  ggplot(aes(x = accuracy_bins, y = r2)) + 
+  ggplot(aes(x = accuracy_bins, y = r2)) +
   geom_boxplot() +
   scale_x_discrete(drop = FALSE)
 
 ggsave(plot = plot6, filename = paste0(folder_results, "/discrete1.pdf"), device = "pdf")
 
-plot7 <- results_accuracy_ld_pve %>% 
+plot7 <- results_accuracy_ld_pve %>%
   mutate(accuracy_bins = cut_width(mean, width = 0.1, boundary = 0, closed = "right")) %>%
   filter(var %in% c("SNP", "SV")) %>%
-  ggplot(aes(x = accuracy_bins, y = r2)) + 
+  ggplot(aes(x = accuracy_bins, y = r2)) +
   facet_grid(qtn ~ h2) +
   geom_boxplot() +
   stat_summary(fun.data = function(x) c(y = 1.02, label = length(x)), geom = "text", size = 2) +
@@ -140,17 +140,17 @@ plot7 <- results_accuracy_ld_pve %>%
 
 ggsave(plot = plot7, filename = paste0(folder_results, "/discrete2.pdf"), device = "pdf")
 
-plot8 <- results_accuracy_ld_pve %>% 
-  mutate(accuracy_bins = cut_width(mean, width = 0.1, boundary = 0, closed = "right")) %>% 
+plot8 <- results_accuracy_ld_pve %>%
+  mutate(accuracy_bins = cut_width(mean, width = 0.1, boundary = 0, closed = "right")) %>%
   group_by(env, h2, qtn, var, ratio, sv_effect, diff_dist, pop, predictor, pred_iter, cv) %>%
   mutate(ld_NAs = sum(is.na(r2)),
-         prop_high_ld = round(sum(r2 > 0.8, na.rm = TRUE) / (n() - ld_NAs), digits = 3)) %>% 
-  ungroup() %>% 
-  group_by(accuracy_bins) %>% 
-  mutate(prop_high_ld_mean = mean(prop_high_ld)) %>% 
-  ungroup() %>% 
+         prop_high_ld = round(sum(r2 > 0.8, na.rm = TRUE) / (n() - ld_NAs), digits = 3)) %>%
+  ungroup() %>%
+  group_by(accuracy_bins) %>%
+  mutate(prop_high_ld_mean = mean(prop_high_ld)) %>%
+  ungroup() %>%
   filter(!is.na(accuracy_bins)) %>%
-  ggplot(aes(x = accuracy_bins, y = r2)) + 
+  ggplot(aes(x = accuracy_bins, y = r2)) +
   geom_boxplot(aes(fill = prop_high_ld_mean)) +
   stat_summary(fun.data = function(x) c(y = 1.02, label = length(x)), geom = "text", size = 2) +
   scale_x_discrete(drop = FALSE) +
@@ -158,18 +158,18 @@ plot8 <- results_accuracy_ld_pve %>%
 
 ggsave(plot = plot8, filename = paste0(folder_results, "/discrete3.pdf"), device = "pdf")
 
-plot9 <- results_accuracy_ld_pve %>% 
-  mutate(accuracy_bins = cut_width(mean, width = 0.1, boundary = 0, closed = "right")) %>% 
+plot9 <- results_accuracy_ld_pve %>%
+  mutate(accuracy_bins = cut_width(mean, width = 0.1, boundary = 0, closed = "right")) %>%
   group_by(env, h2, qtn, var, ratio, sv_effect, diff_dist, pop, predictor, pred_iter, cv) %>%
   mutate(ld_NAs = sum(is.na(r2)),
          prop_high_ld = round(sum(r2 > 0.8, na.rm = TRUE) / (n() - ld_NAs), digits = 3),
-         prop_ld_NAs = ld_NAs / n()) %>% 
-  ungroup() %>% 
-  filter(!is.na(accuracy_bins)) %>% 
-  group_by(accuracy_bins) %>% 
-  mutate(prop_ld_NAs_mean = mean(prop_ld_NAs)) %>% 
-  ungroup() %>% 
-  ggplot(aes(x = accuracy_bins, y = prop_high_ld)) + 
+         prop_ld_NAs = ld_NAs / n()) %>%
+  ungroup() %>%
+  filter(!is.na(accuracy_bins)) %>%
+  group_by(accuracy_bins) %>%
+  mutate(prop_ld_NAs_mean = mean(prop_ld_NAs)) %>%
+  ungroup() %>%
+  ggplot(aes(x = accuracy_bins, y = prop_high_ld)) +
   geom_boxplot(aes(alpha = prop_ld_NAs_mean), fill = "firebrick") +
   coord_cartesian(ylim = c(0, 1)) +
   stat_summary(fun.data = function(x) c(y = 1.02, label = length(x)), geom = "text", size = 2) +
@@ -178,17 +178,17 @@ plot9 <- results_accuracy_ld_pve %>%
 
 ggsave(plot = plot9, filename = paste0(folder_results, "/discrete4.pdf"), device = "pdf")
 
-plot10 <- results_accuracy_ld_pve %>% 
+plot10 <- results_accuracy_ld_pve %>%
   mutate(accuracy_bins = cut_width(mean, width = 0.1, boundary = 0, closed = "right")) %>%
   filter(var %in% c("SNP", "SV")) %>%
-  ggplot(aes(x = accuracy_bins, y = r2)) + 
+  ggplot(aes(x = accuracy_bins, y = r2)) +
   facet_grid(cv + predictor ~ qtn + h2 + var) +
   geom_boxplot() +
   scale_x_discrete(drop = FALSE)
 
 ggsave(plot = plot10, filename = paste0(folder_results, "/discrete5.pdf"), device = "pdf")
 
-plot11 <- results_accuracy_ld_pve %>% 
+plot11 <- results_accuracy_ld_pve %>%
   group_by(h2, qtn, var, ratio, sv_effect, diff_dist, pop, predictor, pred_iter, cv) %>%
   summarize(accuracy_mean = mean(mean),
             qtn_maf_mean = mean(qtn_maf),
@@ -197,10 +197,10 @@ plot11 <- results_accuracy_ld_pve %>%
             ld_NAs = sum(is.na(r2)),
             high_ld = round(sum(r2 > 0.8, na.rm = TRUE) / (n() - ld_NAs), digits = 3),
             bp_distance = mean(abs(bp_distance))) %>%
-  ungroup() %>% 
-  arrange(h2, qtn, desc(var), ratio, sv_effect, diff_dist, pop, predictor, pred_iter, cv) %>% 
+  ungroup() %>%
+  arrange(h2, qtn, desc(var), ratio, sv_effect, diff_dist, pop, predictor, pred_iter, cv) %>%
   filter(var %in% c("SNP", "SV")) %>%
-  ggplot(aes(x = accuracy_mean, y = high_ld)) + 
+  ggplot(aes(x = accuracy_mean, y = high_ld)) +
   facet_grid(cv + predictor ~ qtn + h2 + var) +
   geom_point() +
   coord_cartesian(ylim = c(0, 1)) +
@@ -208,7 +208,7 @@ plot11 <- results_accuracy_ld_pve %>%
 
 ggsave(plot = plot11, filename = paste0(folder_results, "/discrete6.pdf"), device = "pdf")
 
-plot12 <- results_accuracy_ld_pve %>% 
+plot12 <- results_accuracy_ld_pve %>%
   group_by(env, h2, qtn, var, ratio, sv_effect, diff_dist, pop, predictor, pred_iter, cv) %>%
   summarize(accuracy_mean = mean(mean),
             qtn_maf_mean = mean(qtn_maf),
@@ -217,11 +217,11 @@ plot12 <- results_accuracy_ld_pve %>%
             ld_NAs = sum(is.na(r2)),
             high_ld = round(sum(r2 > 0.8, na.rm = TRUE) / (n() - ld_NAs), digits = 3),
             bp_distance = mean(abs(bp_distance))) %>%
-  ungroup() %>% 
-  arrange(env, h2, qtn, desc(var), ratio, sv_effect, diff_dist, pop, predictor, pred_iter, cv) %>% 
+  ungroup() %>%
+  arrange(env, h2, qtn, desc(var), ratio, sv_effect, diff_dist, pop, predictor, pred_iter, cv) %>%
   mutate(accuracy_bins = cut_width(accuracy_mean, width = 0.1, boundary = 0, closed = "right")) %>%
   # filter(predictor == "all", var %in% c("SNP", "SV"), qtn == 100) %>%
-  ggplot(aes(x = accuracy_bins, y = high_ld)) + 
+  ggplot(aes(x = accuracy_bins, y = high_ld)) +
   geom_violin() +
   geom_point() +
   coord_cartesian(ylim = c(0, 1)) +
@@ -229,18 +229,18 @@ plot12 <- results_accuracy_ld_pve %>%
 
 ggsave(plot = plot12, filename = paste0(folder_results, "/discrete7.pdf"), device = "pdf")
 
-plot13 <- results_accuracy_ld_pve %>% 
+plot13 <- results_accuracy_ld_pve %>%
   group_by(env, h2, qtn, var, ratio, sv_effect, diff_dist, pop, predictor, pred_iter, cv) %>%
   mutate(ld_NAs = sum(is.na(r2)),
-         high_ld = round(sum(r2 > 0.8, na.rm = TRUE) / (n() - ld_NAs), digits = 3)) %>% 
-  ungroup() %>% 
-  arrange(env, h2, qtn, desc(var), ratio, sv_effect, diff_dist, pop, predictor, pred_iter, cv) %>% 
+         high_ld = round(sum(r2 > 0.8, na.rm = TRUE) / (n() - ld_NAs), digits = 3)) %>%
+  ungroup() %>%
+  arrange(env, h2, qtn, desc(var), ratio, sv_effect, diff_dist, pop, predictor, pred_iter, cv) %>%
   mutate(accuracy_bins = cut_width(mean, width = 0.1, boundary = 0, closed = "right")) %>%
   group_by(h2, qtn, accuracy_bins) %>%
-  mutate(prop_high_ld_mean = mean(high_ld)) %>% 
-  ungroup() %>% 
+  mutate(prop_high_ld_mean = mean(high_ld)) %>%
+  ungroup() %>%
   filter(var %in% c("SNP", "SV")) %>%
-  ggplot(aes(x = accuracy_bins, y = var_exp_mean)) + 
+  ggplot(aes(x = accuracy_bins, y = var_exp_mean)) +
   facet_grid(qtn ~ h2, scales = "free_y") +
   geom_violin(aes(fill = prop_high_ld_mean)) +
   scale_x_discrete(drop = FALSE) +
@@ -248,41 +248,41 @@ plot13 <- results_accuracy_ld_pve %>%
 
 ggsave(plot = plot13, filename = paste0(folder_results, "/discrete8.pdf"), device = "pdf")
 
-plot14 <- results_accuracy_ld_pve %>% 
+plot14 <- results_accuracy_ld_pve %>%
   group_by(env, h2, qtn, var, ratio, sv_effect, diff_dist, pop, predictor, pred_iter, cv) %>%
   mutate(ld_NAs = sum(is.na(r2)),
-         high_ld = round(sum(r2 > 0.8, na.rm = TRUE) / (n() - ld_NAs), digits = 3)) %>% 
-  ungroup() %>% 
-  arrange(env, h2, qtn, desc(var), ratio, sv_effect, diff_dist, pop, predictor, pred_iter, cv) %>% 
+         high_ld = round(sum(r2 > 0.8, na.rm = TRUE) / (n() - ld_NAs), digits = 3)) %>%
+  ungroup() %>%
+  arrange(env, h2, qtn, desc(var), ratio, sv_effect, diff_dist, pop, predictor, pred_iter, cv) %>%
   mutate(accuracy_bins = cut_width(mean, width = 0.1, boundary = 0, closed = "right")) %>%
   group_by(h2, qtn, accuracy_bins) %>%
-  mutate(prop_high_ld_mean = mean(high_ld)) %>% 
-  ungroup() %>% 
+  mutate(prop_high_ld_mean = mean(high_ld)) %>%
+  ungroup() %>%
   filter(var %in% c("SNP", "SV")) %>%
-  ggplot(aes(x = accuracy_bins, y = r2)) + 
+  ggplot(aes(x = accuracy_bins, y = r2)) +
   facet_grid(qtn ~ h2, scales = "free_y") +
-  geom_boxplot(aes(fill = prop_high_ld_mean)) + 
+  geom_boxplot(aes(fill = prop_high_ld_mean)) +
   scale_x_discrete(drop = FALSE) +
   scale_fill_continuous(type = "viridis")
 # legend: the proportion of qtns in that bin that has a r2 value higher than 0.8
 
 ggsave(plot = plot14, filename = paste0(folder_results, "/discrete9.pdf"), device = "pdf")
 
-plot15 <- results_accuracy_ld_pve %>% 
+plot15 <- results_accuracy_ld_pve %>%
   filter(var %in% c("SNP", "SV")) %>%
   group_by(env, h2, qtn, var, ratio, sv_effect, diff_dist, pop, predictor, pred_iter, cv) %>%
   mutate(ld_NAs = sum(is.na(r2)),
-         high_ld = round(sum(r2 > 0.8, na.rm = TRUE) / (n() - ld_NAs), digits = 3)) %>% 
-  ungroup() %>% 
+         high_ld = round(sum(r2 > 0.8, na.rm = TRUE) / (n() - ld_NAs), digits = 3)) %>%
+  ungroup() %>%
   mutate(accuracy_bins = cut_width(mean, width = 0.1, boundary = 0, closed = "right")) %>%
   group_by(cv, predictor, qtn, h2, var, accuracy_bins) %>%
   mutate(prop_high_ld_mean = mean(high_ld)) %>%
-  ungroup() %>% 
-  arrange(env, h2, qtn, desc(var), ratio, sv_effect, diff_dist, pop, predictor, pred_iter, cv) %>% 
-  filter(!is.na(accuracy_bins)) %>% 
-  ggplot(aes(x = accuracy_bins, y = r2)) + 
+  ungroup() %>%
+  arrange(env, h2, qtn, desc(var), ratio, sv_effect, diff_dist, pop, predictor, pred_iter, cv) %>%
+  filter(!is.na(accuracy_bins)) %>%
+  ggplot(aes(x = accuracy_bins, y = r2)) +
   facet_grid(predictor + cv ~ var + qtn + h2, scales = "free_y") +
-  geom_boxplot(aes(fill = prop_high_ld_mean)) + 
+  geom_boxplot(aes(fill = prop_high_ld_mean)) +
   scale_x_discrete(drop = FALSE, labels = function(x) gsub(",", "\n", x)) +
   scale_fill_continuous(type = "viridis")
 
@@ -292,20 +292,20 @@ ggsave(plot = plot15, filename = paste0(folder_results, "/discrete10.pdf"), devi
 
 ##### 4) weight metric (LD x PVE) -----
 
-plot16 <- results_accuracy_ld_pve %>% 
-  mutate(weight_ld_pve = var_exp_mean * r2) %>% 
-  filter(var %in% c("SNP", "SV")) %>% 
-  ggplot(aes(x = mean, y = weight_ld_pve)) + 
+plot16 <- results_accuracy_ld_pve %>%
+  mutate(weight_ld_pve = var_exp_mean * r2) %>%
+  filter(var %in% c("SNP", "SV")) %>%
+  ggplot(aes(x = mean, y = weight_ld_pve)) +
   facet_grid(qtn ~ h2, scales = "free_y") +
   geom_point() +
   geom_smooth()
 
 ggsave(plot = plot16, filename = paste0(folder_results, "/ld-pve-weight1.pdf"), device = "pdf")
 
-plot17 <- results_accuracy_ld_pve %>% 
+plot17 <- results_accuracy_ld_pve %>%
   mutate(weight_ld_pve = var_exp_mean * r2) %>%
   filter(var %in% c("SNP", "SV")) %>%
-  ggplot(aes(x = mean, y = weight_ld_pve)) + 
+  ggplot(aes(x = mean, y = weight_ld_pve)) +
   facet_grid(cv + predictor ~ qtn + h2 + var) +
   geom_point() +
   geom_smooth()
@@ -313,13 +313,14 @@ plot17 <- results_accuracy_ld_pve %>%
 ggsave(plot = plot17, filename = paste0(folder_results, "/ld-pve-weight2.pdf"), device = "pdf")
 
 
+
 ##### 5) plot LD distribution per scenario ----
 
 # using only qtns in highest ld with predictors
-plot18 <- results_accuracy_ld_pve %>% 
+plot18 <- results_accuracy_ld_pve %>%
   group_by(qtn, var, ratio, pop, predictor, pred_iter, causal_var, predictor_highest_ld) %>%
   summarize(r2 = mean(r2)) %>%
-  ungroup() %>% 
+  ungroup() %>%
   ggplot(aes(x = r2)) +
   facet_grid(qtn + var ~ predictor, scales = "free_y") +
   geom_histogram() +
@@ -327,11 +328,11 @@ plot18 <- results_accuracy_ld_pve %>%
 
 ggsave(plot = plot18, filename = paste0(folder_results, "/ld-dist1.pdf"), device = "pdf")
 
-plot19 <- results_accuracy_ld_pve %>% 
-  group_by(qtn, var, ratio, pop, predictor, pred_iter, causal_var, predictor_highest_ld) %>% 
+plot19 <- results_accuracy_ld_pve %>%
+  group_by(qtn, var, ratio, pop, predictor, pred_iter, causal_var, predictor_highest_ld) %>%
   summarize(r2 = mean(r2)) %>%
-  ungroup() %>% 
-  filter(var %in% c("SNP", "SV"), qtn == 100) %>% 
+  ungroup() %>%
+  filter(var %in% c("SNP", "SV"), qtn == 100) %>%
   mutate(predictor = factor(predictor,
                             levels = c("all", "snp", "sv", "snp_ld", "snp_not_ld"),
                             labels = c("SNPs\nand SVs", "Only\nSNPs", "Only\nSVs",
@@ -353,11 +354,11 @@ plot19 <- results_accuracy_ld_pve %>%
 
 ggsave(plot = plot19, filename = paste0(folder_results, "/ld-dist2.pdf"), device = "pdf")
 
-plot20 <- results_accuracy_ld_pve %>% 
-  group_by(qtn, var, ratio, pop, predictor, pred_iter, causal_var, predictor_highest_ld) %>% 
+plot20 <- results_accuracy_ld_pve %>%
+  group_by(qtn, var, ratio, pop, predictor, pred_iter, causal_var, predictor_highest_ld) %>%
   summarize(r2 = mean(r2)) %>%
-  ungroup() %>% 
-  filter(var %in% c("SNP", "SV"), qtn == 100) %>% 
+  ungroup() %>%
+  filter(var %in% c("SNP", "SV"), qtn == 100) %>%
   mutate(predictor = factor(predictor,
                             levels = c("all", "snp", "sv", "snp_ld", "snp_not_ld"),
                             labels = c("SNPs\nand SVs", "Only\nSNPs", "Only\nSVs",
@@ -377,11 +378,11 @@ plot20 <- results_accuracy_ld_pve %>%
 
 ggsave(plot = plot20, filename = paste0(folder_results, "/ld-dist3.pdf"), device = "pdf")
 
-plot21 <- results_accuracy_ld_pve %>% 
-  group_by(qtn, var, ratio, pop, predictor, pred_iter, causal_var, predictor_highest_ld) %>% 
+plot21 <- results_accuracy_ld_pve %>%
+  group_by(qtn, var, ratio, pop, predictor, pred_iter, causal_var, predictor_highest_ld) %>%
   summarize(r2 = mean(r2)) %>%
-  ungroup() %>% 
-  filter(var %in% c("SNP"), qtn == 100, predictor %in% c("snp", "sv")) %>% 
+  ungroup() %>%
+  filter(var %in% c("SNP"), qtn == 100, predictor %in% c("snp", "sv")) %>%
   mutate(predictor = factor(predictor,
                             levels = c("all", "snp", "sv", "snp_ld", "snp_not_ld"),
                             labels = c("all", "SNP markers", "SV markers",
@@ -409,11 +410,11 @@ plot21 <- results_accuracy_ld_pve %>%
 ggsave(plot = plot21, filename = paste0(folder_results, "/ld-dist4.pdf"), device = "pdf",
        width = 10, height = 4, units = "in")
 
-plot22 <- results_accuracy_ld_pve %>% 
-  group_by(qtn, var, ratio, pop, predictor, pred_iter, causal_var, predictor_highest_ld) %>% 
+plot22 <- results_accuracy_ld_pve %>%
+  group_by(qtn, var, ratio, pop, predictor, pred_iter, causal_var, predictor_highest_ld) %>%
   summarize(r2 = mean(r2)) %>%
-  ungroup() %>% 
-  filter(var %in% c("SV"), qtn == 100, predictor %in% c("snp", "sv")) %>% 
+  ungroup() %>%
+  filter(var %in% c("SV"), qtn == 100, predictor %in% c("snp", "sv")) %>%
   mutate(predictor = factor(predictor,
                             levels = c("all", "snp", "sv", "snp_ld", "snp_not_ld"),
                             labels = c("all", "SNP markers", "SV markers",
@@ -441,13 +442,13 @@ plot22 <- results_accuracy_ld_pve %>%
 ggsave(plot = plot22, filename = paste0(folder_results, "/ld-dist5.pdf"), device = "pdf",
        width = 10, height = 4, units = "in")
 
-plot23 <- results_accuracy_ld_pve %>% 
+plot23 <- results_accuracy_ld_pve %>%
   group_by(qtn, var, ratio, pop, predictor, pred_iter, causal_var, predictor_highest_ld) %>%
-  summarize(r2 = mean(r2)) %>% 
-  ungroup() %>% 
+  summarize(r2 = mean(r2)) %>%
+  ungroup() %>%
   group_by(qtn, var, ratio, pop, predictor, pred_iter) %>%
-  summarize(prop_high_ld = mean(r2 > 0.8, na.rm = TRUE)) %>% 
-  ungroup() %>% 
+  summarize(prop_high_ld = mean(r2 > 0.8, na.rm = TRUE)) %>%
+  ungroup() %>%
   ggplot(aes(x = var, y = prop_high_ld)) +
   facet_grid(qtn ~ predictor) +
   geom_boxplot() +
@@ -458,15 +459,10 @@ ggsave(plot = plot23, filename = paste0(folder_results, "/ld-dist6.pdf"), device
 
 
 
-
-
-
-
-
 ##### 6) ld summary -----
 
 # using all r2 values of qtns and predictors
-plot24 <- ld_summary_all_scenarios %>% 
+plot24 <- ld_summary_all_scenarios %>%
   ggplot(aes(x = r2)) +
   facet_grid(qtn + var ~ pred_type, scales = "free_y") +
   geom_histogram() +
@@ -475,10 +471,10 @@ plot24 <- ld_summary_all_scenarios %>%
 ggsave(plot = plot24, filename = paste0(folder_results, "/ld-summary1.pdf"), device = "pdf")
 
 # average number of predictors in high ld with same QTN
-plot25 <- ld_summary_all_scenarios %>% 
+plot25 <- ld_summary_all_scenarios %>%
   group_by(qtn, var, ratio, pop, pred_type, pred_iter, causal_var) %>%
-  summarize(n_high_ld_per_qtn = sum(r2 > 0.8, na.rm = TRUE)) %>% 
-  ungroup() %>% 
+  summarize(n_high_ld_per_qtn = sum(r2 > 0.8, na.rm = TRUE)) %>%
+  ungroup() %>%
   ggplot(aes(x = var, y = n_high_ld_per_qtn)) +
   facet_grid(~ qtn ~ pred_type) +
   geom_boxplot()
@@ -487,11 +483,11 @@ plot25 <- ld_summary_all_scenarios %>%
 ggsave(plot = plot25, filename = paste0(folder_results, "/ld-summary2.pdf"), device = "pdf")
 
 # average proportion of QTNs being tagged
-plot26 <- ld_summary_all_scenarios %>% 
-  group_by(qtn, var, pred_type) %>% 
+plot26 <- ld_summary_all_scenarios %>%
+  group_by(qtn, var, pred_type) %>%
   summarize(prop_high_ld = mean(r2 > 0.8, na.rm = TRUE),
-            se = sd(r2 > 0.8, na.rm = TRUE) / sqrt(n())) %>% 
-  ungroup() %>% 
+            se = sd(r2 > 0.8, na.rm = TRUE) / sqrt(n())) %>%
+  ungroup() %>%
   ggplot(aes(x = var, y = prop_high_ld)) +
   facet_grid(qtn ~ pred_type) +
   geom_col() +
@@ -509,4 +505,3 @@ ggsave(plot = plot26, filename = paste0(folder_results, "/ld-summary3.pdf"), dev
 # ld_pred_accuracy_file <-"analysis/trait_sim/multi_env/pred-accuracy_qtn-effect_ld-pred-qtn.results.txt"
 # ld_summary_file <- "analysis/trait_sim/multi_env/pred-accuracy_qtn-effect_ld-pred-qtn.ld-summary.txt"
 # folder_results <- "analysis/trait_sim/multi_env/cor_ld-pred-accuracy"
-
