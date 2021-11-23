@@ -59,31 +59,31 @@ hmp_hybrids <- hmp_rils[, 1:11]
 cat("Creating hybrid genotypes:\n")
 
 for (hybrid in hybrid_info$Hybrid) {
-  
+
   cat("  hybrid ", hybrid, "\n")
-  
+
   # get RIL names used in for single cross name
   p1 <- hybrid_info[which(hybrid_info$Hybrid == hybrid), "ParentA"]
   p2 <- hybrid_info[which(hybrid_info$Hybrid == hybrid), "ParentB"]
-  
+
   # make sure there is genotypic data for both parents
   if (p1 %in% colnames(hmp_rils) & p2 %in% colnames(hmp_rils)) {
-    
+
     cat("  ", p1, " x ", p2, "\n", sep = "")
-    
+
     # check parental marker type
     marker_type <- apply(X = hmp_rils[, c(p1, p2)], MARGIN = 1, FUN = function(marker) {
-      
+
       # get unique genotypes between parents
       genotypes <- unique(marker)
-      
+
       if (any(grepl("NN", genotypes))) {
-        
+
         # if NN, marker is missing
         return("missing")
-        
+
       } else if (length(genotypes) == 1) {
-        
+
         # if there is one genotype, it's monomorphic
         # but distinguish if marker is het
         alleles <- unlist(strsplit(genotypes, split = ""))
@@ -92,9 +92,9 @@ for (hybrid in hybrid_info$Hybrid) {
         } else {
           return("het")
         }
-        
+
       } else {
-        
+
         # if there are two genotypes, it's polymorphic
         # but distiguish if one of the genotypes is het
         p1_alleles <- unlist(strsplit(genotypes[1], split = ""))
@@ -104,16 +104,16 @@ for (hybrid in hybrid_info$Hybrid) {
         } else {
           return("het")
         }
-        
+
       }
     })
-    
+
     # add marker type to single cross info
     geno_parents <- cbind(hmp_rils[, c(p1, p2)], marker_type)
-    
+
     # create hybrid genotype
     geno_hybrid <- apply(geno_parents, MARGIN = 1, function(marker) {
-      
+
       if (marker[3] == "mono" | marker[3] == "poly") {
         # for markers that are poly or monomorphic, get one allele from each parent
         p1_allele <- unlist(strsplit(marker[1], split = ""))[1]
@@ -123,46 +123,46 @@ for (hybrid in hybrid_info$Hybrid) {
         # for markers that are missing or het in at least one parent, set marker to NN
         geno_hybrid <- "NN"
       }
-      
+
       return(geno_hybrid)
-      
+
     })
-    
+
     # View(cbind(geno_parents, geno_hybrid))
-    
+
     # append hybrid genotype to final hmp
     hmp_hybrids <- cbind(hmp_hybrids, geno_hybrid)
     # correct column name for that hybrid
     colnames(hmp_hybrids)[NCOL(hmp_hybrids)] <- hybrid
-    
+
   }
   else {
     # debug
     cat("  missing genotypic data in at least one of the parents\n")
   }
-  
+
 }
 
 # keep consistent allele order in het markers (i.e. major allele first, then minor)
 corrected_markers <- apply(X = hmp_hybrids[, 12:NCOL(hmp_hybrids)], MARGIN = 1, FUN = function(marker) {
-  
+
   # get number of alleles
   alleles <- unlist(strsplit(paste0(marker[marker != "NN"], collapse = ""), split = ""))
   alleles <- sort(table(alleles), decreasing = TRUE)
-  
+
   # define major and minor alleles
   major <- names(alleles)[1]
   minor <- names(alleles)[2]
-  
+
   # define hets
   het_correct <- paste0(major, minor)
   het_wrong <- paste0(minor, major)
-  
+
   # correct wrong hets
   marker[marker == het_wrong] <- het_correct
-  
+
   return(marker)
-  
+
 })
 corrected_markers <- data.frame(t(corrected_markers))
 hmp_hybrids[, 12:NCOL(hmp_hybrids)] <- corrected_markers
@@ -172,7 +172,7 @@ fwrite(hmp_hybrids, outfile, quote = FALSE, sep = "\t", na = "NA", row.names = F
 
 # fix allele columns using TASSEL
 commands.hapdip <- paste0("/home/hirschc1/della028/software/tassel-5-standalone/run_pipeline.pl",
-                          " -importGuess ", outfile,
+                          " -Xmx100g -importGuess ", outfile,
                           " -export ", outfile,
                           " -exportType HapmapDiploid")
 system(commands.hapdip)

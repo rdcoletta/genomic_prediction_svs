@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --time=8:00:00
+#SBATCH --time=12:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
-#SBATCH --mem=40gb
+#SBATCH --mem=100gb
 #SBATCH -J create_hybrid_genotypes
 #SBATCH -o /home/hirschc1/della028/projects/genomic_prediction/simulation/analysis/trait_sim_hybrids/MSI_dump/%x_%j.out
 #SBATCH -e /home/hirschc1/della028/projects/genomic_prediction/simulation/analysis/trait_sim_hybrids/MSI_dump/%x_%j.err
