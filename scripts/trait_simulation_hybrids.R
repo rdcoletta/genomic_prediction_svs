@@ -142,6 +142,11 @@ simulateTraits <- function(geno_data = NULL,
       # get how many additive SNPs and SVs will be selected
       n_SNPs_to_sample <- ceiling(QTN_num * SNP_SV_ratio)
       n_SVs_to_sample <- ceiling(QTN_num * (1 - SNP_SV_ratio))
+      # adjust numbers if they don't sum to total number QTNs (due to rounding above)
+      if (n_SNPs_to_sample + n_SVs_to_sample != QTN_num) {
+        n_markers_to_fix <- QTN_num - (n_SNPs_to_sample + n_SVs_to_sample)
+        n_SVs_to_sample <- n_SVs_to_sample + n_markers_to_fix
+      }
       # sample dataset
       set.seed(seed)
       SVs_to_keep <- sort(sample(1:NROW(geno_data_SVs), size = n_SVs_to_sample, replace = FALSE))
@@ -655,11 +660,11 @@ for (pop_number in 1:pops) {
 
 # infile_name <- "data/usda_hybrids_projected-SVs-SNPs.chr10.poly.low-missing.hmp.txt"
 # sv_list <- "data/SVs_IDs_poly.txt"
-# causal_variant <- "SNP"
-# # causal_variant <- "both"
-# # SNP_SV_ratio <- 0.5
-# impute_effect <- "Add"
-# impute_type <- "Major"
+# # causal_variant <- "SNP"
+# causal_variant <- "both"
+# SNP_SV_ratio <- 0.5
+# impute_effect <- "Dom"
+# impute_type <- "Middle"
 # pops <- "2"
 # reps <- "3"
 # envs <- "5"
@@ -677,18 +682,22 @@ for (pop_number in 1:pops) {
 # # SV_effect_dom <- NULL
 # architecture <- "pleiotropic"
 # 
-# # {
-# #   model <- "AD"
-# #   add_QTN_num <- 50
-# #   dom_QTN_num <- 50
-# # }
-# 
 # {
-#   model <- "A"
-#   add_QTN_num <- "10"
-#   dom_QTN_num <- "0"
-# 
+#   model <- "AD"
+#   add_QTN_num <- 5
+#   dom_QTN_num <- 5
+#   
+#   out_folder <- "analysis/trait_sim_hybrids/multi_env/with_gxe/AD_model/5-add-QTNs_5-dom-QTNs_from_both/0.3-heritability"
+#   
 # }
+# 
+# # {
+# #   model <- "A"
+# #   add_QTN_num <- "10"
+# #   dom_QTN_num <- "0"
+# #   
+# #   out_folder <- "analysis/trait_sim_hybrids/multi_env/with_gxe/A_model/10-add-QTNs_0-dom-QTNs_from_SNP/0.3-heritability"
+# # }
 # 
 # # out_folder <- paste0("tests/trait_sim_hybrids/",
 # #                      add_QTN_num, "-add-QTNs_from_", causal_variant, "/",
@@ -702,7 +711,6 @@ for (pop_number in 1:pops) {
 # #                      marker_effect_add, "_SV-", SV_effect_add, "/",
 # #                      h2, "-heritability/")
 # 
-# out_folder <- "analysis/trait_sim_hybrids/multi_env/with_gxe/A_model/10-add-QTNs_0-dom-QTNs_from_SNP/0.3-heritability"
 # 
 # seed <- "75486"
 # # set.seed(seed); res_cor_matrix <- apply(randcorr(envs), MARGIN = c(1,2), function(x) as.numeric(as.character(x)))
