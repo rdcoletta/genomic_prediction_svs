@@ -4,8 +4,8 @@
 #SBATCH --ntasks-per-node=4
 #SBATCH --mem=100gb
 #SBATCH -J trait_simulation_hybrids
-#SBATCH -o /home/hirschc1/della028/projects/genomic_prediction/simulation/analysis/trait_sim/MSI_dump/%x_%j.out
-#SBATCH -e /home/hirschc1/della028/projects/genomic_prediction/simulation/analysis/trait_sim/MSI_dump/%x_%j.err
+#SBATCH -o /home/hirschc1/della028/projects/genomic_prediction/simulation/analysis/trait_sim_hybrids/MSI_dump/%x_%j.out
+#SBATCH -e /home/hirschc1/della028/projects/genomic_prediction/simulation/analysis/trait_sim_hybrids/MSI_dump/%x_%j.err
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=della028@umn.edu
 #SBATCH --no-requeue
@@ -37,8 +37,8 @@ Rscript scripts/trait_simulation_hybrids.R ${HMP} ${SVS} ${FOLDER} \
                                            --reps=${REPS} \
                                            --envs=${ENVS} \
                                            --h2=${H2} \
-                                           --impute-effect ${IMPUTETYPE} \
-                                           --impute-type ${IMPUTEEFFECT} \
+                                           --impute-effect=${IMPUTEEFFECT} \
+                                           --impute-type=${IMPUTETYPE} \
                                            --model=${MODEL} \
                                            --add-QTN-num=${ADDQTN} \
                                            --dom-QTN-num=${DOMQTN} \
