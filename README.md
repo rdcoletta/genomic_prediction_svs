@@ -2369,7 +2369,7 @@ for H2 in 0.3 0.7; do
 done
 ```
 
-Summarize corrleation between LD and prediction accuracy:
+Summarize correlation between LD and prediction accuracy:
 
 ```bash
 # summarize
@@ -2379,6 +2379,8 @@ Rscript scripts/correlate_ld_with_accuracy.R \
         analysis/trait_sim/multi_env/pred-accuracy_qtn-effect_ld-pred-qtn.txt \
         --trait-pops=15,4,18,16,14,20,2,8,17,11,6,1,13,7,5,10,3,9,12,19 \
         --pred-iters=5,19,10,7,16,4,17,9,1,3,18,11,15,6,2,12,20,13,8,14
+# create folder to save plots
+mkdir -p analysis/trait_sim/multi_env/cor_ld-pred-accuracy
 # plot
 Rscript scripts/plot_correlation_ld_with_accuracy.R \
         analysis/trait_sim/multi_env/pred-accuracy_qtn-effect_ld-pred-qtn.results.txt \
@@ -2393,7 +2395,7 @@ Rscript scripts/plot_correlation_ld_with_accuracy.R \
 
 Results above show a trend that as LD between causative variants and predictors increase, prediction accuracy also increase. However, most of the QTNs are being tagged (r2 > 0.8) by a predictor, probably due the big haplotype blocks from RILs and the large number of markers used for predictions (~5,000), which makes it hard to see how strong LD (and perhaps its interaction with QTN effect size?) is associated with prediction accuracy.
 
-To test that, we first calculated LD among polymorphic markers (5Mb windows), and simulated traits with markers that were present in the LD file. Then, we selected only 100 markers from all markers in this LD file with different LD values to a QTN: (1) r2 < 0.5, (2) 0.5 < r2 > 0.9, and (3) r2 > 0.9. These random markers were used as predictors.
+To test that, we first calculated LD among polymorphic markers (5Mb windows), and simulated traits with markers that were present in the LD file. Then, we selected only 100 markers from all markers in this LD file with different LD values to a QTN: (1) r2 < 0.5, (2) 0.5 <= r2 > 0.9, and (3) r2 >= 0.9. These random markers were used as predictors.
 
 ```bash
 # define scratch folder
@@ -2644,19 +2646,6 @@ done
 
 # run predictions across all environments using blups from previous stage
 nohup parallel --jobs 2 --joblog analysis/ld_downsample/sim_traits/genomic_prediction_stage2.parallel.log < scripts/commands_ld_downsample_prediction-stage2.txt 2> analysis/ld_downsample/sim_traits/genomic_prediction_stage2.log &
-
-
-#######################
-ps xw | grep parallel
-kill -TERM -21359
-kill -TERM -21359
-rm scripts/commands_ld_downsample_prediction-stage2.txt
-rm analysis/ld_downsample/sim_traits/genomic_prediction_stage2.log
-rm analysis/ld_downsample/sim_traits/genomic_prediction_stage2.parallel.log
-#######################
-
-
-
 ```
 
 > To check progress of how many predictions were completed, I wrote this function:
@@ -2688,13 +2677,13 @@ rm analysis/ld_downsample/sim_traits/genomic_prediction_stage2.parallel.log
 
 Summary of prediciton runs:
 
-| Jobs            | Info      |
-| --------------- | --------- |
-| Completed       |           |
-| Failed          |           |
-| Started         |           |
-| Finished        |           |
-| Average runtime | (per job) |
+| Jobs            | Info                     |
+| --------------- | ------------------------ |
+| Completed       | 1440 (100%)              |
+| Failed          | 724 (50%)                |
+| Started         | Mon Nov 22 13:56:52 2021 |
+| Finished        | Thu Nov 25 03:31:15 2021 |
+| Average runtime | 3.4 min (per job)        |
 
 After predictions for all scenarios were done, I ran `scripts/summarize_prediction_accuracies_ld-test.R` and `scripts/plot_prediction_accuracy_ld-test.R` to summarize the results.
 
@@ -2702,22 +2691,17 @@ After predictions for all scenarios were done, I ran `scripts/summarize_predicti
 # summarize
 Rscript scripts/summarize_prediction_accuracies_ld-test.R \
         analysis/ld_downsample/sim_traits \
-        analysis/ld_downsample/sim_traits/test_prediction_results.reps1-10.pops1-3.txt \
+        analysis/ld_downsample/sim_traits/prediction_results.reps1-10.pops1-3.txt \
         --trait-pops=1,2,3 \
         --pred-iters=1,2,3,4,5,6,7,8,9,10
 
 # plot bars
 Rscript scripts/plot_prediction_accuracy_ld-test.R \
-        analysis/trait_sim/multi_env/prediction_results.summary.txt \
+        analysis/ld_downsample/sim_traits/prediction_results.reps1-10.pops1-3.summary.txt \
         --error-bars=CI_accuracy
-
-
-##### TODO: may need to run additional populations for 10 QTNs!
-
-
 ```
 
-
+> For some reason, most predictions with moderate levels of LD resulted in singularities in the Average Information matrix, so ASREML couldn't predict the phenotype.
 
 
 
@@ -2747,17 +2731,6 @@ for chr in {1..10}; do
   # create hybrids
   sbatch --export=HYBINFO=${HYBINFO},RILGENO=${RILGENO},OUT=${OUT} scripts/create_hybrid_genotypes.sh
 done
-
-
-
-#### TODO: finish re-creating hybrid genotypes (above) and re-run downstream analysis...
-
-
-
-
-
-
-
 
 # remove markers with too many missing data (some markers ended up being
 # entirely NN because of het markers in one of the parents)
@@ -2841,10 +2814,9 @@ RESCOR=data/usda_envs_cor_matrix.txt
 GXE=gxe
 IMPUTETYPE=Middle
 
-
-for H2 in 0.3; do
-  for QTN in 10; do
-    for VAR in SNP; do
+for H2 in 0.3 0.7; do
+  for QTN in 10 100; do
+    for VAR in SNP SV; do
       for MODEL in A AD D; do
         # determine correct number of add/dom QTNs
         if [[ ${MODEL} == A ]]; then
@@ -2871,28 +2843,34 @@ for H2 in 0.3; do
   done
 done
 
-module load R/3.6.0
-Rscript scripts/trait_simulation_hybrids.R data/usda_hybrids_projected-SVs-SNPs.chr10.poly.low-missing.hmp.txt data/SVs_IDs_poly.txt analysis/trait_sim_hybrids/multi_env/with_gxe/A_model/10-add-QTNs_0-dom-QTNs_from_SNP/0.3-heritability --causal-variant=SNP --pops=20 --reps=3 --envs=5 --h2=0.3 --impute-effect=Middle --impute-type=Add --model=A --add-QTN-num=10 --dom-QTN-num=0 --effect-type=equal --marker-effect-add=0.1 --marker-effect-dom=0.1 --architecture=pleiotropic --seed=75486 --res-cor-matrix=data/usda_envs_cor_matrix.txt --gxe --QTN-variance
-
-
-
-
-
-
-
-
 # use different SNP/SV ratio when causative variant is both SNPs and SVs
 VAR=both
-SVEFFECT=${EFFECTSIZE}
+RATIO=0.5
+SVEFFECT=${ADDEFFECT}  # ...and ADDEFFECT=${DOMEFFECT}
 
 for H2 in 0.3 0.7; do
   for QTN in 10 100; do
-    for RATIO in 0.5 0.8; do
-      FOLDER=analysis/trait_sim/multi_env/with_gxe/additive_model/${EFFECTTYPE}_effects/${QTN}-QTNs_from_${VAR}/SNP-SV-ratio_${RATIO}/effects_SNP-${EFFECTSIZE}_SV-${SVEFFECT}/${H2}-heritability
+    for MODEL in A AD D; do
+      # determine correct number of add/dom QTNs
+      if [[ ${MODEL} == A ]]; then
+        ADDQTN=${QTN}
+        DOMQTN=0
+        IMPUTEEFFECT=Add
+      elif [[ ${MODEL} == AD ]]; then
+        ADDQTN=$(( ${QTN} / 2 ))
+        DOMQTN=$(( ${QTN} / 2 ))
+        IMPUTEEFFECT=Dom
+      elif [[ ${MODEL} == D ]]; then
+        ADDQTN=0
+        DOMQTN=${QTN}
+        IMPUTEEFFECT=Dom
+      fi
+      # set folder name to store results
+      FOLDER=analysis/trait_sim_hybrids/multi_env/with_gxe/${MODEL}_model/${ADDQTN}-add-QTNs_${DOMQTN}-dom-QTNs_from_${VAR}/SNP-SV-ratio_${RATIO}/effects_SNP-${ADDEFFECT}_SV-${SVEFFECT}/${H2}-heritability
       # simulate trait for multiple environments
-      sbatch --export=HMP=${HMP},SVS=${SVS},FOLDER=${FOLDER},VAR=${VAR},POPS=${POPS},REPS=${REPS},ENVS=${ENVS},H2=${H2},MODEL=${MODEL},QTN=${QTN},EFFECTTYPE=${EFFECTTYPE},EFFECTSIZE=${EFFECTSIZE},SEED=${SEED},QTNVAR=${QTNVAR},RATIO=${RATIO},SVEFFECT=${SVEFFECT},RESCOR=${RESCOR},GXE=${GXE} scripts/trait_simulation.sh
-      # wait 10 seconds to avoid accessing the same file at the same time
-      sleep 10
+      sbatch --export=HMP=${HMP},SVS=${SVS},FOLDER=${FOLDER},VAR=${VAR},POPS=${POPS},REPS=${REPS},ENVS=${ENVS},H2=${H2},IMPUTETYPE=${IMPUTETYPE},IMPUTEEFFECT=${IMPUTEEFFECT},MODEL=${MODEL},ADDQTN=${ADDQTN},DOMQTN=${DOMQTN},EFFECTTYPE=${EFFECTTYPE},ADDEFFECT=${ADDEFFECT},DOMEFFECT=${DOMEFFECT},SEED=${SEED},QTNVAR=${QTNVAR},RATIO=${RATIO},SVEFFECT=${SVEFFECT},RESCOR=${RESCOR},GXE=${GXE} scripts/trait_simulation_hybrids.sh
+      # wait 5 seconds to avoid accessing the same file at the same time
+      sleep 5
     done
   done
 done
