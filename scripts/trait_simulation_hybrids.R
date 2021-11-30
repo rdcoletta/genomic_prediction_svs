@@ -23,9 +23,9 @@ optional argument:
   --reps=VALUE                number of reps (default: 3)
   --envs=VALUE                number of environments to simulate (default: 1)
   --h2=VALUE                  heritability (default: 0.5; comma-separated list of values also allowed)
-  --impute-effect             the marker effect ('Add' or 'Dom') when imputing missing data at the hapmap
+  --impute-effect=VALUE       the marker effect ('Add' or 'Dom') when imputing missing data at the hapmap
                               numericalization step (default: 'Add')
-  --impute-type               the marker type ('Major', 'Middle' or 'Minor') when imputing missing data at 
+  --impute-type=VALUE         the marker type ('Major', 'Middle' or 'Minor') when imputing missing data at 
                               the hapmap numericalization step (default: 'Major')
   --model=VALUE               additive, dominant or epistatic genetic model ('A', 'D' or 'E'), or any
                               combination of these models ('AE', 'DE' or 'ADE')
