@@ -2879,3 +2879,71 @@ done
 #### QC with ANOVA
 
 Run ANOVA and plot PVE of QTNs:
+
+```bash
+# select variables
+SVS=data/SVs_IDs_poly.txt
+POPS=20
+EFFECTTYPE=equal
+FORMAT=wide
+
+# SNPs and SVs with same effects
+for H2 in 0.3 0.7; do
+  for QTN in 10 100; do
+    for VAR in SNP SV; do
+      for MODEL in A AD D; do
+        # determine correct number of add/dom QTNs
+        if [[ ${MODEL} == A ]]; then
+          ADDQTN=${QTN}
+          DOMQTN=0
+          EFFECT=add
+        elif [[ ${MODEL} == AD ]]; then
+          ADDQTN=$(( ${QTN} / 2 ))
+          DOMQTN=$(( ${QTN} / 2 ))
+          EFFECT=both
+        elif [[ ${MODEL} == D ]]; then
+          ADDQTN=0
+          DOMQTN=${QTN}
+          EFFECT=dom
+        fi
+        # set folder name to store results
+        FOLDER=analysis/trait_sim_hybrids/multi_env/with_gxe/${MODEL}_model/${ADDQTN}-add-QTNs_${DOMQTN}-dom-QTNs_from_${VAR}/${H2}-heritability
+        # run anova and plot pve
+        sbatch --export=FOLDER=${FOLDER},SVS=${SVS},POPS=${POPS},EFFECT=${EFFECT},FORMAT=${FORMAT} scripts/anova_sim_traits_hybrids.sh
+      done
+    done
+  done
+done
+
+# both SNPs and SVs controlling trait variation
+VAR=both
+RATIO=0.5
+ADDEFFECT=0.1
+SVEFFECT=0.1
+FORMAT=long
+
+for H2 in 0.3 0.7; do
+  for QTN in 10 100; do
+    for MODEL in A AD D; do
+      # determine correct number of add/dom QTNs
+      if [[ ${MODEL} == A ]]; then
+        ADDQTN=${QTN}
+        DOMQTN=0
+        EFFECT=add
+      elif [[ ${MODEL} == AD ]]; then
+        ADDQTN=$(( ${QTN} / 2 ))
+        DOMQTN=$(( ${QTN} / 2 ))
+        EFFECT=both
+      elif [[ ${MODEL} == D ]]; then
+        ADDQTN=0
+        DOMQTN=${QTN}
+        EFFECT=dom
+      fi
+      # set folder name to store results
+      FOLDER=analysis/trait_sim_hybrids/multi_env/with_gxe/${MODEL}_model/${ADDQTN}-add-QTNs_${DOMQTN}-dom-QTNs_from_${VAR}/SNP-SV-ratio_${RATIO}/effects_SNP-${ADDEFFECT}_SV-${SVEFFECT}/${H2}-heritability
+      # run anova and plot pve
+      sbatch --export=FOLDER=${FOLDER},SVS=${SVS},POPS=${POPS},EFFECT=${EFFECT},FORMAT=${FORMAT} scripts/anova_sim_traits_hybrids.sh
+    done
+  done
+done
+```
