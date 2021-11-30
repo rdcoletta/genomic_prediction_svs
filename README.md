@@ -64,6 +64,11 @@ by Rafael Della Coletta, Alex Lipka, Martin Bohn, and Candice Hirsch
     - [Multiple environments](#multiple-environments-2)
       - [With GxE](#with-gxe-1)
       - [QC with ANOVA](#qc-with-anova-1)
+  - [Genomic prediction](#genomic-prediction-1)
+    - [LD between polymorphic SNPs and polymorphic SVs](#ld-between-polymorphic-snps-and-polymorphic-svs-1)
+    - [Create datasets](#create-datasets-1)
+    - [Predict simulated traits](#predict-simulated-traits-1)
+      - [Multiple environments](#multiple-environments-3)
 <!-- TOC END -->
 
 
@@ -2947,3 +2952,179 @@ for H2 in 0.3 0.7; do
   done
 done
 ```
+
+
+## Genomic prediction
+
+We will test different types of markers for prediction: only SNPs, all SVs, all SNPs and SVs, only SNPs in LD to SVs, only SNPs not in LD. Thus, I first need to filter the hapmap file with projected markers and generate one hapmap for each type of marker. In addition, we have to guarantee that all of the filtered datasets have the same number of markers for equal comparison of models.
+
+
+
+### LD between polymorphic SNPs and polymorphic SVs
+
+```bash
+# mkdir -p /scratch.global/della028/hirsch_lab/genomic_prediction/ld
+mkdir -p analysis/ld/to_scratch
+
+# separate dataset into chr for speed
+for chr in {1..10}; do
+  echo $chr
+  awk -v chr=${chr} 'NR == 1 || $3 == chr' data/usda_hybrids_projected-SVs-SNPs.poly.low-missing.hmp.txt > data/usda_hybrids_projected-SVs-SNPs.chr${chr}.poly.low-missing.hmp.txt
+done
+
+# calculate ld
+for chr in {1..10}; do
+  sbatch --export=CHR=${chr} scripts/ld_snp-sv_poly-markers_hybrids.sh
+done
+
+# filter plink ld files and plot distribution (only need the first chr file -- it will find the other chr)
+Rscript scripts/distribution_ld_snps-svs.R analysis/ld/ld_usda_hybrids_poly-snp-sv_only.chr1.ld \
+                                           data/usda_SVs_parents.sorted.hmp.txt \
+                                           analysis/ld/poly-snp-svs_1kb-window_hybrids
+
+# plot extra stats for markers in high ld
+Rscript scripts/extra_ld_stats.R analysis/ld/poly-snp-svs_1kb-window_hybrids
+
+# get marker names of snps in ld and not ld
+# create a 3 column file (id, chr, pos) to be the input for R script
+for chr in {1..10}; do
+  # highest ld
+  sed 1d analysis/ld/poly-snp-svs_1kb-window_hybrids/ld_usda_hybrids_poly-snp-sv_only.chr${chr}.highest-ld.ld  | awk '{ print $3 "\t" $1 "\t" $2 "\n" $7 "\t" $5 "\t" $6}' | sort -n -k 3 | uniq >> analysis/ld/poly-snp-svs_1kb-window_hybrids/marker_info_highest-ld.txt
+  cut -f 1 analysis/ld/poly-snp-svs_1kb-window_hybrids/marker_info_highest-ld.txt | grep -v -P "^del|^dup|^ins|^inv|^tra" >> analysis/ld/poly-snp-svs_1kb-window_hybrids/snp-names_highest-ld.txt
+  # not in ld
+  sed 1d analysis/ld/poly-snp-svs_1kb-window_hybrids/ld_usda_hybrids_poly-snp-sv_only.chr${chr}.not-in-ld.ld  | awk '{ print $3 "\t" $1 "\t" $2 "\n" $7 "\t" $5 "\t" $6}' | sort -n -k 3 | uniq >> analysis/ld/poly-snp-svs_1kb-window_hybrids/marker_info_not-in-ld.txt
+  cut -f 1 analysis/ld/poly-snp-svs_1kb-window_hybrids/marker_info_not-in-ld.txt | grep -v -P "^del|^dup|^ins|^inv|^tra" >> analysis/ld/poly-snp-svs_1kb-window_hybrids/snp-names_not-in-ld.txt
+done
+# remove redudant markers
+sort analysis/ld/poly-snp-svs_1kb-window_hybrids/snp-names_highest-ld.txt | uniq > analysis/ld/poly-snp-svs_1kb-window_hybrids/snp-names_highest-ld.no-duplicates.txt
+sort analysis/ld/poly-snp-svs_1kb-window_hybrids/snp-names_not-in-ld.txt | uniq > analysis/ld/poly-snp-svs_1kb-window_hybrids/snp-names_not-in-ld.no-duplicates.txt
+```
+
+
+
+### Create datasets
+
+```bash
+mkdir -p analysis/trait_sim_hybrids/datasets
+
+# create file with snps ids
+cut -f 1 data/usda_hybrids_projected-SVs-SNPs.poly.low-missing.hmp.txt | sed 1d | grep -v -P "^del|^dup|^inv|^ins|^tra" > data/SNPs_IDs_poly_hybrids.txt
+
+# all polymorphic markers
+cp data/usda_hybrids_projected-SVs-SNPs.poly.low-missing.hmp.txt analysis/trait_sim_hybrids/datasets/usda_hybrids.all_markers.hmp.txt
+# different polymorphic marker types
+for marker in sv snp snp_ld snp_not_ld; do
+  [[ ${marker} == sv ]] && list=data/SVs_IDs_poly.txt
+  [[ ${marker} == snp ]] && list=data/SNPs_IDs_poly_hybrids.txt
+  [[ ${marker} == snp_ld ]] && list=analysis/ld/poly-snp-svs_1kb-window_hybrids/snp-names_highest-ld.no-duplicates.txt
+  [[ ${marker} == snp_not_ld ]] && list=analysis/ld/poly-snp-svs_1kb-window_hybrids/snp-names_not-in-ld.no-duplicates.txt
+  # filter files
+  sbatch --export=IN=data/usda_hybrids_projected-SVs-SNPs.poly.low-missing.hmp.txt,LIST=${list},OUT=analysis/trait_sim_hybrids/datasets/usda_hybrids.${marker}_markers.hmp.txt scripts/filter_hmp_based_on_marker_names.sh
+done
+```
+
+After filtering the hapmap file according to marker types, I needed to make sure that all datasets have the same number of markers. To do that, I will randomly select markers based on the dataset with the lowest number of markers (bootstraped 20 times to get different markers each iteration).
+
+```bash
+wc -l analysis/trait_sim_hybrids/datasets/usda_hybrids.*_markers.hmp.txt
+# 4823205 analysis/trait_sim_hybrids/datasets/usda_hybrids.all_markers.hmp.txt
+#    3379 analysis/trait_sim_hybrids/datasets/usda_hybrids.snp_ld_markers.hmp.txt
+# 4815333 analysis/trait_sim_hybrids/datasets/usda_hybrids.snp_markers.hmp.txt
+#   23502 analysis/trait_sim_hybrids/datasets/usda_hybrids.snp_not_ld_markers.hmp.txt
+#    7873 analysis/trait_sim_hybrids/datasets/usda_hybrids.sv_markers.hmp.txt
+
+# minimum number is 3379 - header = 3378
+
+# bootstrap (20 times) to select random markers to keep all datsets with same number of markers
+SEED=23571
+NSAMPLE=3378
+for iter in {1..20}; do
+  sbatch --export=SEED=${SEED},NSAMPLE=${NSAMPLE},ITER=${iter} scripts/select_random_markers_hybrids.sh
+  SEED=$((${SEED}+5))
+done
+```
+
+
+### Predict simulated traits
+
+> Note: for the manuscript, I will focus only on multiple environment predictions.
+
+
+
+#### Multiple environments
+
+I will be using ASREML-R to run predictions, but the license I have doesn't allow me to run things in the cloud (or MSI). So I will copy all the files from the simulations to our lab Linux server.
+
+> Marker datasets and scripts were already transfered.
+
+```bash
+# simulated traits with gxe
+scp -r analysis/trait_sim_hybrids/multi_env/ candy@134.84.43.7:/home/candy/rafa/genomic_prediction/simulation/analysis/trait_sim_hybrids/
+
+# datasets with marker data for prediction
+for iter in {1..20}; do
+  scp -r analysis/trait_sim_hybrids/datasets/iter${iter}/ candy@134.84.43.7:/home/candy/rafa/genomic_prediction/simulation/analysis/trait_sim_hybrids/datasets
+done
+```
+
+I'm doing a two-stage genomic prediction analysis, where in the first stage I extract BLUPs from each environment separately:
+
+```bash
+# get blups for each environment
+nohup bash scripts/genomic_prediction_stage1_hybrids.sh > analysis/trait_sim_hybrids/multi_env/genomic_prediction_stage1.log 2>&1 &
+echo $! > analysis/trait_sim_hybrids/multi_env/nohup_pid_stage1.txt
+# # if need to kill process, run:
+# kill -9 `analysis/trait_sim/multi_env/nohup_pid_stage1.txt`
+# rm analysis/trait_sim/multi_env/nohup_pid_stage1.txt
+```
+
+Then I use these BLUPs in a second-stage as the phenotypes for my genomic predictions across multiple environments:
+
+```bash
+# randomly select combinations of QTN populations and predictor iterations
+get_seeded_random()
+{
+  seed="$1"
+  openssl enc -aes-256-ctr -pass pass:"$seed" -nosalt < /dev/zero 2> /dev/null
+}
+iters=($(shuf -i 1-20 -n 20 --random-source=<(get_seeded_random 99874)))
+pops=($(shuf -i 1-20 -n 20 --random-source=<(get_seeded_random 316470)))
+# echo ${iters[@]}
+# # 15 8 2 6 1 19 10 12 16 11 20 13 3 9 4 18 17 5 14 7
+# echo ${pops[@]}
+# # 7 16 4 2 15 3 20 17 9 6 14 1 11 12 5 10 13 8 19 18
+
+# generate gnu parallel commands
+for i in {0..19}; do
+  bash scripts/genomic_prediction_stage2_hybrids.sh -d ${iters[$i]} -p ${pops[$i]} -P ${pops[$i]}
+done
+
+# run predictions across all environments using blups from previous stage
+nohup parallel --jobs 2 --joblog analysis/trait_sim_hybrids/multi_env/genomic_prediction_stage2.parallel.log < scripts/commands_genomic_prediction_stage2_hybrids.txt 2> analysis/trait_sim_hybrids/multi_env/genomic_prediction_stage2.log &
+```
+
+> To check progress of how many predictions were completed, I wrote this function:
+
+  ```bash
+  stage2_hybrids_progress()
+  {
+    inode=$(ls -i analysis/trait_sim_hybrids/multi_env/genomic_prediction_stage2.parallel.log | cut -f 1 -d " ")
+    crtime=$(sudo debugfs -R "stat <$inode>" /dev/sda3 | grep crtime | cut -d "-" -f 3 2> /dev/null)
+    mtime=$(sudo debugfs -R "stat <$inode>" /dev/sda3 | grep mtime | cut -d "-" -f 3 2> /dev/null)
+
+    jobs_done=$(sed 1d analysis/trait_sim_hybrids/multi_env/genomic_prediction_stage2.parallel.log | wc -l | cut -f 1 -d " ")
+    jobs_total=$(wc -l scripts/commands_genomic_prediction_stage2_hybrids.txt | cut -f 1 -d " ")
+    jobs_fail=$(cut -f 5-8 analysis/trait_sim_hybrids/multi_env/genomic_prediction_stage2.parallel.log | grep -c 1)
+    avg_time=$(awk '{ total += $4 } END { print total/NR }' analysis/trait_sim_hybrids/multi_env/genomic_prediction_stage2.parallel.log)
+
+    echo ""
+    echo Jobs completed: ${jobs_done} "($(( ${jobs_done} * 100 / ${jobs_total} ))%)"
+    echo Jobs failed: ${jobs_fail} "($(( ${jobs_fail} * 100 / ${jobs_total} ))%)"
+    echo Job started:${crtime}
+    echo Last modified:${mtime}
+    echo Average runtime per job: $(echo "scale=1; ${avg_time}/60" | bc -l) min
+  }
+
+  # check progress
+  stage2_hybrids_progress
+  ```
