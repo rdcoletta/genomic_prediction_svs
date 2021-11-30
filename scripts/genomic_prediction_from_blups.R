@@ -170,7 +170,7 @@ if (envs_weight) weights <- weights[1:total_envs, ]
 
 # using only phenotypes with snp information
 means <- means[means$genotype %in% rownames(markers), ]
-means <- means[match(means$genotype, rownames(markers)), ]
+means <- means[match(rownames(markers), means$genotype), ]
 # all(rownames(markers) == means$genotype)
 
 # changing names for numbers, but save ids for later as well
