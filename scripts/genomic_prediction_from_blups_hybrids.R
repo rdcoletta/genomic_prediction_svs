@@ -12,6 +12,7 @@ if(!require("GAPIT3")) {
   source("http://zzlab.net/GAPIT/gapit_functions.txt")
 }
 suppressWarnings(suppressMessages(library(doParallel)))
+library(AGHmatrix)
 
 
 usage <- function() {
@@ -198,23 +199,20 @@ means <- transform(means, genotype = factor(genotype))
 
 #### create relationship matrix ----
 
-kmatrix <- A.mat(markers, return.imputed = FALSE)
-rm(markers)
+# additive relationship matrix
+kin_add <- Gmatrix(SNPmatrix = as.matrix(markers) + 1, method = "VanRaden", verify.posdef = TRUE)  # NOT positive definite
+ginv_A <- ginv(kin_add)
+ginv_A <- data.frame(formatmatrix(ginv_A, round.by = 4, exclude.0 = FALSE, return = TRUE, save = FALSE))
+colnames(ginv_A)<- c("Row", "Column", "GINV")
+attr(ginv_A, "rowNames") <- geno_ids
 
-# inverting relationship matrix
-A <- ginv(kmatrix)
-colnames(A) <- geno_ids
-rownames(A) <- geno_ids
-rm(kmatrix)
-
-# changing inverted A matrix format to be used in asreml
-A[lower.tri(A)] <- NA
-A <- na.omit(reshape2::melt(A))
-rownames(A) <- NULL
-ginv <- data.frame(A[,2], A[,1], A[,3])
-colnames(ginv)<- c("Row", "Column", "GINV")
-attr(ginv,"rowNames") <- geno_ids
-rm(A)
+# dominance relationship matrix
+kin_dom <- Gmatrix(SNPmatrix = as.matrix(markers) + 1, method = "Vitezica", verify.posdef = TRUE)  # positive definite
+ginv_D <- ginv(kin_dom)
+ginv_D <- data.frame(formatmatrix(ginv_D, round.by = 4, exclude.0 = FALSE, return = TRUE, save = FALSE))
+colnames(ginv_D)<- c("Row", "Column", "GINV")
+attr(ginv_D, "rowNames") <- geno_ids
+rm(markers, kin_add, kin_dom)
 
 
 
@@ -259,9 +257,11 @@ rm(i, folds, cv, sample)
 
 #### genomic prediction ----
 
-# format inverted A matrix for asreml compatibility
-attr(ginv, "INVERSE") <- TRUE
-attr(ginv, "rowNames") <- as.character(attr(ginv, "rowNames"))
+# format inverted A and D matrix for asreml compatibility
+attr(ginv_A, "INVERSE") <- TRUE
+attr(ginv_D, "INVERSE") <- TRUE
+attr(ginv_A, "rowNames") <- as.character(attr(ginv_A, "rowNames"))
+attr(ginv_D, "rowNames") <- as.character(attr(ginv_D, "rowNames"))
 
 # start list to store results
 accuracy <- list()
@@ -301,23 +301,26 @@ for(j in 1:cv_iter) {
         envs_data <- as.matrix(means_test[, 2:NCOL(means)])
         # get initial values from a simpler model
         model_init <- asreml(fixed = envs_data ~ trait,
-                             random = ~ diag(trait):vm(genotype, source = ginv),
+                             random = ~ diag(trait):vm(genotype, source = ginv_A) + diag(trait):vm(genotype, source = ginv_D),
                              residual = ~ id(units):diag(trait),
-                             workspace = "128mb",
+                             workspace = "1000mb",
                              maxit = 100,
                              trace = FALSE,
                              data = means_test)
-        G_init <- data.frame(Component = names(model_init$G.param$`trait:vm(genotype, source = ginv)`$trait$initial),
-                             Value = as.numeric(model_init$G.param$`trait:vm(genotype, source = ginv)`$trait$initial),
-                             Constraint = model_init$G.param$`trait:vm(genotype, source = ginv)`$trait$con)
+        G_init <- data.frame(Component = c(names(model_init$G.param$`trait:vm(genotype, source = ginv_A)`$trait$initial),
+                                           names(model_init$G.param$`trait:vm(genotype, source = ginv_D)`$trait$initial)),
+                             Value = c(as.numeric(model_init$G.param$`trait:vm(genotype, source = ginv_A)`$trait$initial),
+                                       as.numeric(model_init$G.param$`trait:vm(genotype, source = ginv_D)`$trait$initial)),
+                             Constraint = c(model_init$G.param$`trait:vm(genotype, source = ginv_A)`$trait$con,
+                                            model_init$G.param$`trait:vm(genotype, source = ginv_D)`$trait$con))
         R_init <- data.frame(Component = names(model_init$R.param$`units:trait`$trait$initial),
                              Value = as.numeric(model_init$R.param$`units:trait`$trait$initial),
                              Constraint = model_init$R.param$`units:trait`$trait$con)
         # run more complex model with initial values
         model <- asreml(fixed = envs_data ~ trait,
-                        random = ~ diag(trait):vm(genotype, source = ginv),
+                        random = ~ diag(trait):vm(genotype, source = ginv_A) + diag(trait):vm(genotype, source = ginv_D),
                         residual = ~ id(units):us(trait),
-                        workspace = "128mb",
+                        workspace = "1000mb",
                         maxit = 100,
                         trace = FALSE,
                         data = means_test,
@@ -332,29 +335,32 @@ for(j in 1:cv_iter) {
         means_test$weight <- weights[match(means_test$environment, weights$environment), "weight"]
         # get initial values from a simpler model
         model_init <- asreml(fixed = sim_trait ~ environment,
-                             random = ~ diag(environment):vm(genotype, source = ginv),
+                             random = ~ diag(environment):vm(genotype, source = ginv_A) + diag(environment):vm(genotype, source = ginv_D),
                              residual = ~ id(units):diag(environment),
                              weights = weight,
                              asmv = environment,
                              family = asr_gaussian(dispersion = 1),
-                             workspace = "128mb",
+                             workspace = "1000mb",
                              maxit = 100,
                              trace = FALSE,
                              data = means_test)
-        G_init <- data.frame(Component = names(model_init$G.param$`environment:vm(genotype, source = ginv)`$environment$initial),
-                             Value = as.numeric(model_init$G.param$`environment:vm(genotype, source = ginv)`$environment$initial),
-                             Constraint = model_init$G.param$`environment:vm(genotype, source = ginv)`$environment$con)
+        G_init <- data.frame(Component = c(names(model_init$G.param$`environment:vm(genotype, source = ginv_A)`$environment$initial),
+                                           names(model_init$G.param$`environment:vm(genotype, source = ginv_D)`$environment$initial)),
+                             Value = c(as.numeric(model_init$G.param$`environment:vm(genotype, source = ginv_A)`$environment$initial),
+                                       as.numeric(model_init$G.param$`environment:vm(genotype, source = ginv_D)`$environment$initial)),
+                             Constraint = c(model_init$G.param$`environment:vm(genotype, source = ginv_A)`$environment$con,
+                                            model_init$G.param$`environment:vm(genotype, source = ginv_D)`$environment$con))
         R_init <- data.frame(Component = names(model_init$R.param$`units:environment`$environment$initial),
                              Value = as.numeric(model_init$R.param$`units:environment`$environment$initial),
                              Constraint = model_init$R.param$`units:environment`$environment$con)
         # run more complex model with initial values
         model <- asreml(fixed = sim_trait ~ environment,
-                        random = ~ diag(environment):vm(genotype, source = ginv),
+                        random = ~ diag(environment):vm(genotype, source = ginv_A) + diag(environment):vm(genotype, source = ginv_D),
                         residual = ~ id(units):us(environment),
                         weights = weight,
                         asmv = environment,
                         family = asr_gaussian(dispersion = 1),
-                        workspace = "128mb",
+                        workspace = "1000mb",
                         maxit = 100,
                         trace = FALSE,
                         data = means_test,
@@ -374,12 +380,12 @@ for(j in 1:cv_iter) {
       # predict phenotypes
       cat("    running predictions...\n")
       if (!envs_weight) {
-        pred <- predict(model, classify = "trait:genotype", pworkspace = "128mb", trace = FALSE)
+        pred <- predict(model, classify = "trait:genotype", pworkspace = "1000mb", trace = FALSE)
         pred <- data.frame(pred$pvals)
         pred <- pred[, c("genotype", "trait", "predicted.value")]
         pred <- pivot_wider(pred, names_from = trait, values_from = predicted.value)
       } else {
-        pred <- predict(model, classify = "environment:genotype", pworkspace = "128mb", trace = FALSE)
+        pred <- predict(model, classify = "environment:genotype", pworkspace = "1000mb", trace = FALSE)
         pred <- data.frame(pred$pvals)
         pred <- pred[, c("genotype", "environment", "predicted.value")]
         pred <- pivot_wider(pred, names_from = environment, values_from = predicted.value)
@@ -537,9 +543,12 @@ fwrite(gebv_ranks, file = paste0(output_folder, "/GEBVs_ranks.", cv_type, ".txt"
 
 #### debug ----
 
-# markers_file <- "analysis/test_prediction/linux/usda_hybrids.all_markers.adjusted-n-markers.iter1.hmp.txt"
-# blups_file <- "analysis/test_prediction/linux/blups_1st_stage_hybrids.10-add-snps_0.3-h2.pop1.txt"
-# output_folder <- "analysis/test_prediction/linux/prediction_all_markers_hybrids"
+# # markers_file <- "analysis/test_prediction/linux/usda_hybrids.all_markers.adjusted-n-markers.iter1.hmp.txt"
+# markers_file <- "analysis/trait_sim_hybrids/datasets/iter15/usda_hybrids.all_markers.adjusted-n-markers.hmp.txt"
+# # blups_file <- "analysis/test_prediction/linux/blups_1st_stage_hybrids.10-add-snps_0.3-h2.pop1.txt"
+# blups_file <- "analysis/trait_sim_hybrids/multi_env/with_gxe/A_model/10-add-QTNs_0-dom-QTNs_from_SNP/0.3-heritability/pop7/blups_1st_stage.txt"
+# # output_folder <- "analysis/test_prediction/linux/prediction_all_markers_hybrids"
+# output_folder <- "analysis/trait_sim_hybrids/multi_env/with_gxe/A_model/10-add-QTNs_0-dom-QTNs_from_SNP/0.3-heritability/pop7/prediction_iter15/all_markers"
 # n_folds <- 5
 # cv_iter <- 3
 # total_envs <- 5
@@ -547,39 +556,3 @@ fwrite(gebv_ranks, file = paste0(output_folder, "/GEBVs_ranks.", cv_type, ".txt"
 # cv_type <- "CV1"
 # envs_weight <- FALSE
 # # envs_weight <- TRUE
-
-# # CV1
-#                 env1        env2      env3        env4        env5
-# mean     0.759196107 0.760904541 0.7600242 0.768950437 0.746356322
-# se       0.005113508 0.003153316 0.0062245 0.003008618 0.004207666
-# lower_CI 0.744998733 0.752149531 0.7427423 0.760597175 0.734673968
-# upper_CI 0.773393481 0.769659550 0.7773062 0.777303699 0.758038676
-
-# # CV1 weighted
-#                 env1        env2        env3        env4        env5
-# mean     0.757290588 0.760251005 0.759442276 0.767393203 0.746022087
-# se       0.005099289 0.003198881 0.006219393 0.002903152 0.004249904
-# lower_CI 0.743132692 0.751369486 0.742174472 0.759332760 0.734222460
-# upper_CI 0.771448484 0.769132524 0.776710079 0.775453645 0.757821713
-
-
-# # CV2
-#                 env1       env2        env3        env4        env5
-# mean     0.783199219 0.76027952 0.766580095 0.787550657 0.770312076
-# se       0.005195691 0.00771124 0.005664869 0.003605817 0.001882068
-# lower_CI 0.768773668 0.73886969 0.750851898 0.777539305 0.765086618
-# upper_CI 0.797624769 0.78168936 0.782308293 0.797562008 0.775537534
-
-# # diag() structure ~ 2min per cv iteration (my Mac)
-# # fa(1) structure ~ 10min per cv iteration (my Mac)
-
-# # CV1 -- FA structure
-#                 env1        env2         env3        env4        env5
-# mean     0.785480816 0.777680454 0.7859339233 0.802942808 0.789777850
-# se       0.003570838 0.003508044 0.0002324807 0.003130235 0.002592054
-# lower_CI 0.770116739 0.762586561 0.7849336393 0.789474492 0.778625141
-# upper_CI 0.800844894 0.792774347 0.7869342072 0.816411123 0.800930559
-
-# accuracy pheno iter 1 h2 0.9 (cv 1 diag): -0.06422884 -0.06739743 -0.07900174 -0.07144830 -0.06569532
-# accuracy pheno iter 1 h2 0.9 (cv 2 diag):
-# accuracy pheno iter 1 h2 0.9 (cv 1 fa1): singularity...
