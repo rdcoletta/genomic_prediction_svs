@@ -122,6 +122,7 @@ for (ld in unique(ld_results$ld_category)) {
     }
   }
 }
+rm(ld_results_category, snps_already_in_ld, snps_LD_with_sv)
 
 ld_plot_highest <- ggplot(ld_results_highest, aes(x = R2)) +
   geom_histogram(fill = "#900721", binwidth = 0.01) +
@@ -134,6 +135,46 @@ ld_plot_highest <- ggplot(ld_results_highest, aes(x = R2)) +
 
 ggsave(filename = paste0(plot_name, ".highest-ld.pdf"), plot = ld_plot_highest, device = "pdf")
 
+
+
+#### plot MAF distribution ----
+
+maf_qtns <- data.frame(maf = rep(NA, NROW(ld_results_highest)), ld_category = rep(NA, NROW(ld_results_highest)))
+maf_qtns$maf <- c(ld_results_highest[which(ld_results_highest$SNP_A %in% qtn_list), "MAF_A"],
+                  ld_results_highest[which(ld_results_highest$SNP_B %in% qtn_list), "MAF_B"])
+maf_qtns$ld_category <- c(as.character(ld_results_highest[which(ld_results_highest$SNP_A %in% qtn_list), "ld_category"]),
+                          as.character(ld_results_highest[which(ld_results_highest$SNP_B %in% qtn_list), "ld_category"]))
+maf_qtns$ld_category <- factor(maf_qtns$ld_category, levels = c("Low", "Moderate", "High"))
+plot_maf_qtns <-  ggplot(maf_qtns, aes(x = maf)) +
+  # geom_histogram(fill = "#900721", binwidth = 0.01) +
+  geom_density(fill = "#900721") +
+  facet_grid(ld_category ~ .) +
+  labs(title = paste0("Predictors in highest LD to QTLs"),
+       x = "MAF QTLs",
+       y = "Density") +
+  coord_cartesian(xlim = c(0, 0.5)) +
+  theme_bw()
+
+ggsave(filename = paste0(plot_name, ".maf-qtls.pdf"), plot = plot_maf_qtns, device = "pdf")
+
+
+maf_preds <- data.frame(maf = rep(NA, NROW(ld_results_highest)), ld_category = rep(NA, NROW(ld_results_highest)))
+maf_preds$maf <- c(ld_results_highest[which(!ld_results_highest$SNP_A %in% qtn_list), "MAF_A"],
+                  ld_results_highest[which(!ld_results_highest$SNP_B %in% qtn_list), "MAF_B"])
+maf_preds$ld_category <- c(as.character(ld_results_highest[which(!ld_results_highest$SNP_A %in% qtn_list), "ld_category"]),
+                          as.character(ld_results_highest[which(!ld_results_highest$SNP_B %in% qtn_list), "ld_category"]))
+maf_preds$ld_category <- factor(maf_preds$ld_category, levels = c("Low", "Moderate", "High"))
+plot_maf_preds <-  ggplot(maf_preds, aes(x = maf)) +
+  # geom_histogram(fill = "#900721", binwidth = 0.01) +
+  geom_density(fill = "#900721") +
+  facet_grid(ld_category ~ .) +
+  labs(title = paste0("Predictors in highest LD to QTLs"),
+       x = "MAF predictors",
+       y = "Density") +
+  coord_cartesian(xlim = c(0, 0.5)) +
+  theme_bw()
+
+ggsave(filename = paste0(plot_name, ".maf-predictors.pdf"), plot = plot_maf_preds, device = "pdf")
 
 
 
