@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --time=24:00:00
+#SBATCH --time=14:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
 #SBATCH --mem=100gb
@@ -44,7 +44,7 @@ for chr in {1..10}; do
 done
 
 # merge chr
-head -n 1 analysis/ld_downsample/datasets/rep${REP}/usda_rils_projected-SVs-SNPs.poly.chr1.rep${REP}.with-LD-info.hmp.txt >> analysis/ld_downsample/datasets/rep${REP}/usda_rils_projected-SVs-SNPs.poly.rep${REP}.with-LD-info.hmp.txt
+head -n 1 analysis/ld_downsample/datasets/rep${REP}/usda_rils_projected-SVs-SNPs.poly.chr1.rep${REP}.with-LD-info.hmp.txt > analysis/ld_downsample/datasets/rep${REP}/usda_rils_projected-SVs-SNPs.poly.rep${REP}.with-LD-info.hmp.txt
 for chr in {1..10}; do
   sed 1d analysis/ld_downsample/datasets/rep${REP}/usda_rils_projected-SVs-SNPs.poly.chr${chr}.rep${REP}.with-LD-info.hmp.txt >> analysis/ld_downsample/datasets/rep${REP}/usda_rils_projected-SVs-SNPs.poly.rep${REP}.with-LD-info.hmp.txt
 done
