@@ -80,8 +80,8 @@ cd /home/candy/rafa/genomic_prediction/simulation
 
 for PREDICTOR in low moderate high; do
   for H2 in 0.3 0.7; do
-    for QTN in 10 100; do
-      for VAR in SNP SV; do
+    for QTN in 100; do
+      for VAR in SNP SV both; do
         for POP in $(seq ${POPSTART} ${POPEND}); do
           # get folder name
           FOLDER=analysis/ld_downsample/sim_traits/rep${NDATASET}/${QTN}-QTNs_from_${VAR}/${H2}-heritability/pop${POP}

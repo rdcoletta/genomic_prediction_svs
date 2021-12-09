@@ -6,8 +6,8 @@ cd /home/candy/rafa/genomic_prediction/simulation
 echo "job started @ $(date)"
 
 for H2 in 0.3 0.7; do
-  for QTN in 10 100; do
-    for VAR in SNP SV; do
+  for QTN in 100; do
+    for VAR in SNP SV both; do
       for REP in $(seq 1 10); do
         for POP in {1..3}; do
           # get folder name

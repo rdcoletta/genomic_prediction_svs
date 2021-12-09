@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --time=1:00:00
+#SBATCH --time=2:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=10
 #SBATCH --mem=80gb
@@ -24,7 +24,7 @@ cd ~/projects/genomic_prediction/simulation
 echo "job started @ $(date)"
 
 for QTN in 100; do
-  for VAR in SNP SV; do
+  for VAR in SNP SV both; do
     for LD in low moderate high; do
 
       # get folder with original LD file and QTN list
