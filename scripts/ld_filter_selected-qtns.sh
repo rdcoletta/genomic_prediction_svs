@@ -20,8 +20,8 @@ WINDOW=5000
 FILTER=0.25
 SCRATCH=/scratch.global/della028/hirsch_lab/genomic_prediction/ld
 
-for QTN in 10 100; do
-  for VAR in SNP SV; do
+for QTN in 100; do
+  for VAR in SNP SV both; do
     # get folder name
     FOLDER=analysis/ld_downsample/sim_traits/rep${REP}/${QTN}-QTNs_from_${VAR}/${H2}-heritability/pop${POP}
     echo "  ${FOLDER}"
@@ -30,7 +30,7 @@ for QTN in 10 100; do
       # get ld file
       LDFILE=${SCRATCH}/usda_rils_projected-SVs-SNPs.poly.chr${chr}.rep${REP}.window-${WINDOW}kb.filter-${FILTER}.ld.gz
       # get file with causative variants
-      awk -v chr="$chr" '$4 == chr' ${FOLDER}/Additive_Selected_QTNs.txt | cut -f 2 > ${FOLDER}/list_QTNs.chr${chr}.causal-pop${POP}.txt
+      awk -v chr="$chr" '$9 == chr' ${FOLDER}/Additive_QTNs.txt | cut -f 7 > ${FOLDER}/list_QTNs.chr${chr}.causal-pop${POP}.txt
       # keep only QTNs
       zcat ${LDFILE} | head -n 1 > ${FOLDER}/ld_info.QTNs-rep${REP}-pop${POP}.chr${chr}.ld
       zcat ${LDFILE} | grep -F -f ${FOLDER}/list_QTNs.chr${chr}.causal-pop${POP}.txt >> ${FOLDER}/ld_info.QTNs-rep${REP}-pop${POP}.chr${chr}.ld &
