@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --time=2:00:00
+#SBATCH --time=1:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=10
 #SBATCH --mem=80gb
@@ -67,21 +67,21 @@ for QTN in 100; do
       if [[ ${LD} == low ]]; then
 
         # identify
-        grep -F -f <(cat ${LDFOLDER}/list_QTNs.chr*.causal-pop${POP}.txt) ${OUTFOLDER}/qtn-pred.ld | grep -F -f ${OUTFOLDER}/markers_${LD}-ld_to_QTNs.txt | awk '$9 > 0.5' | sed 's/^ *//' | tr -s " " | tr " " "\t" | cut -f 3,7 | sed 's/\t/\n/g' | sort | uniq | grep -v -F -f <(cat ${LDFOLDER}/list_QTNs.chr*.causal-pop${POP}.txt) > ${OUTFOLDER}/predictors_to_exclude.txt
+        grep -F -w -f <(cat ${LDFOLDER}/list_QTNs.chr*.causal-pop${POP}.txt) ${OUTFOLDER}/qtn-pred.ld | grep -F -w -f ${OUTFOLDER}/markers_${LD}-ld_to_QTNs.txt | awk '$9 > 0.5' | sed 's/^ *//' | tr -s " " | tr " " "\t" | cut -f 3,7 | sed 's/\t/\n/g' | sort | uniq | grep -v -F -w -f <(cat ${LDFOLDER}/list_QTNs.chr*.causal-pop${POP}.txt) > ${OUTFOLDER}/predictors_to_exclude.txt
         # remove
         comm -13 <(sort ${OUTFOLDER}/predictors_to_exclude.txt | uniq) <(sort ${OUTFOLDER}/markers_${LD}-ld_to_QTNs.txt | uniq) > ${OUTFOLDER}/predictors_${LD}-ld_to_QTNs.txt
 
       elif [[ ${LD} == moderate ]]; then
 
         # identify
-        grep -F -f <(cat ${LDFOLDER}/list_QTNs.chr*.causal-pop${POP}.txt) ${OUTFOLDER}/qtn-pred.ld | grep -F -f ${OUTFOLDER}/markers_${LD}-ld_to_QTNs.txt | awk '$9 >= 0.9' | sed 's/^ *//' | tr -s " " | tr " " "\t" | cut -f 3,7 | sed 's/\t/\n/g' | sort | uniq | grep -v -F -f <(cat ${LDFOLDER}/list_QTNs.chr*.causal-pop${POP}.txt) > ${OUTFOLDER}/predictors_to_exclude.txt
+        grep -F -w -f <(cat ${LDFOLDER}/list_QTNs.chr*.causal-pop${POP}.txt) ${OUTFOLDER}/qtn-pred.ld | grep -F -w -f ${OUTFOLDER}/markers_${LD}-ld_to_QTNs.txt | awk '$9 >= 0.9' | sed 's/^ *//' | tr -s " " | tr " " "\t" | cut -f 3,7 | sed 's/\t/\n/g' | sort | uniq | grep -v -F -w -f <(cat ${LDFOLDER}/list_QTNs.chr*.causal-pop${POP}.txt) > ${OUTFOLDER}/predictors_to_exclude.txt
         # remove
         comm -13 <(sort ${OUTFOLDER}/predictors_to_exclude.txt | uniq) <(sort ${OUTFOLDER}/markers_${LD}-ld_to_QTNs.txt | uniq) > ${OUTFOLDER}/predictors_${LD}-ld_to_QTNs.txt
 
       elif [[ ${LD} == high ]]; then
 
         # identify
-        grep -F -f <(cat ${LDFOLDER}/list_QTNs.chr*.causal-pop${POP}.txt) ${OUTFOLDER}/qtn-pred.ld | grep -F -f ${OUTFOLDER}/markers_${LD}-ld_to_QTNs.txt | awk '$9 >= 0.9' | sed 's/^ *//' | tr -s " " | tr " " "\t" | cut -f 3,7 | sed 's/\t/\n/g' | sort | uniq | grep -v -F -f <(cat ${LDFOLDER}/list_QTNs.chr*.causal-pop${POP}.txt) > ${OUTFOLDER}/predictors_${LD}-ld_to_QTNs.txt
+        grep -F -w -f <(cat ${LDFOLDER}/list_QTNs.chr*.causal-pop${POP}.txt) ${OUTFOLDER}/qtn-pred.ld | grep -F -w -f ${OUTFOLDER}/markers_${LD}-ld_to_QTNs.txt | awk '$9 >= 0.9' | sed 's/^ *//' | tr -s " " | tr " " "\t" | cut -f 3,7 | sed 's/\t/\n/g' | sort | uniq | grep -v -F -w -f <(cat ${LDFOLDER}/list_QTNs.chr*.causal-pop${POP}.txt) > ${OUTFOLDER}/predictors_${LD}-ld_to_QTNs.txt
 
       fi
 
@@ -100,7 +100,7 @@ for QTN in 100; do
         QTNSEED=($(shuf -i 1-100000 -n 1 --random-source=<(get_seeded_random ${SEED})))
         for qtn in $(cat ${LDFOLDER}/list_QTNs.chr*.causal-pop${POP}.txt); do
           # find all predictors in ld to that qtn
-          grep -F ${qtn} ${OUTFOLDER}/qtn-pred.ld | grep -F -f ${OUTFOLDER}/predictors_${LD}-ld_to_QTNs.txt | awk '$9 > 0.5 && $9 < 0.9' | sed 's/^ *//' | tr -s " " | tr " " "\t" | sed 1d | cut -f 3,7 | sed 's/\t/\n/g' | sort | uniq | grep -v -F ${qtn} | shuf -n 1 --random-source=<(get_seeded_random ${QTNSEED}) >> ${OUTFOLDER}/predictors_${LD}-ld_to_QTNs.${NMARKERS}-markers.txt
+          grep -F -w ${qtn} ${OUTFOLDER}/qtn-pred.ld | grep -F -w -f ${OUTFOLDER}/predictors_${LD}-ld_to_QTNs.txt | awk '$9 > 0.5 && $9 < 0.9' | sed 's/^ *//' | tr -s " " | tr " " "\t" | sed 1d | cut -f 3,7 | sed 's/\t/\n/g' | sort | uniq | grep -v -F -w ${qtn} | shuf -n 1 --random-source=<(get_seeded_random ${QTNSEED}) >> ${OUTFOLDER}/predictors_${LD}-ld_to_QTNs.${NMARKERS}-markers.txt
           # change seed number
           QTNSEED=($(shuf -i 1-100000 -n 1 --random-source=<(get_seeded_random ${QTNSEED})))
         done
@@ -119,7 +119,7 @@ for QTN in 100; do
         QTNSEED=($(shuf -i 1-100000 -n 1 --random-source=<(get_seeded_random ${SEED})))
         for qtn in $(cat ${LDFOLDER}/list_QTNs.chr*.causal-pop${POP}.txt); do
           # find all predictors in ld to that qtn
-          grep -F ${qtn} ${OUTFOLDER}/qtn-pred.ld | grep -F -f ${OUTFOLDER}/predictors_${LD}-ld_to_QTNs.txt | awk '$9 >= 0.9' | sed 's/^ *//' | tr -s " " | tr " " "\t" | sed 1d | cut -f 3,7 | sed 's/\t/\n/g' | sort | uniq | grep -v -F ${qtn} | shuf -n 1 --random-source=<(get_seeded_random ${QTNSEED}) >> ${OUTFOLDER}/predictors_${LD}-ld_to_QTNs.${NMARKERS}-markers.txt
+          grep -F -w ${qtn} ${OUTFOLDER}/qtn-pred.ld | grep -F -w -f ${OUTFOLDER}/predictors_${LD}-ld_to_QTNs.txt | awk '$9 >= 0.9' | sed 's/^ *//' | tr -s " " | tr " " "\t" | sed 1d | cut -f 3,7 | sed 's/\t/\n/g' | sort | uniq | grep -v -F -w ${qtn} | shuf -n 1 --random-source=<(get_seeded_random ${QTNSEED}) >> ${OUTFOLDER}/predictors_${LD}-ld_to_QTNs.${NMARKERS}-markers.txt
           # change seed number
           QTNSEED=($(shuf -i 1-100000 -n 1 --random-source=<(get_seeded_random ${QTNSEED})))
         done

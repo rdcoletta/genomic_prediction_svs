@@ -33,7 +33,7 @@ for QTN in 100; do
       awk -v chr="$chr" '$9 == chr' ${FOLDER}/Additive_QTNs.txt | cut -f 7 > ${FOLDER}/list_QTNs.chr${chr}.causal-pop${POP}.txt
       # keep only QTNs
       zcat ${LDFILE} | head -n 1 > ${FOLDER}/ld_info.QTNs-rep${REP}-pop${POP}.chr${chr}.ld
-      zcat ${LDFILE} | grep -F -f ${FOLDER}/list_QTNs.chr${chr}.causal-pop${POP}.txt >> ${FOLDER}/ld_info.QTNs-rep${REP}-pop${POP}.chr${chr}.ld &
+      zcat ${LDFILE} | grep -F -w -f ${FOLDER}/list_QTNs.chr${chr}.causal-pop${POP}.txt >> ${FOLDER}/ld_info.QTNs-rep${REP}-pop${POP}.chr${chr}.ld &
     done
     wait
     # merge results from chrs
