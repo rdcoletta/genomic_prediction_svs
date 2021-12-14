@@ -16,7 +16,7 @@ optional argument:
   --help                        show this helpful message
   --trait-pops=[LIST]           comma-separated list of populations of QTNs used for simulating traits
   --pred-iters=[LIST]           comma-separated list of predictors iterations used in genomic prediction
-  
+
 note: make sure that to provide the same number of `--trait-pops` and `--pred-iters`
 
 "
@@ -33,42 +33,42 @@ getArgValue <- function(arg) {
 }
 
 getAccuracy <- function(folder_accuracy, h2, qtn, var, pop, predictor, pred_iter) {
-  
+
   # create empty df to store results of CVs
   df_results <- data.frame(stringsAsFactors = FALSE)
-  
+
   for (cv in c("CV1", "CV2")) {
-    
+
     # try to access file with results
     pred_accuracy <- try(fread(paste0(folder_accuracy, "/prediction_accuracy.", cv, ".txt"),
                                header = TRUE, data.table = FALSE))
-    
+
     if (class(pred_accuracy) != "try-error") {
-      
+
       # get avg accuracy across all environments
       pred_accuracy_means <- data.frame(t(rowMeans(pred_accuracy[, -1])))
       colnames(pred_accuracy_means) <- c("mean_accuracy_envs", "mean_se", "mean_lowerCI", "mean_upperCI")
-      
+
       # keep accuracy about each environment as well -- just need to reformat
       pred_accuracy_envs <- pred_accuracy %>%
         pivot_longer(-stat, names_to = "env", values_to = "vals") %>%
-        arrange(env) %>% 
+        arrange(env) %>%
         unite(env:stat, col = "env_info", sep = "_") %>%
         t() %>% as.data.frame(stringsAsFactors = FALSE)
       colnames(pred_accuracy_envs) <- apply(pred_accuracy_envs[1, ], MARGIN = 1, function(x) as.character(gsub("_CI", "CI", x)))
       pred_accuracy_envs <- data.frame(apply(pred_accuracy_envs[-1, ], MARGIN = c(1, 2), function(x) as.numeric(x)))
       rownames(pred_accuracy_envs) <- NULL
-      
+
       # add metadata
       df_results <- rbind(df_results,
                           data.frame(h2 = h2, qtn = qtn, var = var,
                                      pop = pop, predictor = predictor,
                                      pred_iter = pred_iter, cv = cv,
                                      pred_accuracy_means, pred_accuracy_envs))
-      
+
     }
   }
-  
+
   # only return values if both CV1 and CV2 results exist
   if (NROW(df_results) == 2) {
     return(df_results)
@@ -78,14 +78,14 @@ getAccuracy <- function(folder_accuracy, h2, qtn, var, pop, predictor, pred_iter
                              pop = pop, predictor = predictor,
                              pred_iter = pred_iter, cv = c("CV1", "CV2"),
                              mean_accuracy_envs = c(NA, NA), mean_se = c(NA, NA), mean_lowerCI = c(NA, NA), mean_upperCI = c(NA, NA),
-                             env1_mean = c(NA, NA), env1_se = c(NA, NA), env1_lowerCI = c(NA, NA), env1_upperCI = c(NA, NA), 
+                             env1_mean = c(NA, NA), env1_se = c(NA, NA), env1_lowerCI = c(NA, NA), env1_upperCI = c(NA, NA),
                              env2_mean = c(NA, NA), env2_se = c(NA, NA), env2_lowerCI = c(NA, NA), env2_upperCI = c(NA, NA),
                              env3_mean = c(NA, NA), env3_se = c(NA, NA), env3_lowerCI = c(NA, NA), env3_upperCI = c(NA, NA),
-                             env4_mean = c(NA, NA), env4_se = c(NA, NA), env4_lowerCI = c(NA, NA), env4_upperCI = c(NA, NA), 
+                             env4_mean = c(NA, NA), env4_se = c(NA, NA), env4_lowerCI = c(NA, NA), env4_upperCI = c(NA, NA),
                              env5_mean = c(NA, NA), env5_se = c(NA, NA), env5_lowerCI = c(NA, NA), env5_upperCI = c(NA, NA))
     return(df_results)
   }
-  
+
 }
 
 
@@ -93,7 +93,7 @@ getAccuracy <- function(folder_accuracy, h2, qtn, var, pop, predictor, pred_iter
 #### command line options ----
 
 # set default
-qtn_opts <- c(10, 100)
+qtn_opts <- 100
 h2_opts <- c(0.3, 0.7)
 predictor_opts <- c("low", "moderate", "high")
 trait_pops <- "1,2,3"
@@ -139,24 +139,24 @@ outfile_name <- args[2]
 prediction_results <- data.frame(stringsAsFactors = FALSE)
 
 # get results for traits controlled by SNPs only or SVs only
-for (var in c("SNP", "SV")) {
+for (var in c("SNP", "SV", "both")) {
   for (qtn in qtn_opts) {
     for (h2 in h2_opts) {
       for (predictor in predictor_opts) {
         for (pop in trait_pops) {
           for (pred_iter in pred_iters) {
-            
+
             # get folder with prediction accuracy results
             folder_accuracy <- paste0(folder_base, "/rep", pred_iter, "/", qtn,
                                       "-QTNs_from_", var, "/", h2, "-heritability/pop",
                                       pop, "/pred_", predictor, "_ld")
-            
+
             # get accuracy results
             prediction_results <- rbind(prediction_results,
                                         getAccuracy(folder_accuracy, h2 = h2, qtn = qtn,
                                                     var = var, pop = pop, predictor = predictor,
                                                     pred_iter = pred_iter))
-            
+
           }
         }
       }
@@ -166,7 +166,7 @@ for (var in c("SNP", "SV")) {
 
 # summarize results
 prediction_summary <- prediction_results %>%
-  filter(!is.na(mean_accuracy_envs)) %>% 
+  filter(!is.na(mean_accuracy_envs)) %>%
   group_by(h2, qtn, var, predictor, cv) %>%
   summarize(pops = n(),
             across(mean_accuracy_envs:env5_upperCI, ~ mean(.x, na.rm = TRUE)),

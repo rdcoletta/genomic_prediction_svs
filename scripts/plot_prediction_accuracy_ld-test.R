@@ -91,8 +91,8 @@ if (!dir.exists(outfolder)) dir.create(outfolder)
 #### plot SNP only or SV only as causative variants ----
 
 # set default
-trait_var_source <- c("SNP", "SV")
-trait_qtn_number <- c(10, 100)
+trait_var_source <- c("SNP", "SV", "both")
+trait_qtn_number <- 100
 trait_heritability <- c(0.3 ,0.7)
 
 # create plots for each scenario
@@ -108,7 +108,7 @@ for (qtn_number in trait_qtn_number) {
     results_plot <- ggplot(data = prediction_summary_plot,
                            aes(x = predictor, y = mean_accuracy_envs, fill = cv)) +
       geom_bar(stat = "identity", position = "dodge") +
-      geom_text(aes(y = 0, label = paste0("n = ", pops)), position = position_dodge(0.9), vjust = 1.5, size = 3) + 
+      geom_text(aes(y = 0, label = paste0("n = ", pops)), position = position_dodge(0.9), vjust = 1.5, size = 3) +
       annotate("text", label = "(causative variant)",  x = 2, y = 1, vjust = -0.5, size = 7) +
       facet_grid(cols = vars(var)) +
       coord_cartesian(ylim = c(0, 1)) +
