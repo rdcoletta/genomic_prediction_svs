@@ -2409,8 +2409,16 @@ SCRATCH=/scratch.global/della028/hirsch_lab/genomic_prediction/ld
 mkdir -p analysis/ld_downsample/{datasets,sim_traits,pred_low,pred_moderate,pred_high}
 
 # transform hmp files (poly markers only) to plink format
+get_seeded_random()
+{
+  seed="$1"
+  openssl enc -aes-256-ctr -pass pass:"$seed" -nosalt < /dev/zero 2> /dev/null
+}
+REPS=10
+SEED=3735
 for chr in {1..10}; do
-  sbatch --export=CHR=${chr} scripts/hmp2plk_random.sh
+  sbatch --export=CHR=${chr},REPS=${REPS},SEED=${SEED} scripts/hmp2plk_random.sh
+  SEED=($(shuf -i 1-100000 -n 10 --random-source=<(get_seeded_random ${SEED})))
 done
 
 # calculate LD with filtered markers
@@ -2423,6 +2431,19 @@ done
 # create datasets to sim traits by using only markers with LD info
 for rep in {1..10}; do
   sbatch --export=REP=${rep} scripts/create_ld_downsample_datasets.sh
+done
+
+# check MAF distribution from SNPs and SVs for final dataset
+module load R/3.6.0
+for rep in {1..10}; do
+  OUTFOLDER=analysis/ld_downsample/datasets/rep${rep}
+  run_pipeline.pl -Xmx20g -importGuess ${OUTFOLDER}/usda_rils_projected-SVs-SNPs.poly.rep${rep}.with-LD-info.hmp.txt \
+                  -GenotypeSummaryPlugin -endPlugin \
+                  -export ${OUTFOLDER}/markers_with_LD_info_rep${rep}_OverallSummary,${OUTFOLDER}/markers_with_LD_info_rep${rep}_AlleleSummary,${OUTFOLDER}/markers_with_LD_info_rep${rep}_SiteSummary,${OUTFOLDER}/markers_with_LD_info_rep${rep}_TaxaSummary
+  Rscript scripts/distribution_maf_snps-svs.R \
+          ${OUTFOLDER}/markers_with_LD_info_rep${rep}_SiteSummary.txt \
+          data/SVs_IDs_poly.txt \
+          ${OUTFOLDER}/maf_dist_markers_with_LD_info.rep${rep}.pdf
 done
 ```
 
@@ -2446,7 +2467,7 @@ for rep in {1..10}; do
   GXE=gxe
   # submit jobs with different scenarios
   for H2 in 0.3 0.7; do
-    for QTN in 10 100; do
+    for QTN in 100; do
       for VAR in SNP SV; do
         FOLDER=analysis/ld_downsample/sim_traits/rep${rep}/${QTN}-QTNs_from_${VAR}/${H2}-heritability
         # simulate trait for multiple environments
@@ -2454,6 +2475,19 @@ for rep in {1..10}; do
         # wait 3 seconds to avoid accessing the same file at the same time
         sleep 3
       done
+    done
+  done
+  # and for both causative variants
+  VAR=both
+  SVEFFECT=${EFFECTSIZE}
+  RATIO=0.5
+  for H2 in 0.3 0.7; do
+    for QTN in 100; do
+      FOLDER=analysis/ld_downsample/sim_traits/rep${rep}/${QTN}-QTNs_from_${VAR}/${H2}-heritability
+      # simulate trait for multiple environments
+      sbatch --export=HMP=${HMP},SVS=${SVS},FOLDER=${FOLDER},VAR=${VAR},POPS=${POPS},REPS=${REPS},ENVS=${ENVS},H2=${H2},MODEL=${MODEL},QTN=${QTN},EFFECTTYPE=${EFFECTTYPE},EFFECTSIZE=${EFFECTSIZE},SEED=${SEED},QTNVAR=${QTNVAR},RATIO=${RATIO},SVEFFECT=${SVEFFECT},RESCOR=${RESCOR},GXE=${GXE} scripts/trait_simulation.sh
+      # wait 3 seconds to avoid accessing the same file at the same time
+      sleep 3
     done
   done
 done
@@ -2477,13 +2511,13 @@ done
 # filter LD file again but according to LD level (low, mid, high)
 for rep in {1..10}; do
   for pop in {1..3}; do
-    for qtn in 10 100; do
-      for var in SNP SV; do
+    for qtn in 100; do
+      for var in SNP SV both; do
         # get folder name
         FOLDER=analysis/ld_downsample/sim_traits/rep${rep}/${qtn}-QTNs_from_${var}/0.3-heritability/pop${pop}
         # get markers in low, moderate or high LD to a QTL
-        awk 'NR == 1 || $9 < 0.5' ${FOLDER}/ld_info.QTNs-rep${rep}-pop${pop}.ld > ${FOLDER}/ld_info.QTNs-rep${rep}-pop${pop}.low.ld
-        awk 'NR == 1 || $9 >= 0.5 && $9 < 0.9' ${FOLDER}/ld_info.QTNs-rep${rep}-pop${pop}.ld > ${FOLDER}/ld_info.QTNs-rep${rep}-pop${pop}.moderate.ld
+        awk 'NR == 1 || $9 <= 0.5' ${FOLDER}/ld_info.QTNs-rep${rep}-pop${pop}.ld > ${FOLDER}/ld_info.QTNs-rep${rep}-pop${pop}.low.ld
+        awk 'NR == 1 || $9 > 0.5 && $9 < 0.9' ${FOLDER}/ld_info.QTNs-rep${rep}-pop${pop}.ld > ${FOLDER}/ld_info.QTNs-rep${rep}-pop${pop}.moderate.ld
         awk 'NR == 1 || $9 >= 0.9' ${FOLDER}/ld_info.QTNs-rep${rep}-pop${pop}.ld > ${FOLDER}/ld_info.QTNs-rep${rep}-pop${pop}.high.ld
       done
     done
@@ -2492,9 +2526,10 @@ done
 
 # create list of markers to be used as predictors in each LD category
 for rep in {1..10}; do
+  echo $rep
   for pop in {1..3}; do
-    for qtn in 10 100; do
-      for var in SNP SV; do
+    for qtn in 100; do
+      for var in SNP SV both; do
         for ld in low moderate high; do
           # get name of folder with LD files
           LDFOLDER=analysis/ld_downsample/sim_traits/rep${rep}/${qtn}-QTNs_from_${var}/0.3-heritability/pop${pop}
@@ -2502,14 +2537,14 @@ for rep in {1..10}; do
           OUTFOLDER=analysis/ld_downsample/pred_${ld}/rep${rep}/${qtn}-QTNs_from_${var}/pop${pop}
           mkdir -p ${OUTFOLDER}
           # get markers with respective LD to QTN (excluding QTNs)
-          sed 's/^ *//' ${LDFOLDER}/ld_info.QTNs-rep${rep}-pop${pop}.${ld}.ld | tr -s " " | tr " " "\t" | sed 1d | cut -f 3,7 | sed 's/\t/\n/g' | sort | uniq | grep -v -F -f <(cat ${LDFOLDER}/list_QTNs.chr*.causal-pop${pop}.txt) > ${OUTFOLDER}/markers_${ld}-ld_to_QTNs.txt
+          sed 's/^ *//' ${LDFOLDER}/ld_info.QTNs-rep${rep}-pop${pop}.${ld}.ld | tr -s " " | tr " " "\t" | sed 1d | cut -f 3,7 | sed 's/\t/\n/g' | sort | uniq | grep -v -F -w -f <(cat ${LDFOLDER}/list_QTNs.chr*.causal-pop${pop}.txt) > ${OUTFOLDER}/markers_${ld}-ld_to_QTNs.txt
         done
       done
     done
   done
 done
 
-# define initial seed
+ define initial seed
 get_seeded_random()
 {
   seed="$1"
@@ -2527,37 +2562,14 @@ for rep in {1..10}; do
   done
 done
 
-# resample markers if not 500 were selected in the first time
-SEED=($(shuf -i 1-100000 -n 1 --random-source=<(get_seeded_random 65831)))
+
+# get list of QTNs to get which marker is in highest LD to a QTL
+# with the R script that plots LD distribution
 NMARKERS=500
 for REP in {1..10}; do
   for POP in {1..3}; do
-    for QTN in 10 100; do
-      for VAR in SNP SV; do
-        for LD in low moderate; do
-          # get folder
-          OUTFOLDER=analysis/ld_downsample/pred_${LD}/rep${REP}/${QTN}-QTNs_from_${VAR}/pop${POP}
-          # count how many predictors were selected
-          MARKERS=$(wc -l ${OUTFOLDER}/predictors_${LD}-ld_to_QTNs.txt | cut -d " " -f 1)
-          # if there's less than 500...
-          if [[ ${MARKERS} < 500 ]]; then
-            # resample markers until 500 is met or until number of markers don't change after 5 consecutive times (to avoid infinite loop)
-            sbatch --export=REP=${REP},POP=${POP},QTN=${QTN},VAR=${VAR},LD=${LD},NMARKERS=${NMARKERS},SEED=${SEED} scripts/ld_downsample_resample-pred.sh
-          fi
-          # use a different seed for next iteration
-          SEED=($(shuf -i 1-100000 -n 1 --random-source=<(get_seeded_random ${SEED})))
-        done
-      done
-    done
-  done
-done
-
-# get list of QTNs to get get which marker is in highest LD to a QTL
-# with the R script that plots LD distribution
-for REP in {1..10}; do
-  for POP in {1..3}; do
-    for QTN in 10 100; do
-      for VAR in SNP SV; do
+    for QTN in 100; do
+      for VAR in SNP SV both; do
         for LD in low moderate high; do
           # get folder with original LD file and QTN list
           LDFOLDER=analysis/ld_downsample/sim_traits/rep${REP}/${QTN}-QTNs_from_${VAR}/0.3-heritability/pop${POP}
@@ -2567,18 +2579,8 @@ for REP in {1..10}; do
           cat ${LDFOLDER}/list_QTNs.chr*.causal-pop${POP}.txt > ${OUTFOLDER}/QTN_list.txt
           # keep only LD between a QTL and a predictor
           # (i.e. remove predictor-by-predictor LD)
-          if [[ ${LD} == low ]]; then
-            # ...and filter LD file that have predictors in the wrong LD category to a QTN
-            head -n 1 ${OUTFOLDER}/qtn-pred.ld > ${OUTFOLDER}/qtn-pred.filtered.ld
-            grep -F -f ${OUTFOLDER}/QTN_list.txt ${OUTFOLDER}/qtn-pred.ld | grep -F -f ${OUTFOLDER}/predictors_${LD}-ld_to_QTNs.txt | awk '$9 <= 0.5' >> ${OUTFOLDER}/qtn-pred.filtered.ld
-          elif [[ ${LD} == moderate ]]; then
-            # ...and filter LD file that have predictors in the wrong LD category to a QTN
-            head -n 1 ${OUTFOLDER}/qtn-pred.ld > ${OUTFOLDER}/qtn-pred.filtered.ld
-            grep -F -f ${OUTFOLDER}/QTN_list.txt ${OUTFOLDER}/qtn-pred.ld | grep -F -f ${OUTFOLDER}/predictors_${LD}-ld_to_QTNs.txt | awk '$9 <= 0.9' >> ${OUTFOLDER}/qtn-pred.filtered.ld
-          elif [[ ${LD} == high ]]; then
-            head -n 1 ${OUTFOLDER}/qtn-pred.ld > ${OUTFOLDER}/qtn-pred.filtered.ld
-            grep -F -f ${OUTFOLDER}/QTN_list.txt ${OUTFOLDER}/qtn-pred.ld | grep -F -f ${OUTFOLDER}/predictors_${LD}-ld_to_QTNs.txt >> ${OUTFOLDER}/qtn-pred.filtered.ld
-          fi
+          head -n 1 ${OUTFOLDER}/qtn-pred.ld > ${OUTFOLDER}/qtn-pred.filtered.ld
+          grep -F -w -f ${OUTFOLDER}/QTN_list.txt ${OUTFOLDER}/qtn-pred.ld | grep -F -w -f ${OUTFOLDER}/predictors_${LD}-ld_to_QTNs.${NMARKERS}-markers.txt >> ${OUTFOLDER}/qtn-pred.filtered.ld
         done
       done
     done
@@ -2586,10 +2588,11 @@ for REP in {1..10}; do
 done
 
 #  plot LD distribution to confirm LD between QTL and predictors
+module load R/3.6.0
 for REP in {1..10}; do
   for POP in {1..3}; do
-    for QTN in 10 100; do
-      for VAR in SNP SV; do
+    for QTN in 100; do
+      for VAR in SNP SV both; do
         Rscript scripts/distribution_ld-downsample_qtn-pred.R \
                 analysis/ld_downsample/pred_low/rep${REP}/${QTN}-QTNs_from_${VAR}/pop${POP}/qtn-pred.filtered.ld \
                 analysis/ld_downsample/pred_moderate/rep${REP}/${QTN}-QTNs_from_${VAR}/pop${POP}/qtn-pred.filtered.ld \
@@ -2608,8 +2611,8 @@ Now need to send files to our own linux server to start running the predictions:
 ```bash
 for rep in {1..10}; do
   for pop in {1..3}; do
-    for qtn in 10 100; do
-      for var in SNP SV; do
+    for qtn in 100; do
+      for var in SNP SV both; do
         # simulated traits with gxe
         for h2 in 0.3 0.7; do
           SIMFOLDER=analysis/ld_downsample/sim_traits/rep${rep}/${qtn}-QTNs_from_${var}/${h2}-heritability
@@ -2684,11 +2687,11 @@ Summary of prediciton runs:
 
 | Jobs            | Info                     |
 | --------------- | ------------------------ |
-| Completed       | 1440 (100%)              |
-| Failed          | 724 (50%)                |
-| Started         | Mon Nov 22 13:56:52 2021 |
-| Finished        | Thu Nov 25 03:31:15 2021 |
-| Average runtime | 3.4 min (per job)        |
+| Completed       | 1080 (100%)              |
+| Failed          | 271 (25%)                |
+| Started         | Fri Dec 10 14:01:25 2021 |
+| Finished        | Tue Dec 14 07:28:11 2021 |
+| Average runtime | 5.3 min (per job)        |
 
 After predictions for all scenarios were done, I ran `scripts/summarize_prediction_accuracies_ld-test.R` and `scripts/plot_prediction_accuracy_ld-test.R` to summarize the results.
 
