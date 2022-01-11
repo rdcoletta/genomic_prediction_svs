@@ -107,7 +107,7 @@ for QTN in 100; do
         # then, randomly select the rest of markers that are not in high LD to QTL
         SAMPLED=$(wc -l ${OUTFOLDER}/predictors_${LD}-ld_to_QTNs.${NMARKERS}-markers.txt | cut -d " " -f 1)
         REMAINING=$(( ${NMARKERS} - ${SAMPLED} ))
-        shuf -n ${REMAINING} --random-source=<(get_seeded_random ${SEED}) <(comm -13 <(sort ${OUTFOLDER}/predictors_${LD}-ld_to_QTNs.${NMARKERS}-markers.txt | uniq) <(sort ${OUTFOLDER}/predictors_${LD}-ld_to_QTNs.txt | uniq)) >> ${OUTFOLDER}/predictors_${LD}-ld_to_QTNs.${NMARKERS}-markers.txt
+        shuf -n ${REMAINING} --random-source=<(get_seeded_random ${SEED}) analysis/ld_downsample/pred_low/rep${REP}/${QTN}-QTNs_from_${VAR}/pop${POP}/predictors_low-ld_to_QTNs.txt >> ${OUTFOLDER}/predictors_${LD}-ld_to_QTNs.${NMARKERS}-markers.txt
 
 
       elif [[ ${LD} == high ]]; then
