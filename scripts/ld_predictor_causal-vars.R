@@ -90,10 +90,22 @@ ld_results <- foreach(chr = chrs_to_analyze, .combine = rbind) %dopar% {
       # get their ld
       r2 <- ifelse(test = NROW(ld_pred_causal) > 0, yes = ld_pred_causal$R2, no = NA)
       
+      # get pred and causal var MAFs
+      if (NROW(ld_pred_causal) > 0) {
+        maf_pred <- ifelse(test = ld_pred_causal$SNP_A == marker_predictor, 
+                           yes = ld_pred_causal$MAF_A, no = ld_pred_causal$MAF_B)
+        maf_qtl <- ifelse(test = ld_pred_causal$SNP_A == marker_causal, 
+                          yes = ld_pred_causal$MAF_A, no = ld_pred_causal$MAF_B)
+      } else {
+        maf_pred <- NA
+        maf_qtl <- NA
+      }
+      
       # append results to df
       ld_results_chr <- rbind(ld_results_chr,
                               data.frame(chr = chr, predictor = marker_predictor,
                                          causal_var = marker_causal, r2 = r2,
+                                         maf_pred = maf_pred, maf_qtl = maf_qtl,
                                          bp_distance = pos_predictor - pos_causal))
       
     }

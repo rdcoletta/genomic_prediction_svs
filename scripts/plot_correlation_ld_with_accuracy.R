@@ -500,6 +500,53 @@ ggsave(plot = plot26, filename = paste0(folder_results, "/ld-summary3.pdf"), dev
 
 
 
+##### 7) MAF distribution ----
+
+results_accuracy_ld_pve %>%
+  filter(env == "env1", h2 == 0.3, cv == "CV1") %>% 
+  ggplot() +
+  facet_grid(qtn + var ~ predictor, scales = "free_y") +
+  geom_density(aes(x = maf_qtl), color = "black") +
+  geom_density(aes(x = maf_pred), color = "red") +
+  labs(title = "MAF distribution between causal variants and predictors in highest LD",
+       subtitle = "(black = QTL MAF, red = predictor MAF)",
+       x = "MAF")
+
+
+results_accuracy_ld_pve %>%
+  filter(env == "env1", h2 == 0.3, cv == "CV1") %>% 
+  group_by(qtn) %>% 
+  summarize(mean_maf_qtl = mean(maf_qtl, na.rm = TRUE),
+            mean_maf_pred = mean(maf_pred, na.rm = TRUE))
+
+results_accuracy_ld_pve %>%
+  filter(env == "env1", h2 == 0.3, cv == "CV1") %>% 
+  ggplot() +
+  facet_grid(qtn ~ ., scales = "free_y") +
+  # geom_density(aes(x = maf_qtl), color = "black") +
+  # geom_density(aes(x = maf_pred), color = "red") +
+  geom_histogram(aes(x = maf_qtl), binwidth = 0.05, fill = "black", alpha = 0.5) +
+  geom_histogram(aes(x = maf_pred), binwidth = 0.05, fill = "red", alpha = 0.5) +
+  labs(title = "MAF distribution between causal variants and predictors in highest LD",
+       caption = "QTL MAF = black line, predictor MAF = red line",
+       x = "MAF")
+
+
+results_accuracy_ld_pve %>%
+  filter(env == "env1", h2 == 0.3, cv == "CV1") %>% 
+  group_by(qtn) %>% 
+  summarize(mean_r2 = mean(r2, na.rm = TRUE))
+
+results_accuracy_ld_pve %>%
+  filter(env == "env1", h2 == 0.3, cv == "CV1") %>% 
+  ggplot() +
+  facet_grid(qtn ~ ., scales = "free_y") +
+  geom_density(aes(x = r2), fill = "black", color = "black", alpha = 0.7) +
+  labs(title = "R2 distribution between causal variants and predictors in highest LD",
+       x = "R2")
+
+
+
 #### debug ----
 
 # ld_pred_accuracy_file <-"analysis/trait_sim/multi_env/pred-accuracy_qtn-effect_ld-pred-qtn.results.txt"

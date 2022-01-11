@@ -433,5 +433,4 @@ for (qtn_number in trait_qtn_number) {
 
 #### debug ----
 
-# prediction_summary_file <- "tests/test_prediction_results.pops15-4-18.summary.txt"
-# prediction_summary_file <- "tests/test_prediction_results.15pops.summary.txt"
+# prediction_summary_file <- "analysis/trait_sim/multi_env/prediction_results.summary.txt"
