@@ -118,10 +118,9 @@ plotLDdecayBoxplot <- function(data, x, y) {
 
   # make ld decay plot
   plot <- ggplot(data, aes_string(x = as.factor(data[, x]), y = data[, y])) +
-    geom_boxplot() +
+    geom_boxplot(width = 0.3) +
     coord_cartesian(ylim = c(0, 1)) +
-    labs(title = "LD decay",
-         x = "Physical distance (kb)",
+    labs(x = "Physical distance (kb)",
          y = bquote("LD"~(r^2)))
 
   return(plot)
@@ -311,10 +310,14 @@ if (unequal_windows) {
   
   out_plot <- plotLDdecayBoxplot(data = df_plot, x = "bp_stop", y = "R2") +
     scale_x_discrete(labels = new_levels) +
-    stat_summary(fun.data = n_per_bin, geom = "text", size = 2) +
-    geom_boxplot(fill = "gray60") +
+    stat_summary(fun.data = n_per_bin, geom = "text", size = 3) +
+    geom_boxplot(fill = "gray70", width = 0.8) +
+    # labs(title = "LD decay") +
     theme_bw() +
-    theme(panel.grid.minor.y = element_blank())
+    theme(panel.grid.minor.y = element_blank(),
+          axis.title = element_text(size = 20),
+          axis.text.x = element_text(size = 12),
+          axis.text.y = element_text(size = 18))
 
 } else if (avg_ld) {
 
