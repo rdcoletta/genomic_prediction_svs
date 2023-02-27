@@ -2,7 +2,7 @@
 
 by Rafael Della Coletta, Alex Lipka, Martin Bohn, and Candice Hirsch
 
-> The objective of this project is to simulate traits in one or more environments and analyze the effects of structural variants in genome prediction accuracy. The overall workflow for the simulations involves simulating traits, running genomic prediction models and validating results.
+> The objective of this project is to simulate traits in multiple environments and analyze the effects of structural variants in genome prediction accuracy. The overall workflow for the simulations involves simulating traits, running genomic prediction models and validating results. For information on how structural variants were called, see https://github.com/HirschLabUMN/MaizeSV.
 
 <!-- TOC START min:1 max:4 link:true asterisk:false update:true -->
 - [Structural variation and genomic prediction: a simulation approach](#structural-variation-and-genomic-prediction-a-simulation-approach)
