@@ -1,6 +1,9 @@
 analysis/*
 data/*
 figures/*
+supp_materials/*
+scripts/poster_figures.R
+scripts/manuscript_t-tests.R
 .DS_Store
 .Rproj.user
 *.Rproj
