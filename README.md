@@ -1,12 +1,12 @@
 # Structural variation and genomic prediction: a simulation approach
 
-by Rafael Della Coletta, Alex Lipka, Martin Bohn, and Candice Hirsch
+by Rafael Della Coletta and Candice Hirsch
 
-> The objective of this project is to simulate traits in multiple environments and analyze the effects of structural variants in genome prediction accuracy. The overall workflow for the simulations involves simulating traits, running genomic prediction models and validating results. For information on how structural variants were called, see https://github.com/HirschLabUMN/MaizeSV.
+> The objective of this project is to simulate traits in multiple environments and analyze the effects of structural variants in genome prediction accuracy. The overall workflow for the simulations involves simulating traits, running genomic prediction models and validating results. For information on how structural variants were called, see https://github.com/HirschLabUMN/MaizeSV. For more details about this analysis, please read the manuscript: https://www.biorxiv.org/content/10.1101/2023.02.28.530521v1
 
 <!-- TOC START min:1 max:4 link:true asterisk:false update:true -->
 - [Structural variation and genomic prediction: a simulation approach](#structural-variation-and-genomic-prediction-a-simulation-approach)
-  - [Project folder](#project-folder)
+  - [Important notes!](#important-notes)
   - [SNP chip dataset](#snp-chip-dataset)
     - [HapMap format](#hapmap-format)
     - [Data QC](#data-qc)
@@ -64,14 +64,31 @@ by Rafael Della Coletta, Alex Lipka, Martin Bohn, and Candice Hirsch
 
 
 
-## Project folder
+## Important notes!
 
-All data, scripts, analyses, notes and other things related to this project is located on my MSI account:
+All the data necessary to replicate this analysis are available in two repositories at Data Repository for the University of Minnesota (DRUM): https://hdl.handle.net/11299/250568 (repo 1) and https://hdl.handle.net/11299/252793 (repo 2). When submitting the files for publication, I changed their names for easier reference within the manuscript. However, please rename them to their original filenames before running any of the scripts according to this table:
 
-```bash
-cd /home/hirschc1/della028/projects/genomic_prediction/simulation/
-mkdir {analysis,data,scripts}
-```
+| DRUM                                                | File | Name                                      |
+| --------------------------------------------------- | ---- | ----------------------------------------- |
+| [repository 1](https://hdl.handle.net/11299/250568) | S3   | usda_22kSNPs_parents.hmp.txt              |
+| [repository 1](https://hdl.handle.net/11299/250568) | S2   | usda_22kSNPs_rils.hmp.txt                 |
+| [repository 2](https://hdl.handle.net/11299/252793) | S1   | B73v4_2019-08-09.ls.RT.vcf.gz             |
+| [repository 2](https://hdl.handle.net/11299/252793) | S2   | usda_rils_projected-SVs-SNPs.poly.hmp.txt |
+
+All scripts necessary for data analysis are available at the `scripts` folder in this GitHub repository, and I recommend that you create a folder called `data` to keep the files above and another called `analysis` to keep any other files generated throughout this analysis.
+
+All the analysis, unless indicated otherwise, were run using the Minnesota Supercomputing Institute (MSI) clusters, which uses the SLURM scheduler. You may need to adapt some scripts if you use a different scheduler.
+
+Finally, here is a list of software necessary to run the analysis and their respective versions:
+
+| Software | Version |
+| -------- | ------- |
+| R        | 3.6.0   |
+| Python   | 3.6.6   |
+| GNU bash | 4.2.46  |
+| Tassel   | 5.2.56  |
+| Plink    | 1.9     |
+| Bowtie   | 1.1.2   |
 
 
 
@@ -150,6 +167,8 @@ Rscript scripts/remove_extra_geno-data.R data/Final_22kSNPs_DAS_UIUC_ParentalGen
                                          data/usda_22kSNPs_rils.hmp.txt \
                                          data/usda_RILs_2018.txt
 ```
+
+> These are the Files S3 and S4 from [DRUM repository 1](https://hdl.handle.net/11299/250568) that I mention in the manuscript
 
 I will use the software [Tassel 5](https://www.maizegenetics.net/tassel) for some basic QC, because this software can generate summaries (including allele frequency) pretty quickly.
 
@@ -644,7 +663,7 @@ Rscript scripts/divide_hmp_by_cross.R data/usda_22kSNPs_rils.sorted.diploid.filt
 
 ## SV dataset
 
-On August 9, 2019, Patrick Monnahan sent me five `.vcf` files containing structural variation calls from the software Lumpy. Each file is a SV call of 100 lines against one of the following reference genomes: B73, Mo17, PH207, PHB47, or W22. **This results are preliminary** and there are a lot of false-positives in there. However, they will be useful for me to select the 7 lines I need, project the SVs from parents to RILs, and incorporate these SV data into my simulation scripts.
+Patrick Monnahan sent me five `.vcf` files containing structural variation calls from the software Lumpy. Each file is a SV call of 100 lines against one of the following reference genomes: B73, Mo17, PH207, PHB47, or W22. However, they will be useful for me to select the 7 lines I need, project the SVs from parents to RILs, and incorporate these SV data into my simulation scripts.
 
 The files are located at `data/SV_calls`, and I will use only the SVs called against the B73 reference genome for now.
 
@@ -652,6 +671,8 @@ The files are located at `data/SV_calls`, and I will use only the SVs called aga
 # decompress vcf file of SV calls to B73
 gunzip data/SV_calls/B73v4_2019-08-09.ls.RT.vcf.gz
 ```
+
+> This is the File S1 from [DRUM repository 2](https://hdl.handle.net/11299/252793) that I mention in the manuscript
 
 
 
@@ -1003,8 +1024,6 @@ for cross in $crosses; do
                                                    --rils=random --marker-type=snp --sliding-window
 done
 ```
-
-> TODO: fix `scripts/plot_ril_karyotypes_reseq-SNPs.R` and also make sure to change output name based on the type of marker.
 
 
 
@@ -1669,7 +1688,7 @@ done
 
 ## Trait simulation for RILs
 
-Simulations are a great way to quickly test some hypothesis about genomic prediction models and to frame how to interpret results obtained from empirical data. Here, we are simulating traits (i.e. generating phenotypic values) for individuals of the USDA population. For this purpose, we are using the R package [simplePHENOTYPES](https://github.com/samuelbfernandes/simplePHENOTYPES), which generate such values after providing the genotypic information of the population and selecting different genetic architectures. As a starting point, I'm simulation traits for RILs, as we just need to account for additive effects. But later, traits will be simulated for hybrids as well.
+Simulations are a great way to quickly test some hypothesis about genomic prediction models and to frame how to interpret results obtained from empirical data. Here, we are simulating traits (i.e. generating phenotypic values) for individuals of the USDA population. For this purpose, we are using the R package [simplePHENOTYPES](https://github.com/samuelbfernandes/simplePHENOTYPES), which generate such values after providing the genotypic information of the population and selecting different genetic architectures. As a starting point, I'm simulation traits for RILs, as we just need to account for additive effects.
 
 
 
@@ -1697,6 +1716,9 @@ done
 cut -f 1 data/usda_rils_projected-SVs-SNPs.poly.hmp.txt | grep -P "^del|^dup|^inv|^ins|^tra" > data/SVs_IDs_poly.txt
 ```
 
+> This is the File S2 from [DRUM repository 2](https://hdl.handle.net/11299/252793) that I mention in the manuscript
+
+
 Prior running genomic prediction, any missing data will be imputed by GAPIT. Thus, I just wanted to have an idea about how much having missing data the genotypic dataset currently has, and also plot marker distribution along the chromosomes.
 
 ```bash
@@ -1705,10 +1727,6 @@ sbatch --export=FOLDER=analysis/qc/snp-sv_hmp,HMP=data/usda_rils_projected-SVs-S
 ```
 
 > Most markers have very few missing data (see plots at `analysis/qc/snp-sv_hmp`)
-
-There are many combinations of genetic architecture parameters to be simulated (single vs multiple enviromnets, additive vs additive + dominance effects, number of QTNs, no GxE vs GxE, same vs different effect sizes between SNPs and SVs, etc.) Each combination will be performed in the sections below.
-
-> Note: for the manuscript, I will focus only on multiple environment predictions.
 
 
 
@@ -2104,10 +2122,6 @@ done
 
 
 ### Predict simulated traits
-
-> Note: for the manuscript, I will focus only on multiple environment predictions.
-
-
 
 #### Multiple environments
 
