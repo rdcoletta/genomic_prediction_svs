@@ -1,7 +1,16 @@
 analysis/*
 data/*
 figures/*
-supp_materials/*
+supp_materials/*.png
+supp_materials/*.pdf
+supp_materials/*.csv
+supp_materials/*.txt
+supp_materials/*.docx
+supp_materials/*.gz
+supp_materials/*.zip
+supp_materials/supp_file*
+supp_materials/.DS_Store
+supp_materials/list_supp_materials.xlsx
 scripts/poster_figures.R
 scripts/manuscript_t-tests.R
 .DS_Store
