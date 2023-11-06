@@ -28,12 +28,12 @@ for QTN in 10 100; do
     # get hapmap file with predictors
     PREDFILE=analysis/trait_sim/datasets/iter${NDATASET}/usda_rils.${PREDICTOR}.adjusted-n-markers.hmp.txt
     # get file with causative variants
-    CAUSALFILE=${FOLDER}/Additive_Selected_QTNs.txt
+    CAUSALFILE=${FOLDER}/Additive_QTNs.txt
     # create folder to save files
     OUTFOLDER=analysis/trait_sim/multi_env/${GXE}_gxe/additive_model/equal_effects/${QTN}-QTNs_from_${VAR}/ld_causative-vars_predictors/pop${POP}
     mkdir -p ${OUTFOLDER}
     # get markers to calculate ld
-    cat <(cut -f 1 ${PREDFILE} | sed 1d) <(cut -f 2 ${CAUSALFILE} | sed 1d) > ${OUTFOLDER}/markers_for_ld.${PREDICTOR}.pred-iter${NDATASET}.causal-pop${POP}.txt
+    cat <(cut -f 1 ${PREDFILE} | sed 1d) <(cut -f 7 ${CAUSALFILE} | sed 1d) > ${OUTFOLDER}/markers_for_ld.${PREDICTOR}.pred-iter${NDATASET}.causal-pop${POP}.txt
     # filter hmp file
     echo "    filtering hmp file"
     for chr in $(seq 1 10); do
@@ -87,12 +87,12 @@ for QTN in 10 100; do
     # get hapmap file with predictors
     PREDFILE=analysis/trait_sim/datasets/iter${NDATASET}/usda_rils.${PREDICTOR}.adjusted-n-markers.hmp.txt
     # get file with causative variants
-    CAUSALFILE=${FOLDER}/Additive_Selected_QTNs.txt
+    CAUSALFILE=${FOLDER}/Additive_QTNs.txt
     # create folder to save files
     OUTFOLDER=analysis/trait_sim/multi_env/${GXE}_gxe/additive_model/equal_effects/${QTN}-QTNs_from_${VAR}/SNP-SV-ratio_${RATIO}/ld_causative-vars_predictors/pop${POP}
     mkdir -p ${OUTFOLDER}
     # get markers to calculate ld
-    cat <(cut -f 1 ${PREDFILE} | sed 1d) <(cut -f 2 ${CAUSALFILE} | sed 1d) > ${OUTFOLDER}/markers_for_ld.${PREDICTOR}.pred-iter${NDATASET}.causal-pop${POP}.txt
+    cat <(cut -f 1 ${PREDFILE} | sed 1d) <(cut -f 7 ${CAUSALFILE} | sed 1d) > ${OUTFOLDER}/markers_for_ld.${PREDICTOR}.pred-iter${NDATASET}.causal-pop${POP}.txt
     # filter hmp file
     echo "    filtering hmp file"
     for chr in $(seq 1 10); do

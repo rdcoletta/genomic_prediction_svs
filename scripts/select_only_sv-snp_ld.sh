@@ -1,12 +1,14 @@
 #!/bin/bash
-#PBS -l walltime=4:00:00,nodes=1:ppn=1,mem=50gb
-#PBS -o /home/hirschc1/della028/projects/genomic_prediction/simulation/analysis/ld
-#PBS -e /home/hirschc1/della028/projects/genomic_prediction/simulation/analysis/ld
-#PBS -V
-#PBS -N select_only_sv-snp_ld_${CHR}_${WINDOW}_${FILTER}
-#PBS -M della028@umn.edu
-#PBS -m abe
-#PBS -r n
+#SBATCH --time=4:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --mem=50gb
+#SBATCH -J select_only_sv-snp_ld
+#SBATCH -o /home/hirschc1/della028/projects/genomic_prediction/simulation/analysis/ld/%x_%j.out
+#SBATCH -e /home/hirschc1/della028/projects/genomic_prediction/simulation/analysis/ld/%x_%j.err
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=della028@umn.edu
+#SBATCH --no-requeue
 
 # go to project folder
 cd /scratch.global/della028/hirsch_lab/genomic_prediction/ld

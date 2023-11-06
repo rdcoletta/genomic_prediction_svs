@@ -68,7 +68,7 @@ merged.hmp <- foreach(chr=1:10, .combine = rbind) %dopar% {
   hmp.parents.chr.mono <- hmp.parents.chr.mono[which(hmp.parents.chr.mono[, parent1] != "NN"), ]
 
   # replicate columns of monomorphic parental SNPs to the have the number of RILs after projection
-  hmp.proj.chr <- subset(hmp.proj, chrom == chr)  
+  hmp.proj.chr <- subset(hmp.proj, chrom == chr)
   reps <- length(12:NCOL(hmp.proj.chr)) - 2
   hmp.proj.chr.mono <- cbind(hmp.parents.chr.mono, replicate(reps, hmp.parents.chr.mono[, parent1]))
   # make sure columns have the same name as rils

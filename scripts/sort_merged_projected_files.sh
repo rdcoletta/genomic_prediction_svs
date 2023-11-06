@@ -1,12 +1,14 @@
 #!/bin/bash
-#PBS -l walltime=4:00:00,nodes=1:ppn=1,mem=50gb
-#PBS -o /home/hirschc1/della028/projects/genomic_prediction/simulation/analysis/projection_svs-snps
-#PBS -e /home/hirschc1/della028/projects/genomic_prediction/simulation/analysis/projection_svs-snps
-#PBS -V
-#PBS -N sort_merged_projected_files_${CROSS}
-#PBS -M della028@umn.edu
-#PBS -m abe
-#PBS -r n
+#SBATCH --time=4:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --mem=50gb
+#SBATCH -J sort_merged_projected_files
+#SBATCH -o /home/hirschc1/della028/projects/genomic_prediction/simulation/analysis/projection_svs-snps/%x_%j.out
+#SBATCH -e /home/hirschc1/della028/projects/genomic_prediction/simulation/analysis/projection_svs-snps/%x_%j.err
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=della028@umn.edu
+#SBATCH --no-requeue
 
 # go to project folder
 cd ~/projects/genomic_prediction/simulation/analysis/projection_svs-snps

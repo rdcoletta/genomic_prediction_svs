@@ -18,19 +18,19 @@ optional argument:
   --start=VALUE           planting date (default: 2020-04-01)
   --end=VALUE             harvesting date (default: 2020-10-31)
   --heatmap               create a heatmap of environmental similarity
-  
-  
+
+
 "
   )
 }
 
 getArgValue <- function(arg) {
-  
+
   # get value from command-line arguments
   arg <- unlist(strsplit(arg, "="))
   if (length(arg) == 1) return(TRUE)
   if (length(arg) > 1) return(arg[2])
-  
+
 }
 
 
@@ -50,12 +50,12 @@ if ("--help" %in% args) usage() & q(save = "no")
 if (length(args) < 2) stop(usage(), "missing positional argument(s)")
 
 if (length(args) > 2) {
-  
+
   opt_args <- args[-1:-2]
   opt_args_allowed <- c("--country", "--start", "--end", "--heatmap")
   opt_args_requested <- as.character(sapply(opt_args, function(x) unlist(strsplit(x, split = "="))[1]))
   if (any(!opt_args_requested %in% opt_args_allowed)) stop(usage(), "wrong optional argument(s)")
-  
+
   # change default based on the argument provided
   for (argument in opt_args_allowed) {
     if (any(grepl(argument, opt_args_requested))) {
@@ -64,7 +64,7 @@ if (length(args) > 2) {
       assign(arg_name, arg_value)
     }
   }
-  
+
 }
 
 # get positional arguments

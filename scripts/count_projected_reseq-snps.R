@@ -102,7 +102,7 @@ for (row in 1:NROW(df.crosses)) {
       geom_histogram() +
       labs(x = "SVs projected",
            y = "Number of RILs")
-    ggsave(plot = proj.distribution.plot, filename = paste0(proj.folder, "/", cross, "_projection_reseq-snps_distribution.png"), device = "png")
+    ggsave(plot = proj.distribution.plot, filename = paste0(proj.folder, "/", cross, "_projection_reseq-snps_distribution.pdf"), device = "pdf")
 
     # add percent SVs projected of all individuals to vector
     proj.SVs.all.rils <- append(proj.SVs.all.rils, proj.distribution / number.total)
@@ -149,7 +149,7 @@ proj.sum.plot <- ggplot(summary.projection, aes(x = family, y = avg_percent_proj
         axis.text.y = element_text(size = 20),
         text = element_text(size = 15))
 
-ggsave(plot = proj.sum.plot, filename = paste0(proj.folder, "/projection_reseq-snps_summary.png"), device = "png")
+ggsave(plot = proj.sum.plot, filename = paste0(proj.folder, "/projection_reseq-snps_summary.pdf"), device = "pdf")
 
 proj.accu.plot <- ggplot(summary.projection, aes(x = family, y = proj_accuracy)) +
   geom_col(fill = "#900721") +
@@ -161,4 +161,4 @@ proj.accu.plot <- ggplot(summary.projection, aes(x = family, y = proj_accuracy))
         axis.text.y = element_text(size = 20),
         text = element_text(size = 15))
 
-ggsave(plot = proj.accu.plot, filename = paste0(proj.folder, "/projection_reseq-snps_accuracy_summary.png"), device = "png")
+ggsave(plot = proj.accu.plot, filename = paste0(proj.folder, "/projection_reseq-snps_accuracy_summary.pdf"), device = "pdf")

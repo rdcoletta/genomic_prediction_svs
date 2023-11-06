@@ -50,7 +50,7 @@ colnames(pred) <- c("marker", "chrom", "pos")
 
 # load causal variants
 causal_vars <- fread(causal_vars_file, header = TRUE, data.table = FALSE)
-causal_vars <- causal_vars[, c(2, 4, 5)]
+causal_vars <- causal_vars[, c("snp", "chr", "pos")]
 colnames(causal_vars) <- c("marker", "chrom", "pos")
 
 # only look at chromosomes that have at least one predictor and one causal var
@@ -58,11 +58,11 @@ chrs_to_analyze <- sort(intersect(unique(pred[, "chrom"]), unique(causal_vars[, 
 
 registerDoParallel(cores = length(chrs_to_analyze))
 ld_results <- foreach(chr = chrs_to_analyze, .combine = rbind) %dopar% {
-  
+
   # subset by chr
   pred_chr <- subset(pred, chrom == chr)
   causal_vars_chr <- subset(causal_vars, chrom == chr)
-  
+
   # change ld file name for respective chr
   ld_file <- gsub("chr[0-9]+", paste0("chr", chr), ld_file, perl = TRUE)
   # load ld file
@@ -70,18 +70,18 @@ ld_results <- foreach(chr = chrs_to_analyze, .combine = rbind) %dopar% {
 
   # create empty df to store results of chromosome
   ld_results_chr <- data.frame()
-  
+
   # get ld between predictors and causal variants
   for (i in 1:NROW(pred_chr)) {
-    
+
     # get predictor info
     marker_predictor <- pred_chr[i, "marker"]
     pos_predictor <- pred_chr[i, "pos"]
     # keep only predictors in ld file
     ld_pred <- subset(ld, SNP_A == marker_predictor | SNP_B == marker_predictor)
-    
+
     for (j in 1:NROW(causal_vars_chr)) {
-      
+
       # get causal variants info
       marker_causal <- causal_vars_chr[j, "marker"]
       pos_causal <- causal_vars_chr[j, "pos"]
@@ -89,30 +89,30 @@ ld_results <- foreach(chr = chrs_to_analyze, .combine = rbind) %dopar% {
       ld_pred_causal <- subset(ld_pred, SNP_A == marker_causal | SNP_B == marker_causal)
       # get their ld
       r2 <- ifelse(test = NROW(ld_pred_causal) > 0, yes = ld_pred_causal$R2, no = NA)
-      
+
       # get pred and causal var MAFs
       if (NROW(ld_pred_causal) > 0) {
-        maf_pred <- ifelse(test = ld_pred_causal$SNP_A == marker_predictor, 
+        maf_pred <- ifelse(test = ld_pred_causal$SNP_A == marker_predictor,
                            yes = ld_pred_causal$MAF_A, no = ld_pred_causal$MAF_B)
-        maf_qtl <- ifelse(test = ld_pred_causal$SNP_A == marker_causal, 
+        maf_qtl <- ifelse(test = ld_pred_causal$SNP_A == marker_causal,
                           yes = ld_pred_causal$MAF_A, no = ld_pred_causal$MAF_B)
       } else {
         maf_pred <- NA
         maf_qtl <- NA
       }
-      
+
       # append results to df
       ld_results_chr <- rbind(ld_results_chr,
                               data.frame(chr = chr, predictor = marker_predictor,
                                          causal_var = marker_causal, r2 = r2,
                                          maf_pred = maf_pred, maf_qtl = maf_qtl,
                                          bp_distance = pos_predictor - pos_causal))
-      
+
     }
   }
- 
+
   return(ld_results_chr)
-  
+
 }
 stopImplicitCluster()
 
@@ -126,7 +126,7 @@ fwrite(ld_results, outfile, sep = "\t", quote = FALSE, na = NA, row.names = FALS
 
 #### debug ----
 
-# predictors_file <- "usda_rils.all_markers.adjusted-n-markers.hmp.txt"
-# causal_vars_file <- "Additive_Selected_QTNs.txt"
-# ld_file <- "all_markers.pred-iter1.causal-pop1.chr8.ld.gz"
-# outfile <- "all_markers.dataset-iter1.txt"
+# predictors_file <- "analysis/trait_sim/datasets/iter17/usda_rils.all_markers.adjusted-n-markers.hmp.txt"
+# causal_vars_file <- "analysis/trait_sim/multi_env/with_gxe/additive_model/equal_effects/10-QTNs_from_SNP/0.3-heritability/pop2/Additive_QTNs.txt"
+# ld_file <- "analysis/trait_sim/multi_env/with_gxe/additive_model/equal_effects/10-QTNs_from_SNP/ld_causative-vars_predictors/pop2/all_markers.pred-iter17.causal-pop2.chr10.ld.gz"
+# outfile <- "analysis/trait_sim/multi_env/with_gxe/additive_model/equal_effects/10-QTNs_from_SNP/ld_causative-vars_predictors/pop2/ld_summary.all_markers.pred-iter17.causal-pop2.txt"

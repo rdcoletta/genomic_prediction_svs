@@ -20,7 +20,7 @@ run_pipeline.pl -Xmx100g -importGuess data/usda_rils_projected-SVs-SNPs.chr${CHR
 cd /scratch.global/della028/hirsch_lab/genomic_prediction/ld
 
 # calculate LD
-plink --file usda_rils_projected-SVs-SNPs.chr${CHR}.poly.plk --make-founders --r2 gz dprime with-freqs --ld-window-r2 0 --ld-window 1000 --ld-window-kb 1 --geno 0.25 --out usda_rils_projected-SVs-SNPs.chr${CHR}.poly
+plink --file usda_rils_projected-SVs-SNPs.chr${CHR}.poly.plk --make-founders --r2 gz dprime with-freqs --ld-window-r2 0 --ld-window ${WINDOW}000 --ld-window-kb ${WINDOW} --geno 0.25 --out usda_rils_projected-SVs-SNPs.chr${CHR}.poly
 
 # keep only snp and sv r2 (excluding translocations)
 zcat usda_rils_projected-SVs-SNPs.chr${CHR}.poly.ld.gz | head -n 1 > ~/projects/genomic_prediction/simulation/analysis/ld/ld_usda_rils_poly-snp-sv_only.chr${CHR}.ld

@@ -137,7 +137,7 @@ for (row in 1:NROW(df.crosses)) {
       geom_histogram() +
       labs(x = "SVs projected",
            y = "Number of RILs")
-    ggsave(plot = proj.distribution.plot, filename = paste0(proj.folder, "/", cross, "_projection_svs_distribution.png"), device = "png")
+    ggsave(plot = proj.distribution.plot, filename = paste0(proj.folder, "/", cross, "_projection_svs_distribution.pdf"), device = "pdf")
 
     # plot distribution polymorphic
     proj.distribution.poly <- as.numeric(unlist(SVs.projected.poly))
@@ -145,7 +145,7 @@ for (row in 1:NROW(df.crosses)) {
       geom_histogram() +
       labs(x = "Polymorphic SVs projected",
            y = "Number of RILs")
-    ggsave(plot = proj.distribution.poly.plot, filename = paste0(proj.folder, "/", cross, "_projection_svs_distribution_poly-SVs.png"), device = "png")
+    ggsave(plot = proj.distribution.poly.plot, filename = paste0(proj.folder, "/", cross, "_projection_svs_distribution_poly-SVs.pdf"), device = "pdf")
 
     # add percent SVs projected of all individuals to vector
     proj.SVs.all.rils <- append(proj.SVs.all.rils, proj.distribution/(number.total - number.missing))
@@ -202,7 +202,7 @@ proj.sum.plot <- ggplot(summary.projection, aes(x = family, y = avg_percent_proj
         axis.text.y = element_text(size = 20),
         text = element_text(size = 15))
 
-ggsave(plot = proj.sum.plot, filename = paste0(proj.folder, "/projection_svs_summary.png"), device = "png")
+ggsave(plot = proj.sum.plot, filename = paste0(proj.folder, "/projection_svs_summary.pdf"), device = "pdf")
 
 
 proj.sum.poly.plot <- ggplot(summary.projection, aes(x = family, y = avg_percent_projected_poly)) +
@@ -215,7 +215,7 @@ proj.sum.poly.plot <- ggplot(summary.projection, aes(x = family, y = avg_percent
         axis.text.y = element_text(size = 20),
         text = element_text(size = 15))
 
-ggsave(plot = proj.sum.poly.plot, filename = paste0(proj.folder, "/projection_poly-svs_summary.png"), device = "png")
+ggsave(plot = proj.sum.poly.plot, filename = paste0(proj.folder, "/projection_poly-svs_summary.pdf"), device = "pdf")
 
 
 proj.accu.plot <- ggplot(summary.projection, aes(x = family, y = proj_accuracy)) +
@@ -228,4 +228,4 @@ proj.accu.plot <- ggplot(summary.projection, aes(x = family, y = proj_accuracy))
         axis.text.y = element_text(size = 20),
         text = element_text(size = 15))
 
-ggsave(plot = proj.accu.plot, filename = paste0(proj.folder, "/projection_svs_accuracy_summary.png"), device = "png")
+ggsave(plot = proj.accu.plot, filename = paste0(proj.folder, "/projection_svs_accuracy_summary.pdf"), device = "pdf")

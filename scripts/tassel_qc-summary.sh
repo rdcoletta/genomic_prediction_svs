@@ -1,12 +1,14 @@
 #!/bin/bash
-#PBS -l walltime=5:00:00,nodes=1:ppn=1,mem=100gb
-#PBS -o /home/hirschc1/della028/projects/genomic_prediction/simulation/analysis/qc
-#PBS -e /home/hirschc1/della028/projects/genomic_prediction/simulation/analysis/qc
-#PBS -V
-#PBS -N tassel_qc-summary_${CHR}
-#PBS -M della028@umn.edu
-#PBS -m abe
-#PBS -r n
+#SBATCH --time=5:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --mem=100gb
+#SBATCH -J tassel_qc-summary
+#SBATCH -o /home/hirschc1/della028/projects/genomic_prediction/simulation/analysis/projection_svs-snps/%x_%j.out
+#SBATCH -e /home/hirschc1/della028/projects/genomic_prediction/simulation/analysis/projection_svs-snps/%x_%j.err
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=della028@umn.edu
+#SBATCH --no-requeue
 
 # go to project folder
 cd ~/projects/genomic_prediction/simulation

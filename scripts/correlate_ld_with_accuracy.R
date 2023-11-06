@@ -135,6 +135,7 @@ trait_ratio <- NA
 trait_sv_effect <- NA
 trait_diff_dist <- NA
 for (trait_var in c("SNP", "SV")) {
+  print(trait_var)
   for (trait_qtn in qtn_opts) {
     for (pred_type in predictor_opts) {
       for (i in 1:length(trait_pops)) {
@@ -199,6 +200,7 @@ for (trait_var in c("SNP", "SV")) {
 
 # get results for traits controlled by both SNPs and SVs
 trait_var <- "both"
+print(trait_var)
 for (trait_qtn in qtn_opts) {
   for (pred_type in predictor_opts) {
     for (trait_ratio in ratio_opts) {
@@ -289,5 +291,5 @@ fwrite(results_accuracy_ld_pve, outfile_cor, quote = FALSE, sep = "\t", na = NA,
 # folder_results <- "analysis/trait_sim/multi_env/with_gxe/additive_model/equal_effects"
 # pred_accuracy_file <- "analysis/trait_sim/multi_env/prediction_results.full.txt"
 # outfile <- "analysis/trait_sim/multi_env/pred-accuracy_qtn-effect_ld-pred-qtn.txt"
-# trait_pops <- c(15, 4, 18, 16, 14, 20, 2, 8, 17, 11, 6, 1, 13, 7, 5, 10, 3, 9, 12, 19)
-# pred_iters <- c(5, 19, 10, 7, 16, 4, 17, 9, 1, 3, 18, 11, 15, 6, 2, 12, 20, 13, 8, 14)
+# trait_pops <- c(15, 4, 18) #c(15, 4, 18, 16, 14, 20, 2, 8, 17, 11, 6, 1, 13, 7, 5, 10, 3, 9, 12, 19)
+# pred_iters <- c(5, 19, 10) #c(5, 19, 10, 7, 16, 4, 17, 9, 1, 3, 18, 11, 15, 6, 2, 12, 20, 13, 8, 14)

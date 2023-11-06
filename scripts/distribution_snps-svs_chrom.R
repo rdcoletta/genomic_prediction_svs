@@ -16,7 +16,7 @@ args <- commandArgs(trailingOnly = TRUE)
 # you should provide 2 arguments
 if (length(args) != 2) {
   stop("incorrect number of arguments provided.
-       
+
        Usage:
        ")
 }
@@ -29,7 +29,7 @@ plot_name <- args[2]
 # file wiht format NAME CHR POS
 # marker_info_file = "analysis/ld/window-100kb_filter-0.25/marker_info_highest-ld.txt"
 # marker_info_file = "data/positions_projected_snps-svs.txt"
-# plot_name <- "analysis/ld/window-100kb_filter-0.25/distribution_snps-svs_chrom.png"
+# plot_name <- "analysis/ld/window-100kb_filter-0.25/distribution_snps-svs_chrom.pdf"
 
 
 
@@ -60,20 +60,20 @@ marker_data <- fread(marker_info_file, header = TRUE, data.table = FALSE)
 
 # add type of markers into main df
 marker_type <- apply(marker_data, MARGIN = 1, function(marker) {
-  
+
   if (grepl("^del|^dup|^ins|^inv|^tra", marker[1], perl = TRUE)) {
     sv_type <- unlist(strsplit(marker[1], split = ".", fixed = TRUE))[1]
     return(c("SV", toupper(sv_type)))
   } else {
     return(c("SNP", "SNP"))
   }
-  
+
 })
 marker_data <- cbind(marker_data, t(marker_type), stringsAsFactors = FALSE)
 colnames(marker_data) <- c("id", "chr", "pos", "marker", "type")
 
 # plot by marker
-dist_hist <- ggplot(marker_data, aes(x = pos, fill = marker)) + 
+dist_hist <- ggplot(marker_data, aes(x = pos, fill = marker)) +
   geom_histogram(position = "identity", binwidth = 5000000, alpha = 0.4) +
   facet_wrap(~chr, scales = "free_x") +
   scale_x_continuous(labels = function(x) x/1000000) +
@@ -82,7 +82,7 @@ dist_hist <- ggplot(marker_data, aes(x = pos, fill = marker)) +
        y = "Count",
        fill = "Marker type")
 
-ggsave(plot = dist_hist, filename = gsub("png", "marker.hist.png", plot_name), device = "png")
+ggsave(plot = dist_hist, filename = gsub("pdf", "marker.hist.pdf", plot_name), device = "pdf")
 
 dist_densi <- ggplot(marker_data, aes(x = pos, fill = marker)) +
   geom_density(alpha = 0.5, position = "identity") +
@@ -96,12 +96,12 @@ dist_densi <- ggplot(marker_data, aes(x = pos, fill = marker)) +
   theme(panel.grid.major = element_blank(),
         panel.grid.minor = element_blank())
 
-ggsave(plot = dist_densi, filename = gsub("png", "marker.densi.png", plot_name), device = "png")
+ggsave(plot = dist_densi, filename = gsub("pdf", "marker.densi.pdf", plot_name), device = "pdf")
 
 
 
 # plot by type
-dist_hist_type <- ggplot(marker_data, aes(x = pos, fill = type)) + 
+dist_hist_type <- ggplot(marker_data, aes(x = pos, fill = type)) +
   geom_histogram(position = "identity", binwidth = 5000000, alpha = 0.4) +
   facet_wrap(~chr, scales = "free_x") +
   scale_x_continuous(labels = function(x) x/1000000) +
@@ -110,10 +110,10 @@ dist_hist_type <- ggplot(marker_data, aes(x = pos, fill = type)) +
        y = "Count",
        fill = "Marker type")
 
-ggsave(plot = dist_hist_type, filename = gsub("png", "type.hist.png", plot_name), device = "png")
+ggsave(plot = dist_hist_type, filename = gsub("pdf", "type.hist.pdf", plot_name), device = "pdf")
 
 
-dist_densi_type <- ggplot(marker_data, aes(x = pos, fill = type)) + 
+dist_densi_type <- ggplot(marker_data, aes(x = pos, fill = type)) +
   geom_density(alpha = 0.5, position = "identity") +
   facet_wrap(~chr, scales = "free_x") +
   scale_x_continuous(labels = function(x) x/1000000) +
@@ -122,4 +122,4 @@ dist_densi_type <- ggplot(marker_data, aes(x = pos, fill = type)) +
        y = "Count",
        fill = "Marker type")
 
-ggsave(plot = dist_densi_type, filename = gsub("png", "type.densi.png", plot_name), device = "png")
+ggsave(plot = dist_densi_type, filename = gsub("pdf", "type.densi.pdf", plot_name), device = "pdf")

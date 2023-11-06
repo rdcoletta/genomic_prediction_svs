@@ -32,6 +32,7 @@ by Rafael Della Coletta and Candice Hirsch
     - [Add back SNPs and SVs not present in a certain cross](#add-back-snps-and-svs-not-present-in-a-certain-cross)
     - [Merge projected markers from different families](#merge-projected-markers-from-different-families)
   - [LD structure between SNPs and SVs](#ld-structure-between-snps-and-svs)
+    - [Calculate background LD](#calculate-background-ld)
     - [Distribution](#distribution)
     - [Decay](#decay)
       - [SNP-SV](#snp-sv)
@@ -772,49 +773,27 @@ done
 
 After some preliminary work on genomic prediction models with simulated data, we noticed that we end up with far more SVs (~10k) than SNPs in LD to an SV (~3k). This very likely happened because the SNP chip doesn't have the SNP density required to fully capture every SNP in LD to an SV. Fortunately, there is resequencing data available for all parents of the USDA population, and this type of data can provide the resolution needed. However, since there is no resequencing data for the RILs, I have to project these resequencing SNPs from USDA parents to respective RILs.
 
-All parents for this population were resequenced by [Mazaheri et al (BMC Plant Biology, 2019)](https://bmcplantbiol.biomedcentral.com/articles/10.1186/s12870-019-1653-x), and the data can be retrieved in [this Dryad repository](https://datadryad.org/stash/landing/show?big=showme&id=doi%3A10.5061%2Fdryad.n0m260p).
-
-> Note that the real link for for downloading this data will be sent by email.
-
-The main file to use for this project is called `62biomAP_v_B73_SNPMatrix.txt`, which is a matrix containing all SNP calls for 56 maize inbred lines. Thus, after downloading the data, I have to select only the parents of the USDA population, transform the data to the hapmap format and then proceed to the rest of the analysis.
-
-Unzip `62biomAP_v_B73_SNPMatrix.txt.txt.tar.gz` and it's has all the SNPs from 56 inbreds. I will just select the SNPs from the 7 parents of my population (B73, LH82, PH207, PHG35, PHG39, PHG47, and PHJ40). The dataset to be used is called `data/reseq_snps/biomAP_v_B73_SNPMatrix_parents.txt`.
-
 ```bash
-mkdir -p data/reseq_snps
-cd data/reseq_snps
+# get data
+cp /home/hirschc1/cnhirsch/WiDiv508_B73v4_allchr_SNPS_maxmiss0.10.recode.vcf.gz data/
 
-# note that if I download this data again, the name of the file will be different
-wget http://merritt.cdlib.org/cloudcontainer/mrtstore2/21061229.tar.gzs
-tar -xvf 21061229.tar.gz
-gunzip 62biomAP_v_B73_SNPMatrix.txt.gz
+# because the reference is B73, there's no actual genotype column for B73 in the vcf
+# so the idea is to create a hmp with all the parents but B73, pull all the reference alleles from vcf,
+# and add it as another colum in the hapmap
 
-# the only thing I care is the SNP matrix, so I'm gonna delete the other files
-rm *widiv_942g_899784SNPs*
-
-# get column number of the inbreds
-head -n 1 62biomAP_v_B73_SNPMatrix.txt | tr '\t' '\n' | cat -n | grep "B73\|LH82\|PH207\|PHG35\|PHG39\|PHG47\|PHJ40"
-# 2	B73v4_Ref
-# 5	B73
-# 21	LH82
-# 32	PH207
-# 36	PHG35
-# 37	PHG39
-# 38	PHG47
-# 43	PHJ40
-
-# get first column (position) and the ones above
-cut -f 1,2,5,21,32,36,37,38,43 62biomAP_v_B73_SNPMatrix.txt > biomAP_v_B73_SNPMatrix_parents.txt
-
-# return to project's home directory
-cd ~/projects/genomic_prediction/simulation
-
-# transform to hapmap format:
-python scripts/snp_matrix2hapmap.py data/reseq_snps/biomAP_v_B73_SNPMatrix_parents.txt data/reseq_snps/biomAP_v_B73_SNPMatrix_parents.hmp.txt
-
-# transform to hapmap diploid format:
-run_pipeline.pl -Xmx50g -importGuess data/reseq_snps/biomAP_v_B73_SNPMatrix_parents.hmp.txt \
-                        -export data/reseq_snps/biomAP_v_B73_SNPMatrix_parents.hmp.txt \
+# vcf2hmp
+sbatch scripts/vcf2hmp.sh
+mv data/widiv_snps1.hmp.txt data/widiv_snps.Qiu-et-al.no-B73.hmp.txt
+rm data/widiv_snps2.json.gz
+# get reference alleles
+zgrep -v "#" data/WiDiv508_B73v4_allchr_SNPS_maxmiss0.10.recode.vcf.gz | cut -f 1,2,4 > data/widiv_snps.B73-alleles-only.txt
+# add B73 to hapmap
+Rscript scripts/add_B73_alleles_to_hmp.R data/widiv_snps.Qiu-et-al.no-B73.hmp.txt \
+                                         data/widiv_snps.B73-alleles-only.txt \
+                                         data/widiv_snps.Qiu-et-al.hmp.txt
+# fix allele columns with tassel
+run_pipeline.pl -Xmx50g -importGuess data/widiv_snps.Qiu-et-al.hmp.txt \
+                        -export data/widiv_snps_usda_parents.hmp.txt \
                         -exportType HapmapDiploid
 ```
 
@@ -825,7 +804,7 @@ Similarly to the anchors datasets (SNP chip), I have to create parental files wi
 
 ```bash
 # parents
-Rscript scripts/divide_hmp_by_cross.R data/reseq_snps/biomAP_v_B73_SNPMatrix_parents.hmp.txt \
+Rscript scripts/divide_hmp_by_cross.R data/widiv_snps_usda_parents.hmp.txt \
                                       data/usda_biparental-crosses.txt \
                                       data/reseq_snps \
                                       --parents
@@ -842,7 +821,7 @@ Since the SNP resequencing data will be used together with SV data, I also need 
 crosses=$(ls data/hapmap_by_cross/usda_22kSNPs_rils.sorted.diploid.filtered.v4.*.hmp.txt | xargs -n 1 basename |  cut -d '.' -f 6 | uniq)
 
 for cross in $crosses; do
-  qsub -v CROSS=${cross} scripts/filter_reseq_snps.sh
+  sbatch --export=CROSS=${cross} scripts/filter_reseq_snps.sh
 done
 ```
 
@@ -892,7 +871,7 @@ crosses=$(ls data/hapmap_by_cross/usda_22kSNPs_rils.sorted.diploid.filtered.v4.*
 
 # merge poly reseq snps with snp chip markers + svs hapmaps
 for cross in $crosses; do
-  Rscript scripts/merge_SNPs_SVs_hapmaps.R data/reseq_snps/biomAP_v_B73_SNPMatrix_parents.${cross}.poly.not-in-SVs.hmp.txt \
+  Rscript scripts/merge_SNPs_SVs_hapmaps.R data/reseq_snps/widiv_snps_usda_parents.${cross}.poly.not-in-SVs.hmp.txt \
                                            data/hapmap_by_cross/usda_parents_SV-SNPchip.${cross}.hmp.txt \
                                            data/hapmap_by_cross/usda_rils_SV-SNPchip.${cross}.not-projected.hmp.txt \
                                            data/hapmap_by_cross/usda_parents_SV-SNPchip-polySNPreseq.${cross}.hmp.txt \
@@ -939,7 +918,7 @@ mkdir -p analysis/projection_svs-snps
 crosses=$(ls data/hapmap_by_cross/usda_22kSNPs_rils.sorted.diploid.filtered.v4.*.hmp.txt | xargs -n 1 basename |  cut -d '.' -f 6 | uniq)
 
 for cross in $crosses; do
-  qsub -v CROSS=$cross,HAPSIZE=200000 scripts/project_svs-snps.sh
+  sbatch --export=CROSS=$cross,HAPSIZE=200000 scripts/project_svs-snps.sh
 done
 
 # transform to diploid hapmap:
@@ -964,14 +943,14 @@ Given the high amount of markers projected, I will run the sliding window approa
 crosses=$(ls data/hapmap_by_cross/usda_22kSNPs_rils.sorted.diploid.filtered.v4.*.hmp.txt | xargs -n 1 basename |  cut -d '.' -f 6 | uniq)
 
 for cross in $crosses; do
-  qsub -v CROSS=$cross scripts/sliding_window_svs-snps.sh
+  sbatch --export=CROSS=$cross scripts/sliding_window_svs-snps.sh
 done
 
 # make sure the number of SNPs match before and after sliding window
 for cross in $crosses; do
   echo $cross
-  wc -l analysis/projection_reseq-snps/*$cross*projected.hmp.txt
-  wc -l analysis/projection_reseq-snps/*$cross*sliding-window.hmp.txt
+  wc -l analysis/projection_svs-snps/*$cross*projected.hmp.txt
+  wc -l analysis/projection_svs-snps/*$cross*sliding-window.hmp.txt
   echo ""
 done
 ```
@@ -1036,7 +1015,7 @@ Since the projections were performed only with polymorphic SNPs to reduce comput
 crosses=$(ls data/hapmap_by_cross/usda_22kSNPs_rils.sorted.diploid.filtered.v4.*.hmp.txt | xargs -n 1 basename |  cut -d '.' -f 6 | uniq)
 
 for cross in $crosses; do
-  qsub -v CROSS=$cross scripts/add_mono_reseq-snps.sh
+  sbatch --export=CROSS=$cross scripts/add_mono_reseq-snps.sh
 done
 ```
 
@@ -1047,13 +1026,13 @@ done
 Given that SNPs within SVs were removed for each family separately and that SVs with missing data in both parents of a family were also removed, each family will have slightly different marker composition. Thus, I wrote `scripts/add_markers_not_in_cross.R` to make sure all the families have the same markers. Markers with no information for a given cross was set as missing data (`NN`).
 
 ```bash
-qsub scripts/add_markers_not_in_cross.sh
+sbatch scripts/add_markers_not_in_cross.sh
 
 # make sure the final file is sorted and the alleles' column is correct
 crosses=$(ls data/hapmap_by_cross/usda_22kSNPs_rils.sorted.diploid.filtered.v4.*.hmp.txt | xargs -n 1 basename |  cut -d '.' -f 6 | uniq)
 
 for cross in $crosses; do
-  qsub -v CROSS=$cross scripts/sort_merged_projected_files.sh
+  sbatch --export=CROSS=$cross scripts/sort_merged_projected_files.sh
 done
 ```
 
@@ -1101,11 +1080,17 @@ done
 
 # generate summary statistics for the final file
 for chr in {1..10}; do
-  qsub -v CHR=$chr scripts/tassel_qc-summary.sh
+  sbatch --export=CHR=$chr scripts/tassel_qc-summary.sh
 done
 
 # plot maf and missing data distribution (just need to call one chr -- but the others should be in same folder)
 Rscript scripts/plot_maf-missing_distribution.R analysis/qc/tassel_usda-SNPs-SVs_chr1_summary3.txt analysis/qc/maf_missing-data
+
+# plot distribution of snps and svs
+cut -f 1,3,4 data/usda_rils_projected-SVs-SNPs.hmp.txt | sed 1d > analysis/qc/projected-SVs-SNPs.txt
+Rscript scripts/distribution_snps-svs_chrom.R \
+        analysis/qc/projected-SVs-SNPs.txt \
+        analysis/qc/distribution_projected-SVs-SNPs.pdf
 ```
 
 
@@ -1123,15 +1108,14 @@ mkdir -p analysis/ld
 
 # convert hapmap to plink format
 for chr in {1..10}; do
-  qsub -v CHR=$chr scripts/hmp2plk.sh
+  sbatch --export=CHR=$chr scripts/hmp2plk.sh
 done
 
 # calculate LD
 for chr in {1..10}; do
   for filter in 0.25; do
     for window in 1 10 100 1000; do
-      [[ ${window} == 1000 ]] && res="walltime=24:00:00,nodes=1:ppn=1,mem=150gb" || res="walltime=8:00:00,nodes=1:ppn=1,mem=100gb"
-      qsub -l ${res} -v CHR=$chr,WINDOW=$window,FILTER=$filter scripts/plink_ld_calculation.sh
+      sbatch --export=CHR=$chr,WINDOW=$window,FILTER=$filter scripts/plink_ld_calculation.sh
     done
   done
 done
@@ -1139,6 +1123,35 @@ done
 
 Besides that, it's important to QC the dataset in different ways to get a broader picture of how the LD structure in my population can affect genomic predition.
 
+
+
+### Calculate background LD
+
+We calculated the background LD in this population by measuring LD from 50 random markers from different chromosomes, as described in
+[Vos et al., 2017, TAG](https://link.springer.com/article/10.1007/s00122-016-2798-8).
+
+```bash
+# create folder to save results
+FOLDER=analysis/background_ld
+mkdir -p ${FOLDER}
+
+# hapmap file to calculate background ld
+HMP=data/usda_rils_projected-SVs-SNPs.hmp.txt
+
+# create file to store results
+BACKLD=${FOLDER}/average_background_ld.txt
+echo -n "" > ${BACKLD}
+
+# define initial seed
+SEED=7252
+
+# submit job
+sbatch --export=FOLDER=${FOLDER},HMP=${HMP},BACKLD=${BACKLD},SEED=${SEED} scripts/calculate_background_ld.sh
+
+# get average (and std error) 95th percentile across all iterations
+awk '{s+=$1; ss+=$1^2} END{print m=s/NR, sqrt(ss/NR-m^2)/sqrt(NR)}' ${BACKLD}
+# 0.146599 0.00129084
+```
 
 
 ### Distribution
@@ -1150,7 +1163,7 @@ First, I will plot the distribution of r2 values from LD between SV and its SNP 
 for chr in {1..10}; do
   for filter in 0.25; do
     for window in 1 10 100 1000; do
-      qsub -v CHR=$chr,WINDOW=$window,FILTER=$filter scripts/select_only_sv-snp_ld.sh
+      sbatch --export=CHR=$chr,WINDOW=$window,FILTER=$filter scripts/select_only_sv-snp_ld.sh
     done
   done
 done
@@ -1158,23 +1171,37 @@ done
 # filter plink ld files and plot distribution (only need the first chr file -- it will find the other chr)
 for filter in 0.25; do
   for window in 1 10 100 1000; do
-    qsub -v WINDOW=$window,FILTER=$filter scripts/distribution_ld_snps-svs.sh
+    sbatch --export=WINDOW=$window,FILTER=$filter scripts/distribution_ld_snps-svs.sh
   done
 done
 
 # get some quick stats
-low_ld=0
-total_markers=0
-for chr in {1..10}; do
-  low_ld_chr=$(awk -v chr=${chr} '$9 < 0.8' analysis/ld/window-1kb_filter-0.25/ld_usda_rils_snp-sv_only.chr${chr}.window-1kb.filter-0.25.highest-ld.ld | wc -l)
-  total_markers_chr=$(sed 1d analysis/ld/window-1kb_filter-0.25/ld_usda_rils_snp-sv_only.chr${chr}.window-1kb.filter-0.25.highest-ld.ld | wc -l)
-  # echo ${low_ld_chr}
-  low_ld=$(( ${low_ld} + ${low_ld_chr} ))
-  total_markers=$(( ${total_markers} + ${total_markers_chr} ))
+for window in 1 10 100 1000; do
+  low_ld=0
+  total_markers=0
+  for chr in {1..10}; do
+    low_ld_chr=$(awk -v chr=${chr} '$9 < 0.9' analysis/ld/window-${window}kb_filter-0.25/ld_usda_rils_snp-sv_only.chr${chr}.window-${window}kb.filter-0.25.highest-ld.ld | wc -l)
+    total_markers_chr=$(sed 1d analysis/ld/window-${window}kb_filter-0.25/ld_usda_rils_snp-sv_only.chr${chr}.window-${window}kb.filter-0.25.highest-ld.ld | wc -l)
+    # echo ${low_ld_chr}
+    low_ld=$(( ${low_ld} + ${low_ld_chr} ))
+    total_markers=$(( ${total_markers} + ${total_markers_chr} ))
+  done
+  echo "LD window size: ${window}kb"
+  echo "  SVs in highest LD with SNPs but with r2 < 0.9: ${low_ld}"
+  echo "  Total number of SNPs in highest LD to SVs: ${total_markers}"
 done
-echo "SVs in highest LD with SNPs but with r2 < 0.8: ${low_ld}"
-echo "Total number of SNPs in highest LD to SVs: ${total_markers}"
-# So about 24% (1312/5476 = 0.2396) of SNPs in highest LD to a SV has a r2 value lower than 0.8
+# LD window size: 1kb
+#   SVs in highest LD with SNPs but with r2 < 0.9: 1176
+#   Total number of SNPs in highest LD to SVs: 5011
+# LD window size: 10kb
+#   SVs in highest LD with SNPs but with r2 < 0.9: 951
+#   Total number of SNPs in highest LD to SVs: 7417
+# LD window size: 100kb
+#   SVs in highest LD with SNPs but with r2 < 0.9: 650
+#   Total number of SNPs in highest LD to SVs: 7892
+# LD window size: 1000kb
+#   SVs in highest LD with SNPs but with r2 < 0.9: 347
+#   Total number of SNPs in highest LD to SVs: 7993
 
 # plot extra stats for markers in high ld
 for filter in 0.25; do
@@ -1187,8 +1214,9 @@ done
 # plot population frequency of SVs by LD to highest SNP
 for filter in 0.25; do
   for window in 1 10 100 1000; do
-    for chr in {1..10}; do
-      # get SVs with LD info
+    # get SVs with LD info
+    sed 1d analysis/ld/window-${window}kb_filter-${filter}/ld_usda_rils_snp-sv_only.chr1.window-${window}kb.filter-${filter}.highest-ld.ld | cut -f 3,7 | sed 's/\t/\n/g' | grep -P "^del|ins|inv|dup|tra" > analysis/ld/window-${window}kb_filter-${filter}/SVs_with_LD_info.txt
+    for chr in {2..10}; do
       sed 1d analysis/ld/window-${window}kb_filter-${filter}/ld_usda_rils_snp-sv_only.chr${chr}.window-${window}kb.filter-${filter}.highest-ld.ld | cut -f 3,7 | sed 's/\t/\n/g' | grep -P "^del|ins|inv|dup|tra" >> analysis/ld/window-${window}kb_filter-${filter}/SVs_with_LD_info.txt
     done
     # generate tassel summary of SVs with LD info
@@ -1211,10 +1239,13 @@ Second, I will plot the distribution of each marker type (SNP or SV) along the c
 
 ```bash
 # create a 3 column file (id, chr, pos) to be the input for R script
-for chr in {1..10}; do
-  echo "$chr"
-  for filter in 0.25; do
-    for window in 1 10 100 1000; do
+for filter in 0.25; do
+  for window in 1 10 100 1000; do
+    # highest ld
+    sed 1d analysis/ld/window-$window\kb_filter-$filter/ld_usda_rils_snp-sv_only.chr1.window-$window\kb.filter-$filter.highest-ld.ld  | awk '{ print $3 "\t" $1 "\t" $2 "\n" $7 "\t" $5 "\t" $6}' | sort -n -k 3 | uniq > analysis/ld/window-$window\kb_filter-$filter/marker_info_highest-ld.txt
+    # not in ld
+    sed 1d analysis/ld/window-$window\kb_filter-$filter/ld_usda_rils_snp-sv_only.chr1.window-$window\kb.filter-$filter.not-in-ld.ld  | awk '{ print $3 "\t" $1 "\t" $2 "\n" $7 "\t" $5 "\t" $6}' | sort -n -k 3 | uniq > analysis/ld/window-$window\kb_filter-$filter/marker_info_not-in-ld.txt
+    for chr in {2..10}; do
       # highest ld
       sed 1d analysis/ld/window-$window\kb_filter-$filter/ld_usda_rils_snp-sv_only.chr$chr.window-$window\kb.filter-$filter.highest-ld.ld  | awk '{ print $3 "\t" $1 "\t" $2 "\n" $7 "\t" $5 "\t" $6}' | sort -n -k 3 | uniq >> analysis/ld/window-$window\kb_filter-$filter/marker_info_highest-ld.txt
       # not in ld
@@ -1227,9 +1258,9 @@ done
 for filter in 0.25; do
   for window in 1 10 100 1000; do
     # highest ld
-    Rscript scripts/distribution_snps-svs_chrom.R analysis/ld/window-$window\kb_filter-$filter/marker_info_highest-ld.txt analysis/ld/window-$window\kb_filter-$filter/distribution_snps-svs_chrom.png
+    Rscript scripts/distribution_snps-svs_chrom.R analysis/ld/window-$window\kb_filter-$filter/marker_info_highest-ld.txt analysis/ld/window-$window\kb_filter-$filter/distribution_snps-svs_chrom.pdf
     # not in ld
-    Rscript scripts/distribution_snps-svs_chrom.R analysis/ld/window-$window\kb_filter-$filter/marker_info_not-in-ld.txt analysis/ld/window-$window\kb_filter-$filter/distribution_snps-not-ld-svs_chrom.png
+    Rscript scripts/distribution_snps-svs_chrom.R analysis/ld/window-$window\kb_filter-$filter/marker_info_not-in-ld.txt analysis/ld/window-$window\kb_filter-$filter/distribution_snps-not-ld-svs_chrom.pdf
   done
 done
 
@@ -1238,21 +1269,26 @@ for window in 1 10 100 1000; do
   count=$(grep -c -P "^del|^ins|^inv|^dup|^tra" analysis/ld/window-${window}kb_filter-0.25/marker_info_highest-ld.txt)
   echo "$count SNPs in high LD with a SV within $window kb"
 done
-# 5472 SNPs in high LD with a SV within 1 kb
-# 7609 SNPs in high LD with a SV within 10 kb
-# 7975 SNPs in high LD with a SV within 100 kb
-# 7977 SNPs in high LD with a SV within 1000 kb
+# 4977 SNPs in high LD with a SV within 1 kb
+# 7365 SNPs in high LD with a SV within 10 kb
+# 7836 SNPs in high LD with a SV within 100 kb
+# 7938 SNPs in high LD with a SV within 1000 kb
 
 # also plot distribution along chromosome for anchors only
 for chr in {1..10}; do
   cut -f 1,3,4 data/usda_22kSNPs_rils.sorted.diploid.filtered.v4.hmp.txt | awk -v chr=$chr '$2 == chr' > analysis/projection_svs-snps/anchor_positions.chr$chr.txt
 done
-Rscript scripts/distribution_snps-svs_chrom.R analysis/projection_svs-snps/anchor_positions.chr$chr.txt analysis/projection_svs-snps/distribution_anchors_chrom.png
+Rscript scripts/distribution_snps-svs_chrom.R analysis/projection_svs-snps/anchor_positions.chr$chr.txt analysis/projection_svs-snps/distribution_anchors_chrom.pdf
 
 # also plot distribution snps in highest ld to svs along chromosome for by ld quarter
-for chr in {1..10}; do
-  for filter in 0.25; do
-    for window in 1 10 100 1000; do
+
+for filter in 0.25; do
+  for window in 1 10 100 1000; do
+    echo -n "" > analysis/ld/window-$window\kb_filter-$filter/marker_info_r2_0_0.25.window-${window}kb.filter-${filter}.txt
+    echo -n "" > analysis/ld/window-$window\kb_filter-$filter/marker_info_r2_0.25_0.5.window-${window}kb.filter-${filter}.txt
+    echo -n "" > analysis/ld/window-$window\kb_filter-$filter/marker_info_r2_0.5_0.75.window-${window}kb.filter-${filter}.txt
+    echo -n "" > analysis/ld/window-$window\kb_filter-$filter/marker_info_r2_0.75_1.window-${window}kb.filter-${filter}.txt
+    for chr in {1..10}; do
       # r2 < 0.25
       sed 1d analysis/ld/window-$window\kb_filter-$filter/ld_usda_rils_snp-sv_only.chr$chr.window-$window\kb.filter-$filter.highest-ld.ld | awk -v chr=$chr '$1 == chr' | awk '$9 < 0.25' | awk '{ print $3 "\t" $1 "\t" $2 "\n" $7 "\t" $5 "\t" $6}' | sort -n -k 3 | uniq >> analysis/ld/window-$window\kb_filter-$filter/marker_info_r2_0_0.25.window-${window}kb.filter-${filter}.txt
       # 0.25 < r2 < 0.5
@@ -1268,13 +1304,13 @@ done
 for filter in 0.25; do
   for window in 1 10 100 1000; do
     # r2 < 0.25
-    Rscript scripts/distribution_snps-svs_chrom.R analysis/ld/window-$window\kb_filter-$filter/marker_info_r2_0_0.25.window-${window}kb.filter-${filter}.txt analysis/ld/window-$window\kb_filter-$filter/distribution_markers_chrom_r2_0_0.25.png
+    Rscript scripts/distribution_snps-svs_chrom.R analysis/ld/window-$window\kb_filter-$filter/marker_info_r2_0_0.25.window-${window}kb.filter-${filter}.txt analysis/ld/window-$window\kb_filter-$filter/distribution_markers_chrom_r2_0_0.25.pdf
     # 0.25 < r2 < 0.5
-    Rscript scripts/distribution_snps-svs_chrom.R analysis/ld/window-$window\kb_filter-$filter/marker_info_r2_0.25_0.5.window-${window}kb.filter-${filter}.txt analysis/ld/window-$window\kb_filter-$filter/distribution_markers_chrom_r2_0.25_0.5.png
+    Rscript scripts/distribution_snps-svs_chrom.R analysis/ld/window-$window\kb_filter-$filter/marker_info_r2_0.25_0.5.window-${window}kb.filter-${filter}.txt analysis/ld/window-$window\kb_filter-$filter/distribution_markers_chrom_r2_0.25_0.5.pdf
     # 0.5 < r2 < 0.75
-    Rscript scripts/distribution_snps-svs_chrom.R analysis/ld/window-$window\kb_filter-$filter/marker_info_r2_0.5_0.75.window-${window}kb.filter-${filter}.txt analysis/ld/window-$window\kb_filter-$filter/distribution_markers_chrom_r2_0.5_0.75.png
+    Rscript scripts/distribution_snps-svs_chrom.R analysis/ld/window-$window\kb_filter-$filter/marker_info_r2_0.5_0.75.window-${window}kb.filter-${filter}.txt analysis/ld/window-$window\kb_filter-$filter/distribution_markers_chrom_r2_0.5_0.75.pdf
     # r2 > 0.75
-    Rscript scripts/distribution_snps-svs_chrom.R analysis/ld/window-$window\kb_filter-$filter/marker_info_r2_0.75_1.window-${window}kb.filter-${filter}.txt analysis/ld/window-$window\kb_filter-$filter/distribution_markers_chrom_r2_0.75_1.png
+    Rscript scripts/distribution_snps-svs_chrom.R analysis/ld/window-$window\kb_filter-$filter/marker_info_r2_0.75_1.window-${window}kb.filter-${filter}.txt analysis/ld/window-$window\kb_filter-$filter/distribution_markers_chrom_r2_0.75_1.pdf
   done
 done
 ```
@@ -1304,7 +1340,7 @@ for window in 100 1000; do
 done
 
 # plot ld decay between all SVs and SNPs (distance from SNP to closest SV boundary)
-qsub -l walltime=5:00:00,nodes=1:ppn=1,mem=120gb -v IN=analysis/ld/ld_usda_rils_snp-sv_only.window-1000kb.filter-0.25.ld.gz,OUT=analysis/ld/decay/ld_decay_usda_snps-svs_1000kb,OPT="--unequal-windows" scripts/plot_ld_decay.sh
+sbatch --export=IN=analysis/ld/ld_usda_rils_snp-sv_only.window-1000kb.filter-0.25.ld.gz,OUT=analysis/ld/decay/ld_decay_usda_snps-svs_1000kb scripts/plot_ld_decay.sh
 
 # plot ld decay by sv type
 for type in del ins dup inv tra; do
@@ -1441,7 +1477,7 @@ done
 module load R
 cd ~/projects/genomic_prediction/simulation/
 Rscript scripts/distribution_distance_closest-snps-to-svs.R analysis/ld/closest_low-missing-data-SNPs_to_SVs.filter-0.25.all.distances.txt \
-                                                            analysis/ld/closest_low-missing-data-SNPs_to_SVs.filter-0.25.all.png
+                                                            analysis/ld/closest_low-missing-data-SNPs_to_SVs.filter-0.25.all.pdf
 # 5230 SNPs were more than 0.1kb away from a SV
 # 1601 SNPs were more than 0.5kb away from a SV
 # 807 SNPs were more than 1kb away from a SV
@@ -1703,7 +1739,7 @@ mkdir -p analysis/trait_sim/MSI_dump
 
 # remove monomorphic snps
 for chr in {1..10}; do
-  qsub -v IN=data/usda_rils_projected-SVs-SNPs.chr${chr}.hmp.txt,OUT=data/usda_rils_projected-SVs-SNPs.chr${chr}.poly.hmp.txt scripts/remove_mono_markers.sh
+  sbatch --export=IN=data/usda_rils_projected-SVs-SNPs.chr${chr}.hmp.txt,OUT=data/usda_rils_projected-SVs-SNPs.chr${chr}.poly.hmp.txt scripts/remove_mono_markers.sh
 done
 
 # merge chromosomes
@@ -2047,31 +2083,32 @@ We will test different types of markers for prediction: only SNPs, all SVs, all 
 mkdir -p /scratch.global/della028/hirsch_lab/genomic_prediction/ld
 
 # calculate ld
+WINDOW=100
 for chr in {1..10}; do
-  sbatch --export=CHR=${chr} scripts/ld_snp-sv_poly-markers.sh
+  sbatch --export=CHR=${chr},WINDOW=${WINDOW} scripts/ld_snp-sv_poly-markers.sh
 done
 
 # filter plink ld files and plot distribution (only need the first chr file -- it will find the other chr)
 Rscript scripts/distribution_ld_snps-svs.R analysis/ld/ld_usda_rils_poly-snp-sv_only.chr1.ld \
                                            data/usda_SVs_parents.sorted.hmp.txt \
-                                           analysis/ld/poly-snp-svs_1kb-window
+                                           analysis/ld/poly-snp-svs_${WINDOW}kb-window
 
 # plot extra stats for markers in high ld
-Rscript scripts/extra_ld_stats.R analysis/ld/poly-snp-svs_1kb-window
+Rscript scripts/extra_ld_stats.R analysis/ld/poly-snp-svs_${WINDOW}kb-window
 
 # get marker names of snps in ld and not ld
 # create a 3 column file (id, chr, pos) to be the input for R script
 for chr in {1..10}; do
   # highest ld
-  sed 1d analysis/ld/poly-snp-svs_1kb-window/ld_usda_rils_poly-snp-sv_only.chr${chr}.highest-ld.ld  | awk '{ print $3 "\t" $1 "\t" $2 "\n" $7 "\t" $5 "\t" $6}' | sort -n -k 3 | uniq >> analysis/ld/poly-snp-svs_1kb-window/marker_info_highest-ld.txt
-  cut -f 1 analysis/ld/poly-snp-svs_1kb-window/marker_info_highest-ld.txt | grep -v -P "^del|^dup|^ins|^inv|^tra" >> analysis/ld/poly-snp-svs_1kb-window/snp-names_highest-ld.txt
+  sed 1d analysis/ld/poly-snp-svs_${WINDOW}kb-window/ld_usda_rils_poly-snp-sv_only.chr${chr}.highest-ld.ld  | awk '{ print $3 "\t" $1 "\t" $2 "\n" $7 "\t" $5 "\t" $6}' | sort -n -k 3 | uniq >> analysis/ld/poly-snp-svs_${WINDOW}kb-window/marker_info_highest-ld.txt
+  cut -f 1 analysis/ld/poly-snp-svs_${WINDOW}kb-window/marker_info_highest-ld.txt | grep -v -P "^del|^dup|^ins|^inv|^tra" >> analysis/ld/poly-snp-svs_${WINDOW}kb-window/snp-names_highest-ld.txt
   # not in ld
-  sed 1d analysis/ld/poly-snp-svs_1kb-window/ld_usda_rils_poly-snp-sv_only.chr${chr}.not-in-ld.ld  | awk '{ print $3 "\t" $1 "\t" $2 "\n" $7 "\t" $5 "\t" $6}' | sort -n -k 3 | uniq >> analysis/ld/poly-snp-svs_1kb-window/marker_info_not-in-ld.txt
-  cut -f 1 analysis/ld/poly-snp-svs_1kb-window/marker_info_not-in-ld.txt | grep -v -P "^del|^dup|^ins|^inv|^tra" >> analysis/ld/poly-snp-svs_1kb-window/snp-names_not-in-ld.txt
+  sed 1d analysis/ld/poly-snp-svs_${WINDOW}kb-window/ld_usda_rils_poly-snp-sv_only.chr${chr}.not-in-ld.ld  | awk '{ print $3 "\t" $1 "\t" $2 "\n" $7 "\t" $5 "\t" $6}' | sort -n -k 3 | uniq >> analysis/ld/poly-snp-svs_${WINDOW}kb-window/marker_info_not-in-ld.txt
+  cut -f 1 analysis/ld/poly-snp-svs_${WINDOW}kb-window/marker_info_not-in-ld.txt | grep -v -P "^del|^dup|^ins|^inv|^tra" >> analysis/ld/poly-snp-svs_${WINDOW}kb-window/snp-names_not-in-ld.txt
 done
 # remove redudant markers
-sort analysis/ld/poly-snp-svs_1kb-window/snp-names_highest-ld.txt | uniq > analysis/ld/poly-snp-svs_1kb-window/snp-names_highest-ld.no-duplicates.txt
-sort analysis/ld/poly-snp-svs_1kb-window/snp-names_not-in-ld.txt | uniq > analysis/ld/poly-snp-svs_1kb-window/snp-names_not-in-ld.no-duplicates.txt
+sort analysis/ld/poly-snp-svs_${WINDOW}kb-window/snp-names_highest-ld.txt | uniq > analysis/ld/poly-snp-svs_${WINDOW}kb-window/snp-names_highest-ld.no-duplicates.txt
+sort analysis/ld/poly-snp-svs_${WINDOW}kb-window/snp-names_not-in-ld.txt | uniq > analysis/ld/poly-snp-svs_${WINDOW}kb-window/snp-names_not-in-ld.no-duplicates.txt
 ```
 
 
@@ -2087,11 +2124,12 @@ cut -f 1 data/usda_rils_projected-SVs-SNPs.poly.hmp.txt | sed 1d | grep -v -P "^
 # all polymorphic markers
 cp data/usda_rils_projected-SVs-SNPs.poly.hmp.txt analysis/trait_sim/datasets/usda_rils.all_markers.hmp.txt
 # different polymorphic marker types
+WINDOW=100
 for marker in sv snp snp_ld snp_not_ld; do
   [[ ${marker} == sv ]] && list=data/SVs_IDs_poly.txt
   [[ ${marker} == snp ]] && list=data/SNPs_IDs_poly.txt
-  [[ ${marker} == snp_ld ]] && list=analysis/ld/poly-snp-svs_1kb-window/snp-names_highest-ld.no-duplicates.txt
-  [[ ${marker} == snp_not_ld ]] && list=analysis/ld/poly-snp-svs_1kb-window/snp-names_not-in-ld.no-duplicates.txt
+  [[ ${marker} == snp_ld ]] && list=analysis/ld/poly-snp-svs_${WINDOW}kb-window/snp-names_highest-ld.no-duplicates.txt
+  [[ ${marker} == snp_not_ld ]] && list=analysis/ld/poly-snp-svs_${WINDOW}kb-window/snp-names_not-in-ld.no-duplicates.txt
   # filter files
   sbatch --export=IN=data/usda_rils_projected-SVs-SNPs.poly.hmp.txt,LIST=${list},OUT=analysis/trait_sim/datasets/usda_rils.${marker}_markers.hmp.txt scripts/filter_hmp_based_on_marker_names.sh
 done
@@ -2101,17 +2139,17 @@ After filtering the hapmap file according to marker types, I needed to make sure
 
 ```bash
 wc -l analysis/trait_sim/datasets/usda_rils.*_markers.hmp.txt
-# 9847163 analysis/trait_sim/datasets/usda_rils.all_markers.hmp.txt
-#    5477 analysis/trait_sim/datasets/usda_rils.snp_ld_markers.hmp.txt
-# 9838687 analysis/trait_sim/datasets/usda_rils.snp_markers.hmp.txt
-#   40962 analysis/trait_sim/datasets/usda_rils.snp_not_ld_markers.hmp.txt
-#    8477 analysis/trait_sim/datasets/usda_rils.sv_markers.hmp.txt
+# 1870915 analysis/trait_sim/datasets/usda_rils.all_markers.hmp.txt
+#    7893 analysis/trait_sim/datasets/usda_rils.snp_ld_markers.hmp.txt
+# 1862477 analysis/trait_sim/datasets/usda_rils.snp_markers.hmp.txt
+#  602468 analysis/trait_sim/datasets/usda_rils.snp_not_ld_markers.hmp.txt
+#    8439 analysis/trait_sim/datasets/usda_rils.sv_markers.hmp.txt
 
-# minimum number is 5477 - header = 5476
+# minimum number is 7893 - header = 7892
 
 # bootstrap (100 times) to select random markers to keep all datsets with same number of markers
 SEED=1990
-NSAMPLE=5476
+NSAMPLE=7892
 for iter in {1..100}; do
   sbatch --export=SEED=${SEED},NSAMPLE=${NSAMPLE},ITER=${iter} scripts/select_random_markers.sh
   SEED=$((${SEED}+5))
@@ -2129,17 +2167,24 @@ I will be using ASREML-R to run predictions, but the license I have doesn't allo
 
 ```bash
 # simulated traits without gxe
-scp -r analysis/trait_sim/multi_env/no_gxe/additive_model/equal_effects/ candy@134.84.43.7:/home/candy/rafa/genomic_prediction/simulation/analysis/trait_sim/multi_env/no_gxe/additive_model/
+scp -r della028@mangi.msi.umn.edu:/home/hirschc1/della028/projects/genomic_prediction/simulation/analysis/trait_sim/multi_env/no_gxe/additive_model/equal_effects analysis/trait_sim/multi_env/no_gxe/additive_model/
+# scp -r analysis/trait_sim/multi_env/no_gxe/additive_model/equal_effects/ candy@134.84.43.7:/home/candy/rafa/genomic_prediction/simulation/analysis/trait_sim/multi_env/no_gxe/additive_model/
 
 # simulated traits with gxe
-scp -r analysis/trait_sim/multi_env/with_gxe/additive_model/equal_effects/ candy@134.84.43.7:/home/candy/rafa/genomic_prediction/simulation/analysis/trait_sim/multi_env/with_gxe/additive_model/
+scp -r della028@mangi.msi.umn.edu:/home/hirschc1/della028/projects/genomic_prediction/simulation/analysis/trait_sim/multi_env/with_gxe/additive_model/equal_effects analysis/trait_sim/multi_env/with_gxe/additive_model/
+# scp -r analysis/trait_sim/multi_env/with_gxe/additive_model/equal_effects/ candy@134.84.43.7:/home/candy/rafa/genomic_prediction/simulation/analysis/trait_sim/multi_env/with_gxe/additive_model/
 
 # datasets with marker data for prediction
 for iter in {1..30}; do
-  scp -r analysis/trait_sim/datasets/iter${iter}/ candy@134.84.43.7:/home/candy/rafa/genomic_prediction/simulation/analysis/trait_sim/datasets
+  scp -r della028@mangi.msi.umn.edu:/home/hirschc1/della028/projects/genomic_prediction/simulation/analysis/trait_sim/datasets/iter${iter}/ analysis/trait_sim/datasets/
 done
+# for iter in {1..30}; do
+#   scp -r analysis/trait_sim/datasets/iter${iter}/ candy@134.84.43.7:/home/candy/rafa/genomic_prediction/simulation/analysis/trait_sim/datasets
+# done
 
 # also transfer scripts
+scp della028@mangi.msi.umn.edu:/home/hirschc1/della028/projects/genomic_prediction/simulation/scripts/get_blups_per_env.R scripts/
+scp della028@mangi.msi.umn.edu:/home/hirschc1/della028/projects/genomic_prediction/simulation/scripts/genomic_prediction_from_blups.R scripts/
 scp scripts/get_blups_per_env.R candy@134.84.43.7:/home/candy/rafa/genomic_prediction/simulation/scripts/
 scp scripts/genomic_prediction_from_blups.R candy@134.84.43.7:/home/candy/rafa/genomic_prediction/simulation/scripts/
 ```
@@ -2246,8 +2291,8 @@ After predictions for all scenarios were done, I ran `scripts/summarize_predicti
 Rscript scripts/summarize_prediction_accuracies.R \
         analysis/trait_sim/multi_env \
         analysis/trait_sim/multi_env/prediction_results.txt \
-        --trait-pops=15,4,18,16,14,20,2,8,17,11,6,1,13,7,5,10,3,9,12,19 \
-        --pred-iters=5,19,10,7,16,4,17,9,1,3,18,11,15,6,2,12,20,13,8,14
+        --trait-pops=15,4,18,16,14,20,2,8,17,11 \
+        --pred-iters=5,19,10,7,16,4,17,9,1,3
 
 # plot bars
 Rscript scripts/plot_prediction_accuracy.R \
@@ -2256,6 +2301,17 @@ Rscript scripts/plot_prediction_accuracy.R \
 # plot heatmap
 Rscript scripts/plot_prediction_accuracy_heatmap.R \
         analysis/trait_sim/multi_env/prediction_results.summary.txt
+```
+
+Also summarize the correlation between SNP and SV relationship matrices:
+
+```bash
+# summarize
+Rscript scripts/summarize_cor_snp-sv_kernels.R \
+        analysis/trait_sim/multi_env \
+        analysis/trait_sim/multi_env/cor_snp-sv_kernels.txt \
+        --trait-pops=15,4,18,16,14,20,2,8,17,11 \
+        --pred-iters=5,19,10,7,16,4,17,9,1,3
 ```
 
 
@@ -2280,7 +2336,7 @@ pops=($(shuf -i 1-20 -n 20 --random-source=<(get_seeded_random 615471)))
 
 # get LD for each population
 for predictor in all_markers snp_ld_markers sv_markers snp_markers snp_not_ld_markers; do
-  for i in {0..19}; do
+  for i in {0..9}; do
     sbatch --export=PREDICTOR=${predictor},NDATASET=${iters[$i]},POP=${pops[$i]} scripts/ld_predictor_causal-vars.sh
   done
 done
@@ -2291,14 +2347,14 @@ done
 for predictor in all_markers snp_ld_markers sv_markers snp_markers snp_not_ld_markers; do
   for qtn in 10 100; do
     for var in SNP SV; do
-      for i in $(seq 0 19); do
+      for i in $(seq 0 9); do
         # get folder name
         FOLDER=analysis/trait_sim/multi_env/with_gxe/additive_model/equal_effects/${qtn}-QTNs_from_${var}/ld_causative-vars_predictors/pop${pops[$i]}
         # get ld file name
         LDFILE=ld_summary.${predictor}.pred-iter${iters[$i]}.causal-pop${pops[$i]}.txt
         # create folder on local server and transfer file
-        ssh candy@134.84.43.7 "mkdir -p /home/candy/rafa/genomic_prediction/simulation/${FOLDER}"
-        scp -r ${FOLDER}/${LDFILE} candy@134.84.43.7:/home/candy/rafa/genomic_prediction/simulation/${FOLDER}
+        mkdir -p ${FOLDER}
+        scp -r della028@mangi.msi.umn.edu:/home/hirschc1/della028/projects/genomic_prediction/simulation/${FOLDER}/${LDFILE} ${FOLDER}
       done
     done
   done
@@ -2308,7 +2364,7 @@ done
 for predictor in all_markers snp_ld_markers sv_markers snp_markers snp_not_ld_markers; do
   for qtn in 10 100; do
     for ratio in 0.5 0.8; do
-      for i in $(seq 0 19); do
+      for i in $(seq 0 9); do
         # get folder name
         FOLDER=analysis/trait_sim/multi_env/with_gxe/additive_model/equal_effects/${qtn}-QTNs_from_both/SNP-SV-ratio_${ratio}/ld_causative-vars_predictors/pop${pops[$i]}
         # get ld file name
@@ -2386,8 +2442,8 @@ Rscript scripts/correlate_ld_with_accuracy.R \
         analysis/trait_sim/multi_env/with_gxe/additive_model/equal_effects \
         analysis/trait_sim/multi_env/prediction_results.full.txt \
         analysis/trait_sim/multi_env/pred-accuracy_qtn-effect_ld-pred-qtn.txt \
-        --trait-pops=15,4,18,16,14,20,2,8,17,11,6,1,13,7,5,10,3,9,12,19 \
-        --pred-iters=5,19,10,7,16,4,17,9,1,3,18,11,15,6,2,12,20,13,8,14
+        --trait-pops=15,4,18,16,14,20,2,8,17,11 \
+        --pred-iters=5,19,10,7,16,4,17,9,1,3
 # create folder to save plots
 mkdir -p analysis/trait_sim/multi_env/cor_ld-pred-accuracy
 # plot
@@ -2618,18 +2674,22 @@ for rep in {1..10}; do
         # simulated traits with gxe
         for h2 in 0.3 0.7; do
           SIMFOLDER=analysis/ld_downsample/sim_traits/rep${rep}/${qtn}-QTNs_from_${var}/${h2}-heritability
-          ssh candy@134.84.43.7 "mkdir -p /home/candy/rafa/genomic_prediction/simulation/${SIMFOLDER}"
-          scp -r ${SIMFOLDER}/pop${pop}/ candy@134.84.43.7:/home/candy/rafa/genomic_prediction/simulation/${SIMFOLDER}
+          mkdir -p ${SIMFOLDER}
         done
         # datasets with marker data for prediction
         for ld in low moderate high; do
           PREDFOLDER=analysis/ld_downsample/pred_${ld}/rep${rep}/${qtn}-QTNs_from_${var}/pop${pop}
-          ssh candy@134.84.43.7 "mkdir -p /home/candy/rafa/genomic_prediction/simulation/${PREDFOLDER}"
-          scp -r ${PREDFOLDER}/usda_rils_projected-SVs-SNPs.${ld}-ld_to_QTNs.hmp.txt candy@134.84.43.7:/home/candy/rafa/genomic_prediction/simulation/${PREDFOLDER}
+          mkdir -p ${PREDFOLDER}
         done
       done
     done
   done
+done
+
+for ld in low moderate high; do
+  PREDFOLDER=analysis/ld_downsample/pred_${ld}/rep*/*-QTNs_from_*/pop*
+  # scp -r della028@mangi.msi.umn.edu:/home/hirschc1/della028/projects/genomic_prediction/simulation/${PREDFOLDER}/usda_rils_projected-SVs-SNPs.${ld}-ld_to_QTNs.hmp.txt ${PREDFOLDER}
+  rsync -avR della028@mangi.msi.umn.edu:/home/hirschc1/della028/projects/genomic_prediction/simulation/./${PREDFOLDER}/usda_rils_projected-SVs-SNPs.${ld}-ld_to_QTNs.hmp.txt .
 done
 ```
 
@@ -2650,6 +2710,7 @@ Run second stage of genomic prediction:
 # generate gnu parallel commands
 for rep in {1..10}; do
   for pop in {1..3}; do
+    echo "$(date) --- rep: ${rep}"
     bash scripts/ld_downsample_prediction-stage2.sh -d ${rep} -p ${pop} -P ${pop}
   done
 done
@@ -2701,13 +2762,13 @@ After predictions for all scenarios were done, I ran `scripts/summarize_predicti
 # summarize
 Rscript scripts/summarize_prediction_accuracies_ld-test.R \
         analysis/ld_downsample/sim_traits \
-        analysis/ld_downsample/sim_traits/prediction_results.reps1-10.pops1-3.txt \
+        analysis/ld_downsample/sim_traits/prediction_results.reps1-5.pops1-3.txt \
         --trait-pops=1,2,3 \
-        --pred-iters=1,2,3,4,5,6,7,8,9,10
+        --pred-iters=1,2,3,4,5
 
 # plot bars
 Rscript scripts/plot_prediction_accuracy_ld-test.R \
-        analysis/ld_downsample/sim_traits/prediction_results.reps1-10.pops1-3.summary.txt \
+        analysis/ld_downsample/sim_traits/prediction_results.reps1-5.pops1-3.summary.txt \
         --error-bars=CI_accuracy
 ```
 

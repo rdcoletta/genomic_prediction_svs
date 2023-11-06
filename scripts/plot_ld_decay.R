@@ -303,11 +303,11 @@ if (unequal_windows) {
     }
 
   }
-  
+
   n_per_bin <- function(x) {
     return(c(y = 1.02, label = length(x)))
   }
-  
+
   out_plot <- plotLDdecayBoxplot(data = df_plot, x = "bp_stop", y = "R2") +
     scale_x_discrete(labels = new_levels) +
     stat_summary(fun.data = n_per_bin, geom = "text", size = 3) +
@@ -349,7 +349,7 @@ if (unequal_windows) {
         out_plot <- plotLDdecay(data = ld_results_sample, x = "dist_markers", y = "R2", point_size = 0.7, point_alpha = 0.5) +
           labs(subtitle = sv)
         # save plot
-        ggsave(filename = paste0(out_prefix, ".", sv, ".png"), plot = out_plot, device = "png")
+        ggsave(filename = paste0(out_prefix, ".", sv, ".pdf"), plot = out_plot, device = "pdf")
 
       }
     }
@@ -357,4 +357,4 @@ if (unequal_windows) {
 }
 
 # save plot  --- MIGHT NEED TO MOVE THIS UP IN THE AVG_LD AND RAW_LD LOOP
-if (decay_random_sv == FALSE) ggsave(filename = paste0(out_prefix, ".png"), plot = out_plot, device = "png", width = 20)
+if (decay_random_sv == FALSE) ggsave(filename = paste0(out_prefix, ".pdf"), plot = out_plot, device = "pdf", width = 20)

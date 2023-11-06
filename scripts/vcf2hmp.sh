@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --time=3:00:00
+#SBATCH --time=6:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --mem=50gb
+#SBATCH --mem=110gb
 #SBATCH -J vcf2hmp
 #SBATCH -o /home/hirschc1/della028/projects/genomic_prediction/simulation/analysis/ld/%x_%j.out
 #SBATCH -e /home/hirschc1/della028/projects/genomic_prediction/simulation/analysis/ld/%x_%j.err
@@ -10,13 +10,11 @@
 #SBATCH --mail-user=della028@umn.edu
 #SBATCH --no-requeue
 
-module load R/3.6.0
-
 # go to project folder
 cd ~/projects/genomic_prediction/simulation
 
-# remove SNPs inside deletions
-Rscript scripts/remove_SNPs_within_dels.R data/reseq_snps/widiv_snps_usda_parents.${CROSS}.hmp.txt data/hapmap_by_cross/usda_SVs_parents.sorted.${CROSS}.hmp.txt
-
-# keep only polymorphic
-Rscript scripts/keep_only_poly_snps.R ${CROSS} data/reseq_snps/widiv_snps_usda_parents.${CROSS}.not-in-SVs.hmp.txt
+# transform hmp into plink format
+run_pipeline.pl -Xmx100g -importGuess data/WiDiv508_B73v4_allchr_SNPS_maxmiss0.10.recode.vcf.gz \
+                -includeTaxa LH82,PH207,PHG35,PHG39,PHG47,PHJ40 \
+                -export data/widiv_snps.Qiu-et-al.no-B73.hmp.txt \
+                -exportType HapmapDiploid

@@ -166,6 +166,6 @@ if (!envs_weight) {
 
 #### debug ----
 
-# sim_trait_filename <- "analysis/test_prediction/multi_env/with_gxe/100qtns_SVs_equal_0.5h2_pop1/Simulated_Data_3_Reps_Herit_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5_0.5.txt"
-# outfolder <- "analysis/test_prediction/multi_env/with_gxe/100qtns_SVs_equal_0.5h2_pop1"
-# envs_weight <- TRUE
+# sim_trait_filename <- "analysis/trait_sim/multi_env/with_gxe/additive_model/equal_effects/100-QTNs_from_both/SNP-SV-ratio_0.5/effects_SNP-0.1_SV-0.1/0.3-heritability/pop1/Simulated_Data_3_Reps_Herit_0.7_0.7_0.7_0.7_0.7.txt"
+# outfolder <- "analysis/trait_sim/multi_env/with_gxe/additive_model/equal_effects/100-QTNs_from_both/SNP-SV-ratio_0.5/effects_SNP-0.1_SV-0.1/0.3-heritability/pop1"
+# envs_weight <- FALSE
